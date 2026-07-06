@@ -1305,7 +1305,7 @@
                                                     <div class="col-md-6">
                                                         <div class="form-group">
                                                             <label for="subtitle-font-name" class="form-label">烧录字体文件</label>
-                                                            <input type="text" id="subtitle-font-name" name="SUBTITLE_FONT_NAME" value="{{ config.get('SUBTITLE_FONT_NAME', 'SourceHanSansHWSC-VF.otf') }}" class="form-control" placeholder="SourceHanSansHWSC-VF.otf">
+                                                            <input type="text" id="subtitle-font-name" name="SUBTITLE_FONT_NAME" value="{{ config.get('SUBTITLE_FONT_NAME', 'NotoSansCJKsc-Regular.otf') }}" class="form-control" placeholder="NotoSansCJKsc-Regular.otf">
                                                         </div>
                                                     </div>
                                                     <div class="col-12">
@@ -1321,8 +1321,8 @@
                                                     <div class="col-md-6">
                                                         <div class="form-group">
                                                             <label for="subtitle-single-line-min-font-scale" class="form-label">单行最小字体缩放（0.5-1.0）</label>
-                                                            <input type="number" id="subtitle-single-line-min-font-scale" name="SUBTITLE_SINGLE_LINE_MIN_FONT_SCALE" value="{{ config.get('SUBTITLE_SINGLE_LINE_MIN_FONT_SCALE', 0.78) }}" min="0.5" max="1.0" step="0.01" class="form-control">
-                                                            <p class="help-text mb-0">默认字体放不下时，会尝试缩小到该比例；仍放不下则自动换行。</p>
+                                                            <input type="number" id="subtitle-single-line-min-font-scale" name="SUBTITLE_SINGLE_LINE_MIN_FONT_SCALE" value="{{ config.get('SUBTITLE_SINGLE_LINE_MIN_FONT_SCALE', 0.60) }}" min="0.5" max="1.0" step="0.01" class="form-control">
+                                                            <p class="help-text mb-0">默认字体放不下时，会优先缩小到该比例；极长横屏字幕会继续使用安全字号兜底以保持单行。</p>
                                                         </div>
                                                     </div>
                                                     <div class="col-12">

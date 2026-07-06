@@ -2359,17 +2359,19 @@ class TaskProcessor:
                     return
                 completed_stages = _mark_stage_done(task_id, completed_stages, PIPELINE_STAGE_DOWNLOAD_VIDEO)
 
-            # 5. 字幕翻译（如启用）
-            if self.config.get('SUBTITLE_TRANSLATION_ENABLED', False):
+            # 5. 字幕处理（翻译或烧录启用时）
+            subtitle_translation_enabled = _as_bool(self.config.get('SUBTITLE_TRANSLATION_ENABLED', False))
+            subtitle_embed_enabled = _as_bool(self.config.get('SUBTITLE_EMBED_IN_VIDEO', True))
+            if subtitle_translation_enabled or subtitle_embed_enabled:
                 if PIPELINE_STAGE_TRANSLATE_SUBTITLE in completed_stages:
-                    task_logger.info("跳过字幕翻译（checkpoint已完成）")
+                    task_logger.info("跳过字幕处理（checkpoint已完成）")
                 else:
                     ok = self._translate_subtitle(task_id, task_logger)
                     task = get_task(task_id)
                     if ok:
                         completed_stages = _mark_stage_done(task_id, completed_stages, PIPELINE_STAGE_TRANSLATE_SUBTITLE)
                     if task is not None and task['status'] == TASK_STATES['FAILED']:
-                        task_logger.error("字幕翻译失败，继续执行后续步骤")
+                        task_logger.error("字幕处理失败，继续执行后续步骤")
                 _raise_if_cancelled(task_id, task_logger)
 
             # 6. 上传
@@ -2949,9 +2951,6 @@ class TaskProcessor:
     
     def _translate_subtitle(self, task_id, task_logger, embed_in_video_override=None):
         """翻译字幕文件"""
-        from modules.subtitle_translator import create_translator_from_config
-        import glob
-        
         task = get_task(task_id)
         if not task:
             task_logger.error("任务不存在")
@@ -2962,17 +2961,23 @@ class TaskProcessor:
             task_logger.warning("检测到字幕质检已失败，跳过字幕翻译/烧录流程")
             return True
         
-        task_logger.info("开始字幕翻译")
+        translation_enabled = _as_bool(self.config.get('SUBTITLE_TRANSLATION_ENABLED', False))
+        config_embed_enabled = _as_bool(self.config.get('SUBTITLE_EMBED_IN_VIDEO', True))
+        if embed_in_video_override is None:
+            should_embed_subtitle = config_embed_enabled
+        else:
+            should_embed_subtitle = bool(embed_in_video_override)
+
+        if translation_enabled:
+            task_logger.info("开始字幕翻译")
+        elif should_embed_subtitle:
+            task_logger.info("开始字幕烧录")
+        else:
+            task_logger.info("开始字幕处理")
         update_task(task_id, status=TASK_STATES['TRANSLATING_SUBTITLE'])
         
         try:
             task_upload_target = _get_task_upload_target(task)
-            config_embed_enabled = _as_bool(self.config.get('SUBTITLE_EMBED_IN_VIDEO', True))
-            if embed_in_video_override is None:
-                should_embed_subtitle = config_embed_enabled
-            else:
-                should_embed_subtitle = bool(embed_in_video_override)
-
             asr_generated = False
             # 查找字幕文件（大小写无关）
             task_dir = os.path.join(DOWNLOADS_DIR, task_id)
@@ -3130,6 +3135,47 @@ class TaskProcessor:
                     task_logger.info("已检测到中文字幕，但未开启烧录，跳过翻译")
                     return True
             
+            if not translation_enabled:
+                # 只烧录模式：不创建翻译器，直接使用最合适的已有/ASR字幕。
+                subtitle_file = zh_candidates[0] if zh_candidates else (en_candidates[0] if en_candidates else subtitle_files[0])
+                subtitle_lang = self._detect_subtitle_language(subtitle_file)
+                task_logger.info(f"字幕翻译未启用，直接使用原字幕进行烧录: {os.path.basename(subtitle_file)}")
+
+                if should_embed_subtitle:
+                    embedded_video_path = self._embed_subtitle_in_video(
+                        task_id, task['video_path_local'], subtitle_file, task_logger
+                    )
+                    if embedded_video_path:
+                        update_task(
+                            task_id,
+                            video_path_local=embedded_video_path,
+                            subtitle_path_original=subtitle_file,
+                            subtitle_path_translated=None,
+                            subtitle_language_detected=subtitle_lang,
+                            subtitle_warning_message=None,
+                        )
+                        task_logger.info("原字幕烧录完成")
+                        return True
+
+                    task_logger.warning("原字幕烧录失败，保留原视频")
+                    update_task(
+                        task_id,
+                        subtitle_path_original=subtitle_file,
+                        subtitle_path_translated=None,
+                        subtitle_language_detected=subtitle_lang,
+                        subtitle_warning_message='subtitle_embed_failed',
+                    )
+                    return False
+
+                update_task(
+                    task_id,
+                    subtitle_path_original=subtitle_file,
+                    subtitle_path_translated=None,
+                    subtitle_language_detected=subtitle_lang,
+                )
+                task_logger.info("字幕翻译和烧录均未启用，仅记录字幕文件")
+                return True
+            
             # 没有中文：优先选择英文，否则退回第一个文件
             subtitle_file = en_candidates[0] if en_candidates else subtitle_files[0]
             task_logger.info(f"找到字幕文件: {os.path.basename(subtitle_file)}")
@@ -3139,6 +3185,7 @@ class TaskProcessor:
                 task_logger.info("优先使用英文字幕进行翻译")
 
             # 创建翻译器（此时需要翻译为中文）
+            from modules.subtitle_translator import create_translator_from_config
             translator = create_translator_from_config(self.config, task_id)
             if not translator:
                 task_logger.error("无法创建字幕翻译器，请检查API配置")
@@ -6580,6 +6627,8 @@ class TaskProcessor:
                             errors='replace'
                         )
                         try:
+                            fallback_start_time = time.time()
+                            fallback_timeout = max(300, int(timeout))
                             while process2.poll() is None:
                                 if is_task_cancelled(task_id):
                                     task_logger.info("检测到任务取消请求，终止FFmpeg回退转码")
@@ -6590,6 +6639,15 @@ class TaskProcessor:
                                         if process2.poll() is None:
                                             process2.kill()
                                     raise TaskCancelledError("任务已取消")
+                                if time.time() - fallback_start_time > fallback_timeout:
+                                    task_logger.error(f"FFmpeg CPU回退处理超时（{fallback_timeout//60}分钟），强制终止")
+                                    process2.terminate()
+                                    try:
+                                        process2.wait(timeout=PROCESS_TERMINATE_WAIT_SECONDS)
+                                    except subprocess.TimeoutExpired:
+                                        if process2.poll() is None:
+                                            process2.kill()
+                                    break
                                 time.sleep(1)
                             stdout2, stderr2 = process2.communicate(timeout=5)
                         except subprocess.TimeoutExpired:
@@ -7256,7 +7314,7 @@ class TaskProcessor:
                 update_task(task_id, **reusable_updates)
                 task = get_task(task_id) or task
 
-            if translation_enabled and subtitle_path_translated and os.path.exists(subtitle_path_translated):
+            if subtitle_path_translated and os.path.exists(subtitle_path_translated):
                 if not should_embed_subtitle:
                     task_logger.info("检测到已存在翻译字幕且未开启烧录，复用现有字幕产物")
                     return get_task(task_id)
@@ -7279,9 +7337,9 @@ class TaskProcessor:
                     update_task(task_id, subtitle_warning_message='subtitle_embed_failed')
                 return get_task(task_id)
 
-            if translation_enabled and subtitle_path_original and str(subtitle_language or '').startswith('zh'):
+            if subtitle_path_original and (str(subtitle_language or '').startswith('zh') or not translation_enabled):
                 if not should_embed_subtitle:
-                    task_logger.info("检测到已存在中文字幕且未开启烧录，复用现有字幕产物")
+                    task_logger.info("检测到已存在字幕且未开启烧录，复用现有字幕产物")
                     return get_task(task_id)
 
                 embedded_video_path = self._embed_subtitle_in_video(
@@ -7296,14 +7354,14 @@ class TaskProcessor:
                         subtitle_language_detected=subtitle_language or 'zh',
                         subtitle_warning_message=None,
                     )
-                    task_logger.info("检测到已存在中文字幕，仅补做烧录")
+                    task_logger.info("检测到已存在字幕，仅补做烧录")
                 else:
-                    task_logger.warning("复用已有中文字幕烧录失败，保留原视频继续上传")
+                    task_logger.warning("复用已有字幕烧录失败，保留原视频继续上传")
                     update_task(task_id, subtitle_warning_message='subtitle_embed_failed')
                 return get_task(task_id)
 
             if not translation_enabled and (subtitle_path_original or subtitle_path_translated):
-                task_logger.info("检测到已有字幕产物，跳过上传前重复字幕处理")
+                task_logger.info("检测到已有字幕产物但未开启烧录，跳过上传前重复字幕处理")
                 return get_task(task_id)
 
             subtitle_files = []
@@ -7345,7 +7403,7 @@ class TaskProcessor:
                             out_path = recognizer.transcribe_video_to_subtitles(video_path, asr_subtitle_path)
                             update_task(task_id, status=prev_status2)
                             if out_path and os.path.exists(out_path):
-                                self._run_subtitle_qc(task_id, out_path, task_logger)
+                                qc_passed = self._run_subtitle_qc(task_id, out_path, task_logger)
                                 detected_lang = self._detect_subtitle_language(out_path)
                                 update_task(
                                     task_id,
@@ -7354,6 +7412,25 @@ class TaskProcessor:
                                     subtitle_language_detected=detected_lang
                                 )
                                 task_logger.info(f"ASR 生成基础字幕成功: {os.path.basename(out_path)}")
+                                if should_embed_subtitle and qc_passed:
+                                    embedded_video_path = self._embed_subtitle_in_video(
+                                        task_id, video_path, out_path, task_logger
+                                    )
+                                    if embedded_video_path:
+                                        update_task(
+                                            task_id,
+                                            video_path_local=embedded_video_path,
+                                            subtitle_path_original=out_path,
+                                            subtitle_path_translated=None,
+                                            subtitle_language_detected=detected_lang,
+                                            subtitle_warning_message=None,
+                                        )
+                                        task_logger.info("ASR 字幕烧录完成")
+                                    else:
+                                        task_logger.warning("ASR 字幕烧录失败，保留原视频继续上传")
+                                        update_task(task_id, subtitle_warning_message='subtitle_embed_failed')
+                                elif should_embed_subtitle and not qc_passed:
+                                    task_logger.warning("ASR 字幕质检未通过，跳过上传前烧录")
                             else:
                                 self._mark_subtitle_issue(task_id, 'asr_no_subtitle')
                                 task_logger.warning("ASR 未能生成字幕，继续上传流程")

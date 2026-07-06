@@ -118,7 +118,7 @@ DEFAULT_CONFIG = {
     "YOUTUBE_AUTO_GENERATED_SUBTITLES_ENABLED": False,  # 下载 YouTube 自动生成字幕（可选）
     "SUBTITLE_SOURCE_LANGUAGE": "auto",  # 源语言 (auto, en, ja, ko等)
     "SUBTITLE_TARGET_LANGUAGE": "zh",  # 目标语言 (zh, en, ja, ko等)
-    "SUBTITLE_FONT_NAME": "SourceHanSansHWSC-VF.otf",  # 烧录字幕使用的内置字体文件名
+    "SUBTITLE_FONT_NAME": "NotoSansCJKsc-Regular.otf",  # 烧录字幕使用的内置字体文件名
     "SUBTITLE_API_PROVIDER": "openai",  # API提供商 (仅支持openai)
     "SUBTITLE_BATCH_SIZE": 3,  # 批次大小
     "SUBTITLE_MAX_RETRIES": 3,  # 最大重试次数

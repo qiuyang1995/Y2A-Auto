@@ -37,6 +37,14 @@ class SubtitleRenderingLayoutTests(unittest.TestCase):
                 normalized = normalized[closing_index + 1:]
         return [line for line in normalized.split(r'\N') if line]
 
+    @staticmethod
+    def _extract_dialogue_texts(ass_text):
+        dialogue_texts = []
+        for line in str(ass_text or '').splitlines():
+            if line.startswith('Dialogue:'):
+                dialogue_texts.append(line.split(',', 9)[-1])
+        return dialogue_texts
+
     def test_landscape_ass_style_uses_clear_bottom_safe_area(self):
         style = TaskProcessor._build_streaming_ass_style(1920, 1080)
 
@@ -227,6 +235,38 @@ class SubtitleRenderingLayoutTests(unittest.TestCase):
         self.assertIsNotNone(meta.get('font_override'))
         self.assertGreater(meta['font_override'], 0)
         self.assertFalse(meta.get('overflow_warning'))
+
+    def test_ass_document_merges_existing_cue_line_breaks_for_landscape(self):
+        ass_text = TaskProcessor._build_default_ass_document(
+            [{'start': 0.0, 'end': 2.0, 'text': '第一行\n第二行'}],
+            font_family='NotoSansCJKsc-Regular',
+            video_width=1920,
+            video_height=1080,
+            single_line_min_font_scale=0.60,
+        )
+
+        dialogue_texts = self._extract_dialogue_texts(ass_text)
+        self.assertEqual(len(dialogue_texts), 1)
+        self.assertNotIn(r'\N', dialogue_texts[0])
+        self.assertIn('第一行第二行', dialogue_texts[0])
+
+    def test_ass_document_applies_font_override_for_long_landscape_cue(self):
+        ass_text = TaskProcessor._build_default_ass_document(
+            [{
+                'start': 0.0,
+                'end': 3.0,
+                'text': '这是一条用于验证横屏单行烧录的超长字幕，需要缩小字号但不能重新拆成多行显示。',
+            }],
+            font_family='NotoSansCJKsc-Regular',
+            video_width=1920,
+            video_height=1080,
+            single_line_min_font_scale=0.60,
+        )
+
+        dialogue_texts = self._extract_dialogue_texts(ass_text)
+        self.assertEqual(len(dialogue_texts), 1)
+        self.assertIn(r'{\fs', dialogue_texts[0])
+        self.assertNotIn(r'\N', dialogue_texts[0])
 
 
 if __name__ == '__main__':

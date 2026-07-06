@@ -121,8 +121,8 @@ def main() -> int:
     parser.add_argument(
         "--single-line-min-font-scale",
         type=float,
-        default=0.85,
-        help="单行放不下时最小缩放比例（默认 0.85）",
+        default=0.60,
+        help="单行放不下时最小缩放比例（默认 0.60）",
     )
     parser.add_argument(
         "--ffmpeg",

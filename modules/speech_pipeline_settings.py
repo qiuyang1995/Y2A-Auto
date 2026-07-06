@@ -84,7 +84,7 @@ SPEECH_PIPELINE_DEFAULTS: Dict[str, Any] = {
     "SUBTITLE_MAX_LINE_LENGTH_ENABLED": True,
     "SUBTITLE_MAX_LINES_ENABLED": True,
     "SUBTITLE_PREFER_SINGLE_LINE": True,
-    "SUBTITLE_SINGLE_LINE_MIN_FONT_SCALE": 0.78,
+    "SUBTITLE_SINGLE_LINE_MIN_FONT_SCALE": 0.60,
     # AI 智能分段（基于字级时间戳的语义重分段）
     "AI_SEGMENTATION_ENABLED": False,  # 总开关；需 ASR 支持字级时间戳（如 parakeet-crispasr），否则自动降级
     "AI_SEGMENTATION_BASE_URL": "",  # 留空则回退到 OPENAI_BASE_URL

@@ -701,7 +701,10 @@ def download_video_data(youtube_url, task_id=None, cookies_file_path=None, skip_
                 '--ignore-no-formats-error',
             ])
         elif only_video:
-            subtitle_download_enabled = bool(config.get('SUBTITLE_TRANSLATION_ENABLED', False))
+            subtitle_download_enabled = bool(
+                config.get('SUBTITLE_TRANSLATION_ENABLED', False)
+                or config.get('SUBTITLE_EMBED_IN_VIDEO', False)
+            )
             cmd.extend([
                 '--no-write-info-json',
                 '--no-write-thumbnail',
