@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import logging
+
 from .utils.network import (
     Api,
     BiliAPIClient,
@@ -21,6 +23,7 @@ from . import login_v2, video_uploader, video_zone
 
 BILIBILI_API_VERSION = "17.4.2-y2a"
 BILI_API_VERSION = BILIBILI_API_VERSION
+logger = logging.getLogger("bili_sdk")
 
 
 def _register_clients():
@@ -28,8 +31,8 @@ def _register_clients():
         from .clients.CurlCFFIClient import CurlCFFIClient
         register_client("curl_cffi", CurlCFFIClient, {"impersonate": "", "http2": False})
         select_client("curl_cffi")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("注册 Bilibili curl_cffi 客户端失败: %s", exc)
 
 
 _register_clients()

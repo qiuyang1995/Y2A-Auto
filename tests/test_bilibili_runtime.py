@@ -43,6 +43,23 @@ class BilibiliRuntimeTests(unittest.TestCase):
             with mock.patch.object(zones, "configure_bilibili_runtime", return_value=False):
                 self.assertEqual(zones.get_zone_list_sub(), [])
 
+    def test_credential_extra_cookies_are_whitelisted(self):
+        from modules.bili_sdk import Credential
+
+        credential = Credential(
+            sessdata="sess",
+            bili_jct="csrf",
+            DedeUserID__ckMd5="allowed",
+            _logger="not-a-cookie",
+            random_state="not-a-cookie",
+        )
+
+        cookies = credential.get_cookies()
+
+        self.assertEqual(cookies["DedeUserID__ckMd5"], "allowed")
+        self.assertNotIn("_logger", cookies)
+        self.assertNotIn("random_state", cookies)
+
 
 class BilibiliUploaderDiagnosticTests(unittest.TestCase):
     @classmethod

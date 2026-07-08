@@ -1150,6 +1150,25 @@ class Credential:
     凭据类，用于各种请求操作的验证。
     """
 
+    EXTRA_COOKIE_NAMES = {
+        "DedeUserID__ckMd5",
+        "sid",
+        "b_nut",
+        "b_lsid",
+        "_uuid",
+        "buvid_fp",
+        "buvid_fp_plain",
+        "CURRENT_FNVAL",
+        "CURRENT_QUALITY",
+        "header_theme_version",
+        "home_feed_column",
+        "browser_resolution",
+        "bili_ticket",
+        "bili_ticket_expires",
+        "rpdid",
+        "LIVE_BUVID",
+    }
+
     def __init__(
         self,
         sessdata: Union[str, None] = None,
@@ -1192,9 +1211,11 @@ class Credential:
         self.dedeuserid = dedeuserid
         self.ac_time_value = ac_time_value
         self.proxy = proxy
+        self._extra_cookies = {}
 
         for key, value in kwargs.items():
-            setattr(self, key, value)
+            if key in self.EXTRA_COOKIE_NAMES and value is not None:
+                self._extra_cookies[key] = value
 
     def get_cookies(self) -> dict:
         """
@@ -1221,8 +1242,9 @@ class Credential:
             "dedeuserid",
             "ac_time_value",
             "proxy",
+            "_extra_cookies",
         }
-        for key, value in self.__dict__.items():
+        for key, value in self._extra_cookies.items():
             if key in internal_keys:
                 continue
             if key not in cookies and value is not None:
