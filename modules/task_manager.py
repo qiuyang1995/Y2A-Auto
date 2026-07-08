@@ -1703,6 +1703,44 @@ def _get_task_download_dir_real(task_id):
 
     return task_dir_real
 
+
+def _is_upload_stage_failure(task):
+    """判断失败任务是否更适合直接重试上传，而不是重跑处理流水线。"""
+    if not task:
+        return False
+
+    upload_target = _get_task_upload_target(task)
+    if not _get_pending_upload_platforms(task, upload_target):
+        return False
+
+    video_path = task.get('video_path_local')
+    if not (isinstance(video_path, str) and video_path and os.path.exists(video_path)):
+        return False
+
+    if _task_has_upload_response(task, upload_target):
+        return _has_partial_upload_success(task, upload_target)
+
+    error_text = str(task.get('error_message') or '').lower()
+    upload_markers = ('上传', 'upload', 'bilibili', 'acfun', '账号未登录', 'preupload')
+    if any(marker in error_text for marker in upload_markers):
+        return True
+
+    completed = _get_completed_stages(task)
+    return PIPELINE_STAGE_DOWNLOAD_VIDEO in completed and PIPELINE_STAGE_TRANSLATE_SUBTITLE in completed
+
+
+def _start_background_upload_retry(task_id, config):
+    """后台重试上传，避免批量重试请求阻塞 Web 响应。"""
+    import threading
+
+    def run_upload_retry():
+        try:
+            force_upload_task(task_id, config)
+        except Exception as exc:
+            logger.error(f"后台上传重试任务 {task_id} 出错: {exc}")
+
+    threading.Thread(target=run_upload_retry, daemon=True).start()
+
 def retry_failed_tasks(config=None):
     """重新调度所有失败的任务。"""
     failed_tasks = get_tasks_by_status(TASK_STATES['FAILED'])
@@ -1739,6 +1777,18 @@ def retry_failed_tasks(config=None):
                 error_message=None,
                 upload_progress=None
             )
+            continue
+
+        if _is_upload_stage_failure(task):
+            update_task(
+                task_id,
+                silent=True,
+                status=TASK_STATES['READY_FOR_UPLOAD'],
+                error_message=None,
+                upload_progress=None
+            )
+            _start_background_upload_retry(task_id, config)
+            scheduled += 1
             continue
 
         # 对“部分平台已成功”的失败任务，保留 FAILED 状态以触发 process_task 的失败点续传分支
