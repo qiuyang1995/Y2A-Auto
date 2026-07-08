@@ -14,7 +14,7 @@ from .bili_sdk import video_uploader
 from .bili_sdk.exceptions import ArgsException, ResponseCodeException
 
 from .bilibili_runtime import configure_bilibili_runtime
-from .bilibili_auth import load_credential_from_file
+from .bilibili_auth import load_credential_from_file, validate_credential_remote
 from .utils import get_app_subdir
 
 BILIBILI_TITLE_LIMIT = 80
@@ -231,6 +231,9 @@ class BilibiliUploader:
                 return False, f"封面文件不存在: {cover_file_path}"
 
             credential = load_credential_from_file(self.cookie_file)
+            credential_ok, credential_msg = validate_credential_remote(credential)
+            if not credential_ok:
+                return False, f"Bilibili登录态无效: {credential_msg}。请在设置页重新扫码登录后重试上传。"
 
             safe_title_limit = int(title_limit or BILIBILI_TITLE_LIMIT)
             safe_desc_limit = int(description_limit or BILIBILI_DESCRIPTION_LIMIT)

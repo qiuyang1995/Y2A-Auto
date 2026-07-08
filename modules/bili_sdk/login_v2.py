@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlparse
 import qrcode
 
 from .utils.utils import get_api, raise_for_statement
-from .utils.network import Api, Credential
+from .utils.network import Api, Credential, HEADERS, get_client
 from .utils.picture import Picture
 
 API = get_api("login")
@@ -58,7 +58,20 @@ class QrCodeLogin:
     async def check_state(self) -> QrCodeLoginEvents:
         api = API["qrcode"]["web"]["get_events"]
         params = {"qrcode_key": self.__qr_key}
-        events = await Api(credential=Credential(), **api).update_params(**params).result
+        client = get_client()
+        resp = await client.request(
+            method=api["method"],
+            url=api["url"],
+            params=params,
+            headers=HEADERS.copy(),
+            cookies={},
+        )
+        if resp.code != 200:
+            raise ArgsException(f"二维码登录轮询失败，HTTP 状态码：{resp.code}")
+        payload = resp.json()
+        if payload.get("code") != 0:
+            raise ArgsException(payload.get("message") or payload.get("msg") or "二维码登录轮询失败")
+        events = payload.get("data") or {}
         code = events["code"]
         if code == 86101:
             return QrCodeLoginEvents.SCAN
@@ -68,10 +81,16 @@ class QrCodeLogin:
             return QrCodeLoginEvents.TIMEOUT
 
         query = parse_qs(urlparse(events["url"]).query)
+        cookies = dict(resp.cookies or {})
+        sessdata = cookies.get("SESSDATA") or (query.get("SESSDATA") or [""])[0]
+        bili_jct = cookies.get("bili_jct") or (query.get("bili_jct") or [""])[0]
+        dedeuserid = cookies.get("DedeUserID") or (query.get("DedeUserID") or [""])[0]
         self.__credential = Credential(
-            sessdata=(query.get("SESSDATA") or [""])[0],
-            bili_jct=(query.get("bili_jct") or [""])[0],
-            dedeuserid=(query.get("DedeUserID") or [""])[0],
+            sessdata=sessdata,
+            bili_jct=bili_jct,
+            dedeuserid=dedeuserid,
+            buvid3=cookies.get("buvid3") or cookies.get("BUVID3"),
+            buvid4=cookies.get("buvid4") or cookies.get("BUVID4"),
             ac_time_value=events.get("refresh_token"),
         )
         return QrCodeLoginEvents.DONE

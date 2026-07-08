@@ -133,6 +133,20 @@ def validate_credential(credential: Credential) -> Tuple[bool, str]:
     return True, "credential 有效"
 
 
+def validate_credential_remote(credential: Credential) -> Tuple[bool, str]:
+    ok, msg = validate_credential(credential)
+    if not ok:
+        return ok, msg
+
+    try:
+        if _run_async(credential.check_valid()):
+            return True, "credential 已通过 Bilibili 登录态校验"
+    except Exception as exc:
+        logger.warning("Bilibili 登录态远程校验失败: %s", exc)
+        return False, f"Bilibili 登录态校验失败: {exc}"
+    return False, "Bilibili 登录态校验未通过，请重新扫码登录"
+
+
 def load_credential_from_file(cookie_file: str) -> Credential:
     cookies = load_cookie_dict(cookie_file)
     credential = build_credential(cookies)
@@ -219,7 +233,7 @@ class BilibiliQrLoginSession:
 
         if status == login_v2.QrCodeLoginEvents.DONE.value:
             credential = self.qr.get_credential()
-            ok, msg = validate_credential(credential)
+            ok, msg = validate_credential_remote(credential)
             if not ok:
                 payload["status"] = "failed"
                 payload["message"] = msg
