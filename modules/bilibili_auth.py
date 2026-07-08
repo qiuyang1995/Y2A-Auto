@@ -176,13 +176,29 @@ def save_credential_to_file(credential: Credential, cookie_file: str) -> bool:
         "ac_time_value",
     ]
     cookie_items = []
+    seen_keys = set()
     for key in ordered_keys:
         value = cookies.get(key)
         if value is None or str(value) == "":
             continue
+        seen_keys.add(key)
         cookie_items.append(
             {
                 "name": key,
+                "value": str(value),
+                "domain": ".bilibili.com",
+                "path": "/",
+            }
+        )
+
+    for key, value in cookies.items():
+        if key in seen_keys or value is None or str(value) == "":
+            continue
+        if key.startswith("_") or key == "proxy":
+            continue
+        cookie_items.append(
+            {
+                "name": str(key),
                 "value": str(value),
                 "domain": ".bilibili.com",
                 "path": "/",
