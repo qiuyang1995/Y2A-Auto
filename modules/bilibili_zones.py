@@ -12,7 +12,7 @@ logger = logging.getLogger("bilibili_zones")
 def get_zone_list_sub() -> List[dict]:
     configure_bilibili_runtime()
     try:
-        from bilibili_api import video_zone
+        from .bili_sdk import video_zone
         return video_zone.get_zone_list_sub() or []
     except Exception as exc:
         logger.warning("读取bilibili分区数据失败: %s", exc)

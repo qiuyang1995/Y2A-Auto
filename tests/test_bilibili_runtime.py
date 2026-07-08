@@ -16,9 +16,9 @@ class BilibiliRuntimeTests(unittest.TestCase):
         runtime = importlib.reload(runtime)
         calls = []
         fake_settings = types.SimpleNamespace(set=lambda key, value: calls.append((key, value)))
-        fake_bilibili_api = types.SimpleNamespace(request_settings=fake_settings)
+        fake_bili_sdk = types.SimpleNamespace(request_settings=fake_settings)
 
-        with mock.patch.dict(sys.modules, {"bilibili_api": fake_bilibili_api}):
+        with mock.patch.dict(sys.modules, {"modules.bili_sdk": fake_bili_sdk}):
             self.assertTrue(runtime.configure_bilibili_runtime())
             self.assertTrue(runtime.configure_bilibili_runtime())
 
@@ -29,9 +29,9 @@ class BilibiliRuntimeTests(unittest.TestCase):
         import modules.bilibili_zones as zones
 
         fake_video_zone = types.SimpleNamespace(get_zone_list_sub=lambda: [{"tid": 1, "sub": [{"tid": 2}]}])
-        fake_bilibili_api = types.SimpleNamespace(video_zone=fake_video_zone)
+        fake_bili_sdk = types.SimpleNamespace(video_zone=fake_video_zone)
 
-        with mock.patch.dict(sys.modules, {"bilibili_api": fake_bilibili_api}):
+        with mock.patch.dict(sys.modules, {"modules.bili_sdk": fake_bili_sdk}):
             with mock.patch.object(zones, "configure_bilibili_runtime", return_value=True):
                 self.assertEqual(zones.get_zone_list_sub(), [{"tid": 1, "sub": [{"tid": 2}]}])
                 self.assertEqual(zones.collect_valid_tids(), {"1", "2"})
@@ -39,7 +39,7 @@ class BilibiliRuntimeTests(unittest.TestCase):
     def test_zone_wrapper_falls_back_to_empty_list(self):
         import modules.bilibili_zones as zones
 
-        with mock.patch.dict(sys.modules, {"bilibili_api": None}):
+        with mock.patch.dict(sys.modules, {"modules.bili_sdk": None}):
             with mock.patch.object(zones, "configure_bilibili_runtime", return_value=False):
                 self.assertEqual(zones.get_zone_list_sub(), [])
 

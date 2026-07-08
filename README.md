@@ -485,7 +485,7 @@ group_add:
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 - [FFmpeg](https://ffmpeg.org/)
 - [Flask](https://flask.palletsprojects.com/)
-- [bilibili-api-python](https://github.com/Nemo2011/bilibili-api)
+- Bilibili API 相关开源资料与社区实现
 - [OpenAI](https://openai.com/)
 
 ## 许可证

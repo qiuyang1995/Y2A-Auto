@@ -12,13 +12,13 @@ _LAST_ERROR: Optional[str] = None
 
 
 def configure_bilibili_runtime() -> bool:
-    """Configure bilibili-api-python network runtime once per process."""
+    """Configure the internal Bilibili SDK network runtime once per process."""
     global _INITIALIZED, _LAST_ERROR
     if _INITIALIZED:
         return True
 
     try:
-        from bilibili_api import request_settings
+        from .bili_sdk import request_settings
 
         impersonate = os.environ.get("BILIBILI_IMPERSONATE", "chrome131").strip()
         if impersonate:

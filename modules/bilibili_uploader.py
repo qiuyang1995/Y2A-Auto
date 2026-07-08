@@ -10,8 +10,8 @@ import traceback
 from logging.handlers import RotatingFileHandler
 from typing import Any, Callable, List, Optional, Tuple, Union
 
-from bilibili_api import video_uploader
-from bilibili_api.exceptions import ArgsException, ResponseCodeException
+from .bili_sdk import video_uploader
+from .bili_sdk.exceptions import ArgsException, ResponseCodeException
 
 from .bilibili_runtime import configure_bilibili_runtime
 from .bilibili_auth import load_credential_from_file
@@ -192,7 +192,7 @@ def _bilibili_406_hint() -> str:
 
 
 class BilibiliUploader:
-    """Bilibili uploader based on bilibili-api-python."""
+    """Bilibili uploader based on the internal SDK subset."""
 
     def __init__(self, cookie_file: str):
         self.cookie_file = cookie_file

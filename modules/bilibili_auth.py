@@ -9,9 +9,9 @@ import os
 import time
 from typing import Dict, Optional, Tuple
 
-from bilibili_api import login_v2
-from bilibili_api.exceptions import ArgsException
-from bilibili_api.utils.network import Credential
+from .bili_sdk import login_v2
+from .bili_sdk.exceptions import ArgsException
+from .bili_sdk.utils.network import Credential
 
 from .bilibili_runtime import configure_bilibili_runtime
 
