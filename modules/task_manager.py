@@ -6967,8 +6967,8 @@ class TaskProcessor:
 
         if UPLOAD_TARGET_BILIBILI in targets_to_recommend:
             try:
-                from bilibili_api import video_zone
-                zone_data = video_zone.get_zone_list_sub() or []
+                from .bilibili_zones import get_zone_list_sub
+                zone_data = get_zone_list_sub()
                 task_logger.info(f"成功读取bilibili分区数据，长度: {len(zone_data)}")
             except Exception as e:
                 task_logger.error(f"读取bilibili分区数据失败: {e}")
@@ -7980,18 +7980,8 @@ class TaskProcessor:
         fixed_bili_pid = str(self.config.get('FIXED_PARTITION_ID_BILIBILI', '') or '').strip()
         partition_id = fixed_bili_pid or task_partition_id
         try:
-            from bilibili_api import video_zone
-            valid_tids = set()
-            for z in (video_zone.get_zone_list_sub() or []):
-                if isinstance(z, dict):
-                    tid = z.get('tid')
-                    if tid not in (None, '', 0, '0'):
-                        valid_tids.add(str(tid))
-                    for sub in (z.get('sub') or []):
-                        if isinstance(sub, dict):
-                            stid = sub.get('tid')
-                            if stid not in (None, '', 0, '0'):
-                                valid_tids.add(str(stid))
+            from .bilibili_zones import collect_valid_tids
+            valid_tids = collect_valid_tids()
             if partition_id and str(partition_id) not in valid_tids:
                 task_logger.warning(f"bilibili分区ID无效: {partition_id}")
                 partition_id = ''

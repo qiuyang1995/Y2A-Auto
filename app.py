@@ -1144,12 +1144,8 @@ def task_status_color(status):
     return color_map.get(status, 'secondary')
 
 def _get_bilibili_zone_data():
-    try:
-        from bilibili_api import video_zone
-        return video_zone.get_zone_list_sub() or []
-    except Exception as e:
-        logger.warning(f"读取bilibili分区数据失败: {e}")
-        return []
+    from modules.bilibili_zones import get_zone_list_sub
+    return get_zone_list_sub()
 
 
 def _load_acfun_partition_mapping():

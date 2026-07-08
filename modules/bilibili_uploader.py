@@ -13,6 +13,7 @@ from typing import Any, Callable, List, Optional, Tuple, Union
 from bilibili_api import video_uploader
 from bilibili_api.exceptions import ArgsException, ResponseCodeException
 
+from .bilibili_runtime import configure_bilibili_runtime
 from .bilibili_auth import load_credential_from_file
 from .utils import get_app_subdir
 
@@ -176,6 +177,20 @@ def _format_bilibili_exception(exc: Exception) -> str:
     return message or "未知错误"
 
 
+def _is_bilibili_http_406(exc: Exception) -> bool:
+    code = _extract_response_code_from_exception(exc)
+    text = _compact_exception_text(str(exc))
+    return code == 406 or "状态码：406" in text or "status code: 406" in text.lower()
+
+
+def _bilibili_406_hint() -> str:
+    return (
+        "bilibili上传被 preupload 接口返回 406 拒绝。"
+        "这通常是 B 站风控导致，可能与 Cookie/buvid 状态、服务器 IP 环境或网络指纹有关。"
+        "已启用 curl_cffi 浏览器指纹伪装；如仍失败，请重新扫码登录或更换网络环境后重试。"
+    )
+
+
 class BilibiliUploader:
     """Bilibili uploader based on bilibili-api-python."""
 
@@ -208,6 +223,8 @@ class BilibiliUploader:
         self.logger = setup_task_logger(task_id or "unknown")
 
         try:
+            configure_bilibili_runtime()
+
             if not os.path.exists(video_file_path):
                 return False, f"视频文件不存在: {video_file_path}"
             if not os.path.exists(cover_file_path):
@@ -407,9 +424,16 @@ class BilibiliUploader:
             )
         except ResponseCodeException as e:
             pretty_error = _format_bilibili_exception(e)
+            if _is_bilibili_http_406(e):
+                pretty_error = _bilibili_406_hint()
             self.log(f"bilibili上传异常: {pretty_error}")
             return False, f"bilibili上传异常: {pretty_error}"
         except Exception as e:
+            if _is_bilibili_http_406(e):
+                hint = _bilibili_406_hint()
+                self.log(f"bilibili上传异常: {hint}")
+                self.log(traceback.format_exc())
+                return False, f"bilibili上传异常: {hint}"
             self.log(f"bilibili上传异常: {_compact_exception_text(str(e))}")
             self.log(traceback.format_exc())
             return False, f"bilibili上传异常: {_compact_exception_text(str(e))}"

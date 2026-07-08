@@ -13,6 +13,8 @@ from bilibili_api import login_v2
 from bilibili_api.exceptions import ArgsException
 from bilibili_api.utils.network import Credential
 
+from .bilibili_runtime import configure_bilibili_runtime
+
 
 logger = logging.getLogger("bilibili_auth")
 
@@ -96,6 +98,7 @@ def load_cookie_dict(cookie_file: str) -> Dict[str, str]:
 
 
 def build_credential(cookies: Dict[str, str]) -> Credential:
+    configure_bilibili_runtime()
     cookies = cookies or {}
     return Credential(
         sessdata=cookies.get("SESSDATA") or cookies.get("sessdata"),
@@ -181,6 +184,7 @@ class BilibiliQrLoginSession:
     """In-memory Bilibili QR login session wrapper."""
 
     def __init__(self):
+        configure_bilibili_runtime()
         self.created_at = int(time.time())
         self.qr = login_v2.QrCodeLogin()
         self.generated = False
