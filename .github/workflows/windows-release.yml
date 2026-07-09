@@ -1,6 +1,6 @@
 name: Build and Release Windows Desktop App
 
-on:
+"on":
   release:
     types:
       - published   # 在 GitHub Releases 页面正式发布后，仅追加构建产物
