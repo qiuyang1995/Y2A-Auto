@@ -113,6 +113,8 @@ def create_spec_file():
     # 其余内容保持原样（隐藏导入等）
     spec_tail = '''
 
+from PyInstaller.utils.hooks import collect_submodules
+
 # 隐藏导入 - 包含所有可能需要的模块
 hiddenimports = [
     # 核心框架
@@ -155,6 +157,10 @@ hiddenimports = [
     
     # 加密相关
     'cryptography',
+    'cryptography.hazmat.primitives.padding',
+    'cryptography.hazmat.primitives.ciphers',
+    'cryptography.hazmat.primitives.ciphers.algorithms',
+    'cryptography.hazmat.primitives.ciphers.modes',
     'Crypto',
     'Cryptodome',
     'mutagen',
@@ -166,6 +172,8 @@ hiddenimports = [
     'PIL.ImageDraw',
     'PIL.ImageFont',
     'Pillow',
+    'qrcode',
+    'qrcode.image.pil',
     
     # 系统相关
     'logging',
@@ -208,7 +216,7 @@ hiddenimports = [
     'alibabacloud_tea_openapi.models',
     'alibabacloud_tea_util',
     'alibabacloud_tea_util.models',
-]
+] + collect_submodules('cryptography')
 
 a = Analysis(
     ['setup_app.py'],
