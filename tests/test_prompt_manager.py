@@ -13,6 +13,7 @@ from modules.prompt_manager import (
     get_metadata_translate_prompt,
     get_prompt_ids,
     get_prompt_info,
+    get_smart_segment_system_prompt,
     get_subtitle_strict_system_prompt,
     get_subtitle_system_prompt,
     normalize_mode,
@@ -177,6 +178,53 @@ class SubtitlePromptTests(unittest.TestCase):
         self.assertIn("一一对应", prompt)
         self.assertIn('"translations"', prompt)
         self.assertIn("保留音乐术语", prompt)
+
+
+class SmartSegmentPromptTests(unittest.TestCase):
+    def test_word_prompt_renders_rhythm_constraints(self):
+        prompt = get_smart_segment_system_prompt(
+            has_word_timestamps=True,
+            min_duration_s=1.5,
+            max_duration_s=5.0,
+            max_cps=15.0,
+        )
+        self.assertIn("1.50", prompt)
+        self.assertIn("5.00", prompt)
+        self.assertIn("15.0", prompt)
+        self.assertIn("start_index", prompt)
+        self.assertIn("end_index", prompt)
+        self.assertIn("长短适中", prompt)
+        self.assertNotIn("{min_duration_s}", prompt)
+        self.assertNotIn("{max_duration_s}", prompt)
+        self.assertNotIn("{max_cps}", prompt)
+
+    def test_segment_prompt_renders_rhythm_constraints(self):
+        prompt = get_smart_segment_system_prompt(
+            has_word_timestamps=False,
+            min_duration_s=1.2,
+            max_duration_s=6.0,
+            max_cps=14.5,
+        )
+        self.assertIn("1.20", prompt)
+        self.assertIn("6.00", prompt)
+        self.assertIn("14.5", prompt)
+        self.assertIn('"cues"', prompt)
+        self.assertIn("阅读节奏均衡", prompt)
+        self.assertNotIn("{min_duration_s}", prompt)
+        self.assertNotIn("{max_duration_s}", prompt)
+        self.assertNotIn("{max_cps}", prompt)
+
+    def test_smart_segment_prompt_formats_integer_cps_consistently(self):
+        prompt = get_smart_segment_system_prompt(
+            has_word_timestamps=True,
+            min_duration_s=1,
+            max_duration_s=5,
+            max_cps=15,
+        )
+        self.assertIn("1.00", prompt)
+        self.assertIn("5.00", prompt)
+        self.assertIn("15.0", prompt)
+        self.assertNotIn("15 字/秒", prompt)
 
 
 class MetadataPromptTests(unittest.TestCase):
