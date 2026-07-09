@@ -56,6 +56,9 @@ DEFAULT_CONFIG = {
     "NOTIFY_MESSAGE_PUSHER_CHANNEL": "",
     "password_protection_enabled": False,
     "password": "",
+    "TG_BOT_API_TOKEN_HASH": "",
+    "TG_BOT_API_TOKEN_CREATED_AT": "",
+    "TG_BOT_API_TOKEN_LAST4": "",
     # 登录安全控制
     "LOGIN_MAX_FAILED_ATTEMPTS": 5,  # 达到该失败次数后触发锁定
     "LOGIN_LOCKOUT_MINUTES": 15,     # 被锁定后持续的分钟数
