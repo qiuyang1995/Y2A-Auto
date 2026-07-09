@@ -112,6 +112,23 @@ class AppLoggingHelperTests(unittest.TestCase):
         self.assertEqual(merged["COOKIECLOUD_PASSWORD"], "stored-secret")
         self.assertEqual(merged["COOKIECLOUD_UUID"], "stored-uuid")
 
+    def test_health_check_error_message_is_generic(self):
+        build_message, = _load_functions("_public_health_check_error_message")
+
+        message = build_message("数据库")
+
+        self.assertEqual(message, "数据库检查失败，请查看服务日志。")
+        self.assertNotIn("Traceback", message)
+        self.assertNotIn("Exception", message)
+
+    def test_settings_save_progress_does_not_return_exception_text(self):
+        app_path = pathlib.Path(__file__).resolve().parents[1] / "app.py"
+        source = app_path.read_text(encoding="utf-8")
+
+        self.assertNotIn("_append_settings_message(messages, 'danger', f'保存设置失败: {e}')", source)
+        self.assertNotIn("'final_detail': str(e)", source)
+        self.assertNotIn("warning_msg = f'检查内置 FFmpeg 状态失败: {e}", source)
+
 
 if __name__ == "__main__":
     unittest.main()

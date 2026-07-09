@@ -924,8 +924,8 @@ def _perform_settings_save(form_data: dict, uploads: dict, operation_id: str | N
                 report('completed', '配置已保存', '当前设置不需要额外下载 FFmpeg。', percent=100.0, level='success')
         except Exception as e:
             from modules.ffmpeg_manager import get_windows_ffmpeg_manual_setup_message
-            warning_msg = f'检查内置 FFmpeg 状态失败: {e}。{get_windows_ffmpeg_manual_setup_message()}'
-            logger.warning(warning_msg)
+            warning_msg = f'检查内置 FFmpeg 状态失败，请查看服务日志。{get_windows_ffmpeg_manual_setup_message()}'
+            logger.warning("检查内置 FFmpeg 状态失败: %s", e)
             _append_settings_message(messages, 'warning', warning_msg)
             report('warning', 'FFmpeg 检查失败', warning_msg, level='warning')
 
@@ -966,14 +966,15 @@ def _perform_settings_save(form_data: dict, uploads: dict, operation_id: str | N
         }
     except Exception as e:
         logger.exception("保存设置失败: %s", e)
-        _append_settings_message(messages, 'danger', f'保存设置失败: {e}')
+        public_message = '保存设置失败，请查看服务日志。'
+        _append_settings_message(messages, 'danger', public_message)
         return {
             'success': False,
             'messages': messages,
             'updated_config': None,
             'final_stage': 'failed',
             'final_message': '保存设置失败',
-            'final_detail': str(e),
+            'final_detail': public_message,
             'final_level': 'error',
         }
 
@@ -2160,6 +2161,9 @@ def get_directory_size(path):
         logger.warning(f"获取目录大小失败 {path}: {e}")
         return 0
 
+def _public_health_check_error_message(component: str = '检查项') -> str:
+    return f'{component}检查失败，请查看服务日志。'
+
 def get_database_info():
     """获取数据库文件信息"""
     try:
@@ -2182,11 +2186,12 @@ def get_database_info():
                 'last_modified': None
             }
     except Exception as e:
+        logger.warning("获取数据库文件信息失败: %s", e)
         return {
             'path': 'unknown',
             'size': 0,
             'writable': False,
-            'error': str(e)
+            'error': _public_health_check_error_message('数据库')
         }
 
 def get_database_debug_info():
@@ -2217,7 +2222,8 @@ def get_database_debug_info():
         
         return debug_info
     except Exception as e:
-        return {'error': str(e)}
+        logger.warning("获取数据库调试信息失败: %s", e)
+        return {'error': _public_health_check_error_message('数据库')}
 
 def get_file_info(file_path):
     """获取文件详细信息"""
@@ -2239,12 +2245,13 @@ def get_file_info(file_path):
         
         return info
     except Exception as e:
+        logger.warning("获取文件信息失败: %s", e)
         return {
             'exists': False,
             'size': 0,
             'readable': False,
             'last_modified': None,
-            'error': str(e)
+            'error': _public_health_check_error_message('文件')
         }
 
 def get_path_debug_info(file_path):
@@ -2268,7 +2275,8 @@ def get_path_debug_info(file_path):
         
         return debug_info
     except Exception as e:
-        return {'error': str(e)}
+        logger.warning("获取路径调试信息失败: %s", e)
+        return {'error': _public_health_check_error_message('路径')}
 
 @app.route('/system_health')
 def system_health():
@@ -2352,11 +2360,11 @@ def system_health():
         
         conn.close()
         logger.info("数据库健康检查完成")
-    except Exception as e:
-        logger.error(f"数据库健康检查失败: {str(e)}")
+    except Exception:
+        logger.exception("数据库健康检查失败")
         health_status['database'] = {
             'status': 'error',
-            'message': f'数据库错误: {str(e)}',
+            'message': _public_health_check_error_message('数据库'),
             'details': get_database_debug_info()
         }
     
@@ -2394,11 +2402,11 @@ def system_health():
                     'readable': file_info['readable'],
                     'last_modified': file_info['last_modified']
                 }
-            except Exception as e:
-                logger.error(f"YouTube cookies检查异常: {str(e)}")
+            except Exception:
+                logger.exception("YouTube cookies检查异常")
                 health_status['youtube_cookies'] = {
                     'status': 'error',
-                    'message': f'检查失败: {str(e)}',
+                    'message': _public_health_check_error_message('YouTube Cookies'),
                     'path': yt_cookies_path,
                     'debug_info': get_path_debug_info(yt_cookies_path)
                 }
@@ -2433,11 +2441,11 @@ def system_health():
                     'readable': file_info['readable'],
                     'last_modified': file_info['last_modified']
                 }
-            except Exception as e:
-                logger.error(f"AcFun cookies检查异常: {str(e)}")
+            except Exception:
+                logger.exception("AcFun cookies检查异常")
                 health_status['acfun_cookies'] = {
                     'status': 'error',
-                    'message': f'检查失败: {str(e)}',
+                    'message': _public_health_check_error_message('AcFun Cookies'),
                     'path': ac_cookies_path,
                     'debug_info': get_path_debug_info(ac_cookies_path)
                 }
@@ -2471,11 +2479,11 @@ def system_health():
                     'readable': file_info['readable'],
                     'last_modified': file_info['last_modified']
                 }
-            except Exception as e:
-                logger.error(f"Bilibili cookies检查异常: {str(e)}")
+            except Exception:
+                logger.exception("Bilibili cookies检查异常")
                 health_status['bilibili_cookies'] = {
                     'status': 'error',
-                    'message': f'检查失败: {str(e)}',
+                    'message': _public_health_check_error_message('Bilibili Cookies'),
                     'path': bili_cookies_path,
                     'debug_info': get_path_debug_info(bili_cookies_path)
                 }
@@ -2487,22 +2495,22 @@ def system_health():
         
         logger.info("cookies健康检查完成")
             
-    except Exception as e:
-        logger.error(f"检查cookies时发生错误: {str(e)}")
+    except Exception:
+        logger.exception("检查cookies时发生错误")
         health_status['youtube_cookies'] = {
             'status': 'error',
-            'message': f'检查失败: {str(e)}',
-            'debug_info': str(e)
+            'message': _public_health_check_error_message('YouTube Cookies'),
+            'debug_info': _public_health_check_error_message('Cookies')
         }
         health_status['acfun_cookies'] = {
             'status': 'error',
-            'message': f'检查失败: {str(e)}',
-            'debug_info': str(e)
+            'message': _public_health_check_error_message('AcFun Cookies'),
+            'debug_info': _public_health_check_error_message('Cookies')
         }
         health_status['bilibili_cookies'] = {
             'status': 'error',
-            'message': f'检查失败: {str(e)}',
-            'debug_info': str(e)
+            'message': _public_health_check_error_message('Bilibili Cookies'),
+            'debug_info': _public_health_check_error_message('Cookies')
         }
     
     return jsonify(health_status)

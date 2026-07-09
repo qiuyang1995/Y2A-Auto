@@ -1961,9 +1961,9 @@ def validate_cookies(cookies_path, service_name="Unknown"):
         
         return True, "Cookies文件格式正确"
         
-    except Exception as e:
-        logger.error(f"验证{service_name} Cookies文件时出错: {str(e)}")
-        return False, f"验证cookies文件出错: {str(e)}"
+    except Exception:
+        logger.exception("验证%s Cookies文件时出错", service_name)
+        return False, "验证cookies文件出错，请查看服务日志。"
 
 # 任务处理逻辑
 class TaskProcessor:
