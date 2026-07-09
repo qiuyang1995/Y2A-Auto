@@ -1011,6 +1011,7 @@ TG_BOT_API_TOKEN_HASH_ITERATIONS = 260000
 _TG_BOT_API_TOKEN_RANDOM_RE = re.compile(r'^[A-Za-z0-9_-]{32,}$')
 _TG_BOT_UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60
 _TG_BOT_UPLOAD_RATE_LIMIT_MAX_REQUESTS = 60
+_TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS = 10000
 _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS = {}
 _TG_BOT_UPLOAD_RATE_LIMIT_LOCK = threading.Lock()
 
@@ -1115,10 +1116,27 @@ def _is_tgbot_upload_rate_limited() -> bool:
             if not _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS[key]:
                 del _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS[key]
 
+        if len(_TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS) > _TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS:
+            newest_buckets = sorted(
+                _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.items(),
+                key=lambda item: item[1][-1] if item[1] else 0,
+                reverse=True,
+            )[:_TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS]
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.clear()
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.update(newest_buckets)
+
         bucket = _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.setdefault(client_id, [])
         if len(bucket) >= _TG_BOT_UPLOAD_RATE_LIMIT_MAX_REQUESTS:
             return True
         bucket.append(now)
+        if len(_TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS) > _TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS:
+            newest_buckets = sorted(
+                _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.items(),
+                key=lambda item: item[1][-1] if item[1] else 0,
+                reverse=True,
+            )[:_TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS]
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.clear()
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.update(newest_buckets)
         return False
 
 

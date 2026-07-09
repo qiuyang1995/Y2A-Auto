@@ -3,6 +3,7 @@ import hashlib
 import pathlib
 import re
 import secrets
+import threading
 import unittest
 from functools import wraps
 
@@ -25,6 +26,11 @@ def _load_token_helpers(*names):
                     "TG_BOT_API_TOKEN_HASH_PREFIX",
                     "TG_BOT_API_TOKEN_HASH_ITERATIONS",
                     "_TG_BOT_API_TOKEN_RANDOM_RE",
+                    "_TG_BOT_UPLOAD_RATE_LIMIT_WINDOW_SECONDS",
+                    "_TG_BOT_UPLOAD_RATE_LIMIT_MAX_REQUESTS",
+                    "_TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS",
+                    "_TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS",
+                    "_TG_BOT_UPLOAD_RATE_LIMIT_LOCK",
                 }
                 for target in node.targets
             ):
@@ -37,6 +43,7 @@ def _load_token_helpers(*names):
         "hashlib": hashlib,
         "re": re,
         "secrets": secrets,
+        "threading": threading,
         "wraps": wraps,
         "load_config": lambda: {},
     }
@@ -144,6 +151,34 @@ class TgbotTokenAuthTests(unittest.TestCase):
             "created_at": "2026-07-08 12:00:00",
             "last4": "AbCd",
         })
+
+    def test_upload_rate_limit_buckets_are_bounded(self):
+        rate_limited, = _load_token_helpers("_is_tgbot_upload_rate_limited")
+
+        class RequestStub:
+            remote_addr = "current"
+
+        class TimeStub:
+            @staticmethod
+            def time():
+                return 1000.0
+
+        namespace = rate_limited.__globals__
+        namespace["request"] = RequestStub()
+        namespace["time"] = TimeStub
+        namespace["_TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS"] = 3
+        buckets = namespace["_TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS"]
+        buckets.clear()
+        buckets.update({
+            "oldest": [990.0],
+            "old": [995.0],
+            "recent": [999.0],
+        })
+
+        self.assertFalse(rate_limited())
+        self.assertLessEqual(len(buckets), 3)
+        self.assertIn("current", buckets)
+        self.assertNotIn("oldest", buckets)
 
 
 if __name__ == "__main__":
