@@ -3,8 +3,11 @@
 
 import os
 import json
+import hashlib
 import logging
 import mimetypes
+import re
+import secrets
 import shutil
 import time
 import uuid
@@ -1003,6 +1006,165 @@ def _run_settings_save_operation(operation_id: str, form_data: dict, uploads: di
     _finalize_settings_save_operation(operation_id, result)
 
 
+TG_BOT_API_TOKEN_PREFIX = 'y2a_tgbot_v1_'
+TG_BOT_API_TOKEN_HASH_PREFIX = 'pbkdf2_sha256:'
+TG_BOT_API_TOKEN_HASH_ITERATIONS = 260000
+_TG_BOT_API_TOKEN_RANDOM_RE = re.compile(r'^[A-Za-z0-9_-]{32,}$')
+_TG_BOT_UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60
+_TG_BOT_UPLOAD_RATE_LIMIT_MAX_REQUESTS = 60
+_TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS = 10000
+_TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS = {}
+_TG_BOT_UPLOAD_RATE_LIMIT_LOCK = threading.Lock()
+
+
+def _generate_tgbot_api_token() -> str:
+    return f'{TG_BOT_API_TOKEN_PREFIX}{secrets.token_urlsafe(32)}'
+
+
+def _is_valid_tgbot_api_token_format(token: str | None) -> bool:
+    token = str(token or '').strip()
+    if not token.startswith(TG_BOT_API_TOKEN_PREFIX):
+        return False
+    random_part = token[len(TG_BOT_API_TOKEN_PREFIX):]
+    return bool(_TG_BOT_API_TOKEN_RANDOM_RE.fullmatch(random_part))
+
+
+def _hash_tgbot_api_token(token: str) -> str:
+    salt = secrets.token_urlsafe(16)
+    digest = hashlib.pbkdf2_hmac(
+        'sha256',
+        token.encode('utf-8'),
+        salt.encode('utf-8'),
+        TG_BOT_API_TOKEN_HASH_ITERATIONS,
+    ).hex()
+    return f'{TG_BOT_API_TOKEN_HASH_PREFIX}{TG_BOT_API_TOKEN_HASH_ITERATIONS}${salt}${digest}'
+
+
+def _verify_tgbot_api_token_hash(token: str, stored_hash: str) -> bool:
+    if not stored_hash.startswith(TG_BOT_API_TOKEN_HASH_PREFIX):
+        return False
+    payload = stored_hash[len(TG_BOT_API_TOKEN_HASH_PREFIX):]
+    try:
+        iterations_text, salt, expected_digest = payload.split('$', 2)
+        iterations = int(iterations_text)
+    except (TypeError, ValueError):
+        return False
+    if iterations < 1 or not salt or not expected_digest:
+        return False
+    actual_digest = hashlib.pbkdf2_hmac(
+        'sha256',
+        token.encode('utf-8'),
+        salt.encode('utf-8'),
+        iterations,
+    ).hex()
+    return secrets.compare_digest(expected_digest, actual_digest)
+
+
+def _extract_bearer_token() -> str:
+    auth_header = request.headers.get('Authorization') or ''
+    scheme, _, value = auth_header.partition(' ')
+    if scheme.lower() != 'bearer' or not value.strip():
+        return ''
+    return value.strip()
+
+
+def _verify_tgbot_api_token(token: str, config: dict | None = None) -> bool:
+    if not _is_valid_tgbot_api_token_format(token):
+        return False
+    effective_config = config if isinstance(config, dict) else load_config()
+    stored_hash = str(effective_config.get('TG_BOT_API_TOKEN_HASH') or '').strip()
+    return _verify_tgbot_api_token_hash(token, stored_hash)
+
+
+def _tgbot_api_token_state(config: dict | None = None) -> dict:
+    effective_config = config if isinstance(config, dict) else load_config()
+    token_hash = str(effective_config.get('TG_BOT_API_TOKEN_HASH') or '').strip()
+    return {
+        'configured': bool(token_hash),
+        'created_at': str(effective_config.get('TG_BOT_API_TOKEN_CREATED_AT') or ''),
+        'last4': str(effective_config.get('TG_BOT_API_TOKEN_LAST4') or ''),
+    }
+
+
+def _ensure_tgbot_token_csrf_token() -> str:
+    token = session.get('tgbot_token_csrf')
+    if not isinstance(token, str) or not token:
+        token = secrets.token_urlsafe(32)
+        session['tgbot_token_csrf'] = token
+    return token
+
+
+def _validate_tgbot_token_csrf(submitted_token: str | None) -> bool:
+    expected = session.get('tgbot_token_csrf')
+    if not isinstance(expected, str) or not expected:
+        return False
+    if not secrets.compare_digest(expected, str(submitted_token or '')):
+        return False
+    session.pop('tgbot_token_csrf', None)
+    return True
+
+
+def _is_tgbot_upload_rate_limited() -> bool:
+    client_id = request.remote_addr or 'unknown'
+    now = time.time()
+    window_start = now - _TG_BOT_UPLOAD_RATE_LIMIT_WINDOW_SECONDS
+    with _TG_BOT_UPLOAD_RATE_LIMIT_LOCK:
+        for key in list(_TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.keys()):
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS[key] = [
+                timestamp for timestamp in _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS[key]
+                if timestamp >= window_start
+            ]
+            if not _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS[key]:
+                del _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS[key]
+
+        if len(_TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS) > _TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS:
+            newest_buckets = sorted(
+                _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.items(),
+                key=lambda item: item[1][-1] if item[1] else 0,
+                reverse=True,
+            )[:_TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS]
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.clear()
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.update(newest_buckets)
+
+        bucket = _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.setdefault(client_id, [])
+        if len(bucket) >= _TG_BOT_UPLOAD_RATE_LIMIT_MAX_REQUESTS:
+            return True
+        bucket.append(now)
+        if len(_TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS) > _TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS:
+            newest_buckets = sorted(
+                _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.items(),
+                key=lambda item: item[1][-1] if item[1] else 0,
+                reverse=True,
+            )[:_TG_BOT_UPLOAD_RATE_LIMIT_MAX_BUCKETS]
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.clear()
+            _TG_BOT_UPLOAD_RATE_LIMIT_BUCKETS.update(newest_buckets)
+        return False
+
+
+def tgbot_upload_token_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if request.method == 'OPTIONS':
+            return f(*args, **kwargs)
+
+        if _is_tgbot_upload_rate_limited():
+            return jsonify({'success': False, 'message': '请求过于频繁，请稍后再试。'}), 429
+
+        config = load_config()
+        if not config.get('TG_BOT_API_TOKEN_HASH'):
+            return jsonify({
+                'success': False,
+                'message': 'Telegram Bot API Token 未配置，请先在设置页生成专用 Token。'
+            }), 403
+
+        token = _extract_bearer_token()
+        if not _verify_tgbot_api_token(token, config):
+            return jsonify({'success': False, 'message': 'Telegram Bot API Token 无效或缺失。'}), 401
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 # 登录验证装饰器
 def login_required(f):
     @wraps(f)
@@ -1020,7 +1182,7 @@ CORS(app, resources={
     r"/tasks/add_via_extension": {
         "origins": [r"https?://www\.youtube\.com", r"https?://youtube\.com"],
         "methods": ["POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
+        "allow_headers": ["Content-Type", "Authorization"]
     }
 })
 
@@ -1853,7 +2015,7 @@ def review_task(task_id):
     return redirect(url_for('edit_task', task_id=task_id))
 
 @app.route('/tasks/add_via_extension', methods=['POST', 'OPTIONS'])
-@login_required
+@tgbot_upload_token_required
 def add_task_via_extension():
     """
     通过浏览器扩展或API添加任务 (JSON格式)
@@ -1879,6 +2041,11 @@ def add_task_via_extension():
         config = load_config()
         if not upload_target:
             upload_target = config.get('UPLOAD_TARGET_DEFAULT', 'acfun')
+        else:
+            upload_target = str(upload_target).strip().lower()
+
+        if upload_target not in ('acfun', 'bilibili', 'both'):
+            return jsonify({'success': False, 'message': '无效的投稿平台参数'}), 400
         
         # 判断是否为播放列表URL
         if 'youtube.com/playlist' in youtube_url or 'youtu.be/playlist' in youtube_url:
@@ -2584,11 +2751,58 @@ def settings():
     return render_template(
         'settings.html',
         config=config,
+        tgbot_token_state=_tgbot_api_token_state(config),
+        tgbot_token_csrf_token=_ensure_tgbot_token_csrf_token(),
         whisper_languages=WHISPER_LANGUAGE_LIST,
         acfun_partition_mapping=acfun_partition_mapping,
         bilibili_partition_mapping=bilibili_partition_mapping,
         builtin_prompts=builtin_prompts,
     )
+
+
+@app.route('/settings/tgbot-token', methods=['POST'])
+@login_required
+def settings_tgbot_token():
+    payload = request.get_json(silent=True) if request.is_json else request.form
+    payload = payload or {}
+    csrf_token = payload.get('csrf_token') or request.headers.get('X-CSRF-Token')
+    if not _validate_tgbot_token_csrf(csrf_token):
+        return jsonify({'success': False, 'message': '安全校验失败，请刷新设置页后重试。'}), 403
+
+    action = str(payload.get('action') or '').strip().lower()
+    if action in ('generate', 'reset'):
+        token = _generate_tgbot_api_token()
+        updated_config = update_config({
+            'TG_BOT_API_TOKEN_HASH': _hash_tgbot_api_token(token),
+            'TG_BOT_API_TOKEN_CREATED_AT': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'TG_BOT_API_TOKEN_LAST4': token[-4:],
+        })
+        return jsonify({
+            'success': True,
+            'message': 'Telegram Bot API Token 已生成，旧 Token 已失效。请立即复制保存。',
+            'token': token,
+            'state': _tgbot_api_token_state(updated_config),
+            'csrf_token': _ensure_tgbot_token_csrf_token(),
+        })
+
+    if action == 'revoke':
+        updated_config = update_config({
+            'TG_BOT_API_TOKEN_HASH': '',
+            'TG_BOT_API_TOKEN_CREATED_AT': '',
+            'TG_BOT_API_TOKEN_LAST4': '',
+        })
+        return jsonify({
+            'success': True,
+            'message': 'Telegram Bot API Token 已撤销。',
+            'state': _tgbot_api_token_state(updated_config),
+            'csrf_token': _ensure_tgbot_token_csrf_token(),
+        })
+
+    return jsonify({
+        'success': False,
+        'message': '未知的 Token 操作。',
+        'csrf_token': _ensure_tgbot_token_csrf_token(),
+    }), 400
 
 
 @app.route('/settings/save-progress/<operation_id>', methods=['GET'])
