@@ -156,7 +156,7 @@
                     </div>
                     <div class="mb-3">
                         <label for="upload_target" class="form-label">目标平台</label>
-                        {% set default_target = (config.get('UPLOAD_TARGET_DEFAULT', 'acfun'))|lower %}
+                        {% set default_target = (config.get('UPLOAD_TARGET_DEFAULT', 'bilibili'))|lower %}
                         <select class="form-select" id="upload_target" name="upload_target">
                             <option value="acfun" {% if default_target == 'acfun' %}selected{% endif %}>AcFun</option>
                             <option value="bilibili" {% if default_target == 'bilibili' %}selected{% endif %}>bilibili</option>

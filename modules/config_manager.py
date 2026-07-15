@@ -24,6 +24,7 @@ DEFAULT_CONFIG = {
     "AUTO_MODE_ENABLED": False, # 无人值守自动投稿总开关
     "TRANSLATE_TITLE": False,
     "TRANSLATE_DESCRIPTION": False,
+    "GENERATE_TITLE_DESCRIPTION": False,
     "UPLOAD_APPEND_REPOST_NOTICE": True,
     "GENERATE_TAGS": False,
     "YOUTUBE_UPLOADER_AS_FIRST_TAG": False,
@@ -78,7 +79,7 @@ DEFAULT_CONFIG = {
     "COOKIECLOUD_LAST_SYNC_MESSAGE": "",
     "ACFUN_USERNAME": "",
     "ACFUN_PASSWORD": "",
-    "UPLOAD_TARGET_DEFAULT": "acfun",  # 任务默认投稿平台：acfun|bilibili|both
+    "UPLOAD_TARGET_DEFAULT": "bilibili",  # 任务默认投稿平台：acfun|bilibili|both
     "OPENAI_API_KEY": "",
     "OPENAI_BASE_URL": "https://api.openai.com/v1",
     "OPENAI_MODEL_NAME": "gpt-3.5-turbo",
@@ -294,9 +295,9 @@ def load_config():
                     encoder_changed = True
 
                 upload_target_before = config.get('UPLOAD_TARGET_DEFAULT')
-                upload_target_normalized = str(upload_target_before or 'acfun').strip().lower()
+                upload_target_normalized = str(upload_target_before or 'bilibili').strip().lower()
                 if upload_target_normalized not in ('acfun', 'bilibili', 'both'):
-                    upload_target_normalized = 'acfun'
+                    upload_target_normalized = 'bilibili'
                 config['UPLOAD_TARGET_DEFAULT'] = upload_target_normalized
                 upload_target_changed = config['UPLOAD_TARGET_DEFAULT'] != upload_target_before
 
@@ -422,7 +423,7 @@ def update_config(new_config):
                     current_config[key] = 'auto'
             elif key == 'UPLOAD_TARGET_DEFAULT':
                 target = str(new_config[key]).strip().lower()
-                current_config[key] = target if target in ('acfun', 'bilibili', 'both') else 'acfun'
+                current_config[key] = target if target in ('acfun', 'bilibili', 'both') else 'bilibili'
             elif key == 'YOUTUBE_DOWNLOAD_QUALITY_MODE':
                 current_config[key] = normalize_youtube_download_quality_mode(new_config[key])
             elif key == 'YOUTUBE_DOWNLOAD_MAX_HEIGHT':

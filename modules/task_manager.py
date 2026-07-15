@@ -336,6 +336,7 @@ TASK_STATES = {
     'TRANSLATING_SUBTITLE': 'translating_subtitle',  # 正在翻译字幕
     'ENCODING_VIDEO': 'encoding_video',   # 正在转码视频
     'TRANSLATING': 'translating',         # 正在翻译
+    'GENERATING_METADATA': 'generating_metadata',  # 正在生成投稿标题与描述
     'TAGGING': 'tagging',                 # 正在生成标签
     'PARTITIONING': 'partitioning',       # 正在推荐分区
     'MODERATING': 'moderating',           # 正在内容审核
@@ -351,6 +352,7 @@ PROCESSING_STATES = [
     'fetching_info',
     'info_fetched',
     TASK_STATES['TRANSLATING'],
+    TASK_STATES['GENERATING_METADATA'],
     TASK_STATES['TAGGING'],
     TASK_STATES['PARTITIONING'],
     TASK_STATES['MODERATING'],
@@ -369,6 +371,7 @@ PIPELINE_CHECKPOINT_FIELD = 'pipeline_checkpoint'
 
 PIPELINE_STAGE_FETCH_INFO = 'fetch_info'
 PIPELINE_STAGE_TRANSLATE_CONTENT = 'translate_content'
+PIPELINE_STAGE_GENERATE_TITLE_DESCRIPTION = 'generate_title_description'
 PIPELINE_STAGE_GENERATE_TAGS = 'generate_tags'
 PIPELINE_STAGE_RECOMMEND_PARTITION = 'recommend_partition'
 PIPELINE_STAGE_MODERATE_CONTENT = 'moderate_content'
@@ -379,6 +382,7 @@ PIPELINE_STAGE_UPLOAD_TO_ACFUN = 'upload_to_acfun'
 PIPELINE_STAGE_ORDER = [
     PIPELINE_STAGE_FETCH_INFO,
     PIPELINE_STAGE_TRANSLATE_CONTENT,
+    PIPELINE_STAGE_GENERATE_TITLE_DESCRIPTION,
     PIPELINE_STAGE_GENERATE_TAGS,
     PIPELINE_STAGE_RECOMMEND_PARTITION,
     PIPELINE_STAGE_MODERATE_CONTENT,
@@ -971,7 +975,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
         youtube_url TEXT NOT NULL,
-        upload_target TEXT DEFAULT 'acfun',
+        upload_target TEXT DEFAULT 'bilibili',
         status TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1052,7 +1056,7 @@ def init_db():
             conn.commit()
 
         if 'upload_target' not in columns:
-            cursor.execute("ALTER TABLE tasks ADD COLUMN upload_target TEXT DEFAULT 'acfun'")
+            cursor.execute("ALTER TABLE tasks ADD COLUMN upload_target TEXT DEFAULT 'bilibili'")
             logger.info("数据库升级：添加upload_target字段")
             conn.commit()
 
@@ -1291,9 +1295,9 @@ def add_task(youtube_url, upload_target=None):
             try:
                 from modules.config_manager import load_config
                 cfg = load_config()
-                normalized_target = normalize_upload_target(cfg.get('UPLOAD_TARGET_DEFAULT', UPLOAD_TARGET_ACFUN))
+                normalized_target = normalize_upload_target(cfg.get('UPLOAD_TARGET_DEFAULT', UPLOAD_TARGET_BILIBILI))
             except Exception:
-                normalized_target = UPLOAD_TARGET_ACFUN
+                normalized_target = UPLOAD_TARGET_BILIBILI
         conn.execute(
             'INSERT INTO tasks (id, youtube_url, upload_target, status) VALUES (?, ?, ?, ?)',
             (task_id, youtube_url, normalized_target, TASK_STATES['PENDING'])
@@ -2355,6 +2359,26 @@ class TaskProcessor:
                         return
                 _raise_if_cancelled(task_id, task_logger)
 
+            if self.config.get('GENERATE_TITLE_DESCRIPTION', False):
+                if PIPELINE_STAGE_GENERATE_TITLE_DESCRIPTION in completed_stages:
+                    task_logger.info("跳过自动生成标题描述（checkpoint已完成）")
+                else:
+                    ok = self._generate_title_description(task_id, task_logger)
+                    task = get_task(task_id)
+                    if ok:
+                        completed_stages = _mark_stage_done(
+                            task_id,
+                            completed_stages,
+                            PIPELINE_STAGE_GENERATE_TITLE_DESCRIPTION,
+                        )
+                    elif task is not None and task.get('status') == TASK_STATES['AWAITING_REVIEW']:
+                        task_logger.info("自动生成标题描述失败，任务已转入人工审核")
+                        return
+                    elif task is not None and task.get('status') == TASK_STATES['FAILED']:
+                        task_logger.error("自动生成标题描述失败，终止任务处理")
+                        return
+                _raise_if_cancelled(task_id, task_logger)
+
             if self.config.get('GENERATE_TAGS', True):
                 if PIPELINE_STAGE_GENERATE_TAGS in completed_stages:
                     task_logger.info("跳过标签生成（checkpoint已完成）")
@@ -2522,6 +2546,7 @@ class TaskProcessor:
                 'fetching_info',
                 'info_fetched', 
                 TASK_STATES['TRANSLATING'], 
+                TASK_STATES['GENERATING_METADATA'],
                 TASK_STATES['TAGGING'],
                 TASK_STATES['PARTITIONING'],
                 TASK_STATES['MODERATING'],
@@ -2975,6 +3000,84 @@ class TaskProcessor:
             'error_message': review_message,
         })
         update_task(task_id, **updates)
+        task_logger.warning(review_message)
+        return False
+
+    def _generate_title_description(self, task_id, task_logger):
+        """基于原视频完整元数据生成适合 B 站投稿的中文标题与简介。"""
+        from modules.ai_enhancer import generate_bilibili_title_description
+
+        task = get_task(task_id)
+        if not task:
+            task_logger.error("任务不存在")
+            return False
+
+        task_logger.info("开始根据原视频完整信息生成标题与描述")
+        update_task(task_id, status=TASK_STATES['GENERATING_METADATA'])
+
+        source_metadata = {}
+        metadata_path = str(task.get('metadata_json_path_local') or '').strip()
+        if metadata_path and os.path.isfile(metadata_path):
+            try:
+                with open(metadata_path, 'r', encoding='utf-8') as metadata_file:
+                    loaded_metadata = json.load(metadata_file)
+                if isinstance(loaded_metadata, dict):
+                    source_metadata = loaded_metadata
+                else:
+                    task_logger.warning("原视频元数据不是 JSON 对象，将使用任务字段构建上下文")
+            except Exception as exc:
+                task_logger.warning(f"读取原视频完整元数据失败，将使用任务字段构建上下文: {exc}")
+
+        if not source_metadata:
+            source_metadata = {
+                'webpage_url': task.get('youtube_url', ''),
+                'title': task.get('video_title_original', ''),
+                'description': task.get('description_original', ''),
+            }
+
+        current_metadata = {
+            'youtube_url': task.get('youtube_url', ''),
+            'upload_target': _get_task_upload_target(task),
+            'video_title_original': task.get('video_title_original', ''),
+            'description_original': task.get('description_original', ''),
+            'video_title_translated': task.get('video_title_translated', ''),
+            'description_translated': task.get('description_translated', ''),
+            'tags_generated': _normalize_tags_list(task.get('tags_generated')),
+        }
+        effective_limits = _get_effective_metadata_limits(_get_task_upload_target(task))
+        openai_config = {
+            'OPENAI_API_KEY': self.config.get('OPENAI_API_KEY', ''),
+            'OPENAI_BASE_URL': self.config.get('OPENAI_BASE_URL', ''),
+            'OPENAI_MODEL_NAME': self.config.get('OPENAI_MODEL_NAME', 'gpt-3.5-turbo'),
+            'OPENAI_THINKING_ENABLED': self.config.get('OPENAI_THINKING_ENABLED', False),
+            'OPENAI_TIMEOUT_SECONDS': self.config.get('OPENAI_TIMEOUT_SECONDS', 600),
+        }
+        generated = generate_bilibili_title_description(
+            source_metadata,
+            current_metadata=current_metadata,
+            openai_config=openai_config,
+            task_id=task_id,
+            title_limit=effective_limits['title_limit'],
+            description_limit=effective_limits['description_limit'],
+        )
+
+        if generated.get('success'):
+            update_task(
+                task_id,
+                video_title_translated=generated.get('title', ''),
+                description_translated=generated.get('description', ''),
+                error_message=None,
+            )
+            task_logger.info("标题与描述生成完成")
+            return True
+
+        error_message = generated.get('error_message') or 'AI 未能生成有效的标题与描述'
+        review_message = f"自动生成标题描述失败：{error_message}。任务已转入人工审核。"
+        update_task(
+            task_id,
+            status=TASK_STATES['AWAITING_REVIEW'],
+            error_message=review_message,
+        )
         task_logger.warning(review_message)
         return False
 
@@ -7572,6 +7675,20 @@ class TaskProcessor:
 
         from modules.utils import safe_str
         completed_stages = _get_completed_stages(task)
+
+        if (
+            self.config.get('GENERATE_TITLE_DESCRIPTION', False)
+            and PIPELINE_STAGE_GENERATE_TITLE_DESCRIPTION not in completed_stages
+        ):
+            task_logger.info("强制上传前继续执行自动生成标题描述阶段")
+            if not self._generate_title_description(task_id, task_logger):
+                return None
+            task = get_task(task_id) or task
+            completed_stages = _mark_stage_done(
+                task_id,
+                completed_stages,
+                PIPELINE_STAGE_GENERATE_TITLE_DESCRIPTION,
+            )
 
         def _has_usable_text(current_task):
             title_text = safe_str(current_task.get('video_title_translated') or current_task.get('video_title_original'))

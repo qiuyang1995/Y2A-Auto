@@ -85,6 +85,23 @@ _PROMO_SIGNAL_PATTERNS = [
     re.compile(r'(播放列表|关注|订阅|点赞|分享|链接在|站外|外部平台|联系方式)', re.IGNORECASE),
 ]
 
+BILIBILI_TITLE_DESCRIPTION_PROMPT = """你是一个熟悉 B 站内容生态的视频文案编辑。请根据给定的原始视频完整元数据与当前任务信息，生成用于 B 站投稿的中文标题和中文简介。
+
+内容处理原则：
+1) 原始标题、描述、标签、章节等元数据如果包含韩文或英文，先理解并尽量翻译成自然中文，不要直接照抄整段外文；
+2) 人名、团名、歌曲名、节目名可以保留常用官方写法，必要时少量保留用户熟悉的英文或韩文原名；
+3) 标题清晰、可检索、不过度夸张，尽量保留人物、团体、事件、舞台、歌曲、版本、画质等核心信息；
+4) 简介准确概括内容，补充原始元数据中确实存在的活动、时间、版本、画质等关键信息，最后可给出简短互动引导；
+5) 不要编造上下文中不存在的事实，不要添加无法从原始视频信息中确认的内容。
+
+硬性要求：
+- 标题主体必须是中文，且不得超过上下文给出的 title_limit；
+- 简介主体必须是中文，建议 120-220 字，且不得超过上下文给出的 description_limit；
+- 不要在第一行出现搬运说明；
+- 必须且只能返回一个合法 JSON 对象，不要使用 Markdown 代码块，不要添加解释；
+- JSON 格式严格为：{"title":"生成的中文标题","description":"生成的中文简介"}。
+"""
+
 # Pre-compiled patterns for post-translation cleanup in translate_text
 _TRANSLATION_COMMENT_PATTERNS = [
     re.compile(r'（注：.*?）', re.IGNORECASE),
@@ -693,6 +710,81 @@ def _request_raw_text(
         return ''
     content = response.choices[0].message.content or ''
     return content.strip()
+
+
+def generate_bilibili_title_description(
+    source_metadata: Mapping[str, Any],
+    *,
+    current_metadata: Optional[Mapping[str, Any]] = None,
+    openai_config=None,
+    task_id=None,
+    title_limit: int = 80,
+    description_limit: int = 2000,
+) -> Dict[str, Any]:
+    """将原视频完整元数据交给 AI，生成适合 B 站投稿的标题与简介。"""
+    logger = setup_task_logger(task_id or "unknown")
+    config = dict(openai_config or {})
+    if not str(config.get('OPENAI_API_KEY') or '').strip():
+        return {'success': False, 'error_message': 'OpenAI API 密钥未配置'}
+
+    model_name = str(config.get('OPENAI_MODEL_NAME') or 'gpt-3.5-turbo').strip()
+    payload = {
+        'target_platform': 'bilibili',
+        'title_limit': max(1, int(title_limit)),
+        'description_limit': max(1, int(description_limit)),
+        # metadata.json 由 yt-dlp 生成；保留整个对象，确保标题、简介、标签、
+        # 章节、上传者、时间、统计信息等原视频信息都可供模型参考。
+        'source_metadata': dict(source_metadata or {}),
+        'current_metadata': dict(current_metadata or {}),
+    }
+
+    try:
+        parsed = _request_json_object(
+            client=get_openai_client(config),
+            model_name=model_name,
+            system_prompt=BILIBILI_TITLE_DESCRIPTION_PROMPT,
+            payload=payload,
+            max_tokens=1200,
+            temperature=0.6,
+            thinking_enabled=bool(config.get('OPENAI_THINKING_ENABLED', False)),
+            logger_obj=logger,
+            scene_name='ai_enhancer_generate_bilibili_title_description',
+        )
+    except Exception as exc:
+        logger.exception("生成 B 站标题与简介失败")
+        return {'success': False, 'error_message': safe_str(exc) or exc.__class__.__name__}
+
+    title = _normalize_whitespace(safe_str((parsed or {}).get('title'))).replace('\n', ' ').strip()
+    description = _normalize_whitespace(safe_str((parsed or {}).get('description')))
+    title = _apply_output_limits(
+        title,
+        content_type='title',
+        logger=logger,
+        title_limit=payload['title_limit'],
+        description_limit=payload['description_limit'],
+    )
+    description = _apply_output_limits(
+        description,
+        content_type='description',
+        logger=logger,
+        title_limit=payload['title_limit'],
+        description_limit=payload['description_limit'],
+    )
+    missing_fields = [
+        label
+        for label, value in (('标题', title), ('简介', description))
+        if not value
+    ]
+    if missing_fields:
+        return {
+            'success': False,
+            'error_message': f"AI 返回结果缺少{'、'.join(missing_fields)}",
+        }
+    return {
+        'success': True,
+        'title': title,
+        'description': description,
+    }
 
 
 def _sanitize_metadata_field(

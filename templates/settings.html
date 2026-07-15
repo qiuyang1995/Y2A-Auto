@@ -3,7 +3,7 @@
 {% block title %}Y2A-Auto - 系统设置{% endblock %}
 
 {% block content %}
-{% set default_target = (config.get('UPLOAD_TARGET_DEFAULT', 'acfun'))|lower %}
+{% set default_target = (config.get('UPLOAD_TARGET_DEFAULT', 'bilibili'))|lower %}
 {% if default_target == 'bilibili' %}
     {% set default_target_label = 'bilibili' %}
 {% elif default_target == 'both' %}
@@ -163,6 +163,10 @@
                                                         自动翻译描述
                                                     </label>
                                                     <label class="checkbox-label">
+                                                        <input type="checkbox" name="GENERATE_TITLE_DESCRIPTION" {% if config.get('GENERATE_TITLE_DESCRIPTION', False) %}checked{% endif %}>
+                                                        自动生成标题描述
+                                                    </label>
+                                                    <label class="checkbox-label">
                                                         <input type="checkbox" name="GENERATE_TAGS" {% if config.GENERATE_TAGS %}checked{% endif %}>
                                                         自动生成标签
                                                     </label>
@@ -175,7 +179,8 @@
                                                         推荐分区时附带原视频封面供 AI 参考
                                                     </label>
                                                 </div>
-                                                <p class="help-text mt-2 mb-0">仅在已启用自动推荐分区、任务存在封面、且 AI 接口支持图片输入时生效；否则自动回退文本模式。</p>
+                                                <p class="help-text mt-2 mb-0">自动生成标题描述会在翻译后读取原视频完整元数据，并使用内置 B 站提示词生成适合投稿的中文标题与简介。</p>
+                                                <p class="help-text mt-1 mb-0">推荐分区附带封面仅在已启用自动推荐分区、任务存在封面、且 AI 接口支持图片输入时生效；否则自动回退文本模式。</p>
                                             </div>
                                         </article>
                                     </div>

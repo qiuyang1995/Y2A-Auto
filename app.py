@@ -756,6 +756,7 @@ def _perform_settings_save(form_data: dict, uploads: dict, operation_id: str | N
 
         checkboxes = [
             'AUTO_MODE_ENABLED', 'TRANSLATE_TITLE', 'TRANSLATE_DESCRIPTION',
+            'GENERATE_TITLE_DESCRIPTION',
             'UPLOAD_APPEND_REPOST_NOTICE',
             'GENERATE_TAGS', 'YOUTUBE_UPLOADER_AS_FIRST_TAG', 'RECOMMEND_PARTITION',
             'RECOMMEND_PARTITION_WITH_COVER', 'CONTENT_MODERATION_ENABLED',
@@ -1272,6 +1273,7 @@ def task_status_display(status):
     TASK_STATES['ASR_TRANSCRIBING']: '语音转写中',
         TASK_STATES['ENCODING_VIDEO']: '转码视频中',
         TASK_STATES['TRANSLATING']: '翻译中',
+        TASK_STATES['GENERATING_METADATA']: '生成标题描述中',
         TASK_STATES['TAGGING']: '生成标签中',
         TASK_STATES['PARTITIONING']: '推荐分区中',
         TASK_STATES['MODERATING']: '内容审核中',
@@ -1295,6 +1297,7 @@ def task_status_color(status):
     TASK_STATES['ASR_TRANSCRIBING']: 'info',
         TASK_STATES['ENCODING_VIDEO']: 'info',
         TASK_STATES['TRANSLATING']: 'info',
+        TASK_STATES['GENERATING_METADATA']: 'info',
         TASK_STATES['TAGGING']: 'info',
         TASK_STATES['PARTITIONING']: 'info',
         TASK_STATES['MODERATING']: 'info',
@@ -1587,7 +1590,8 @@ def index():
         # 进行中的状态集合
         processing_states = (
             'fetching_info', 'info_fetched',
-            TASK_STATES['TRANSLATING'], TASK_STATES['TAGGING'], TASK_STATES['PARTITIONING'],
+            TASK_STATES['TRANSLATING'], TASK_STATES['GENERATING_METADATA'],
+            TASK_STATES['TAGGING'], TASK_STATES['PARTITIONING'],
             TASK_STATES['MODERATING'], TASK_STATES['DOWNLOADING'], TASK_STATES['DOWNLOADED'],
             TASK_STATES['ASR_TRANSCRIBING'], TASK_STATES['TRANSLATING_SUBTITLE'],
             TASK_STATES['ENCODING_VIDEO'], TASK_STATES['UPLOADING']
@@ -2040,7 +2044,7 @@ def add_task_via_extension():
 
         config = load_config()
         if not upload_target:
-            upload_target = config.get('UPLOAD_TARGET_DEFAULT', 'acfun')
+            upload_target = config.get('UPLOAD_TARGET_DEFAULT', 'bilibili')
         else:
             upload_target = str(upload_target).strip().lower()
 
@@ -2110,7 +2114,7 @@ def add_task_route():
 
     config = load_config()
     if not upload_target:
-        upload_target = config.get('UPLOAD_TARGET_DEFAULT', 'acfun')
+        upload_target = config.get('UPLOAD_TARGET_DEFAULT', 'bilibili')
 
     # 判断是否为播放列表URL
     if 'youtube.com/playlist' in youtube_url or 'youtu.be/playlist' in youtube_url:
@@ -2502,7 +2506,7 @@ def system_health():
         stuck_cursor = conn.execute('''
             SELECT id, status, created_at, updated_at, error_message
             FROM tasks 
-            WHERE status IN ('processing', 'downloading', 'uploading', 'fetching_info', 'translating')
+            WHERE status IN ('processing', 'downloading', 'uploading', 'fetching_info', 'translating', 'generating_metadata')
             AND datetime(updated_at) < datetime('now', '-30 minutes')
         ''')
         stuck_tasks = stuck_cursor.fetchall()
