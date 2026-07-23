@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Y2A-Auto{% endblock %}</title>
+    <title>{% block title %}Y2A-Auto - 自动化媒体转换发布系统{% endblock %}</title>
+    <!-- 引入 Google Inter 字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- 使用本地Bootstrap CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap/bootstrap.min.css') }}">
     <!-- 使用本地Bootstrap Icons -->
@@ -19,6 +23,7 @@
         <nav class="navbar navbar-expand-lg navbar-dark">
             <div class="container navbar-shell">
                 <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+                    <i class="bi bi-play-btn-fill"></i>
                     <span>Y2A-Auto</span>
                 </a>
                 <div class="navbar-utility ms-auto d-flex align-items-center gap-2">
@@ -28,7 +33,7 @@
                             <span>退出登录</span>
                         </a>
                     {% endif %}
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="切换导航菜单">
+                    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="切换导航菜单">
                         <span class="navbar-toggler-icon"></span>
                     </button>
                 </div>
@@ -36,17 +41,17 @@
                     <ul class="navbar-nav">
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == url_for('index') %}active{% endif %}" href="{{ url_for('index') }}">
-                                <i class="bi bi-house-heart nav-icon"></i> 首页
+                                <i class="bi bi-grid-1x2-fill nav-icon"></i> 首页
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == url_for('tasks') %}active{% endif %}" href="{{ url_for('tasks') }}">
-                                <i class="bi bi-clipboard-data nav-icon"></i> 任务列表
+                                <i class="bi bi-collection-play-fill nav-icon"></i> 任务列表
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == url_for('manual_review') %}active{% endif %}" href="{{ url_for('manual_review') }}">
-                                <i class="bi bi-patch-check nav-icon"></i> 人工审核
+                                <i class="bi bi-patch-check-fill nav-icon"></i> 人工审核
                             </a>
                         </li>
                         <li class="nav-item">
@@ -56,7 +61,7 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == url_for('settings') %}active{% endif %}" href="{{ url_for('settings') }}">
-                                <i class="bi bi-sliders2 nav-icon"></i> 设置
+                                <i class="bi bi-gear-wide-connected nav-icon"></i> 设置
                             </a>
                         </li>
                     </ul>
@@ -65,12 +70,15 @@
         </nav>
     </header>
     
-    <main class="container mt-4">
+    <main class="container my-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="flash-messages">
+                <div class="flash-messages mb-3">
                     {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                        <div class="alert alert-{{ category }} alert-dismissible fade show border-0 shadow-sm" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
                     {% endfor %}
                 </div>
             {% endif %}
@@ -79,26 +87,26 @@
         {% block content %}{% endblock %}
     </main>
     
-    <footer class="footer mt-5 py-3">
+    <footer class="footer mt-auto py-3">
         <div class="container text-center">
-            <p class="text-muted">&copy; {% block year %}{{ now.year }}{% endblock %} Y2A-Auto</p>
+            <p class="text-muted small mb-0">&copy; {% block year %}{{ now.year }}{% endblock %} Y2A-Auto · 现代化自动化视频转流系统</p>
         </div>
     </footer>
     
     <!-- 实时通知模态框 -->
     <div class="modal fade" id="notificationModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-bell"></i> 任务完成通知</h5>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-primary"><i class="bi bi-bell-fill me-2"></i> 任务完成通知</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
-                <div class="modal-body" id="notificationBody">
+                <div class="modal-body py-3" id="notificationBody">
                     <!-- 通知内容 -->
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    <a href="#" class="btn btn-primary" id="viewVideoBtn" target="_blank" rel="noopener">查看视频</a>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">关闭</button>
+                    <a href="#" class="btn btn-primary btn-sm" id="viewVideoBtn" target="_blank" rel="noopener">查看视频</a>
                 </div>
             </div>
         </div>

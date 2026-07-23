@@ -3,16 +3,16 @@
 {% block title %}YouTube监控 - Y2A-Auto{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-youtube text-danger"></i> YouTube监控系统</h2>
-    <div>
-        <form method="POST" action="{{ url_for('youtube_monitor_restore_configs') }}" class="d-inline me-2" onsubmit="return confirm('确定要从配置文件恢复监控配置吗？这将从 config/youtube_monitor/ 目录中读取配置文件并恢复到数据库中。')">
-            <button type="submit" class="btn btn-outline-info">
-                <i class="bi bi-arrow-clockwise"></i> 恢复配置
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 p-3 bg-white rounded-3 shadow-sm border">
+    <h2 class="h3 mb-0 fw-bold"><i class="bi bi-broadcast-pin text-danger me-2"></i>YouTube 监控中心</h2>
+    <div class="d-flex gap-2">
+        <form method="POST" action="{{ url_for('youtube_monitor_restore_configs') }}" class="d-inline" onsubmit="return confirm('确定要从配置文件恢复监控配置吗？这将从 config/youtube_monitor/ 目录中读取配置文件并恢复到数据库中。')">
+            <button type="submit" class="btn btn-outline-info shadow-sm">
+                <i class="bi bi-arrow-clockwise me-1"></i> 恢复配置
             </button>
         </form>
-        <a href="{{ url_for('youtube_monitor_config') }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> 新建监控
+        <a href="{{ url_for('youtube_monitor_config') }}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-plus-circle-fill me-1"></i> 新建监控
         </a>
     </div>
 </div>

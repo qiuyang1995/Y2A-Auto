@@ -70,26 +70,26 @@
 {% elif task.status == 'ready_for_upload' %}{% set icon = 'cloud-arrow-up' %}
 {% elif task.status == 'pending' %}{% set icon = 'pause-circle' %}
 {% endif %}
-<div class="card task-card mb-3 status-{{ task.status }}" data-task-id="{{ task.id }}" data-task-status="{{ task.status }}">
+<div class="card task-card mb-3 status-{{ task.status }} shadow-sm" data-task-id="{{ task.id }}" data-task-status="{{ task.status }}">
     <div class="card-body p-3">
         <div class="d-flex align-items-start justify-content-between gap-2">
             <div class="flex-grow-1">
-                <div class="task-title text-body fw-semibold title-clamp title-clamp-3" title="{{ display_title }}">{{ display_title }}</div>
+                <div class="task-title text-dark fw-bold fs-6 title-clamp title-clamp-3" title="{{ display_title }}">{{ display_title }}</div>
                 {% if task.video_title_translated and task.video_title_original %}
-                    <div class="small text-muted text-truncate mt-1" title="原标题: {{ task.video_title_original }}">原标题: {{ task.video_title_original }}</div>
+                    <div class="small text-muted text-truncate mt-1" title="原标题: {{ task.video_title_original }}"><i class="bi bi-translate me-1 text-primary"></i>原标题: {{ task.video_title_original }}</div>
                 {% endif %}
             </div>
             <div class="text-end flex-shrink-0">
-                <div class="id-cell d-flex align-items-center justify-content-end">
+                <div class="id-cell d-flex align-items-center justify-content-end mb-1">
                     <span class="text-monospace small" title="{{ task.id }}">{{ task.id[:6] }}...</span>
-                    <button type="button" class="btn btn-link p-0 ms-1 copy-id-btn" title="复制ID" data-full-id="{{ task.id }}">
+                    <button type="button" class="btn btn-link text-muted p-0 ms-1 copy-id-btn" title="复制ID" data-full-id="{{ task.id }}">
                         <i class="bi bi-clipboard"></i>
                     </button>
                 </div>
-                <span class="badge rounded-pill bg-{{ task_status_color(task.status) }} mt-1 task-status-badge" data-task-status-badge>
+                <span class="badge rounded-pill bg-{{ task_status_color(task.status) }} task-status-badge shadow-sm" data-task-status-badge>
                     <i class="bi bi-{{ icon }} me-1"></i>{{ task_status_display(task.status) }}
                 </span>
-                <div class="small text-muted mt-1{% if not show_progress %} d-none{% endif %}" data-task-progress>{{ task.upload_progress or '' }}</div>
+                <div class="small text-primary fw-medium mt-1{% if not show_progress %} d-none{% endif %}" data-task-progress>{{ task.upload_progress or '' }}</div>
                 {% if task.subtitle_qc_failed or task.asr_warning_message %}
                     {% if task.asr_warning_message %}
                         {% set asr_w = task.asr_warning_message|trim %}
@@ -113,11 +113,11 @@
                     {% endif %}
                     <div class="mt-1">
                         {% if task.subtitle_qc_failed and task.asr_warning_message %}
-                            <span class="badge bg-warning text-dark" title="{{ qc_tooltip }} | {{ asr_w_tip }}" data-bs-toggle="tooltip" data-bs-placement="top">字幕异常</span>
+                            <span class="badge bg-warning text-dark" title="{{ qc_tooltip }} | {{ asr_w_tip }}" data-bs-toggle="tooltip" data-bs-placement="top"><i class="bi bi-exclamation-triangle-fill me-1"></i>字幕异常</span>
                         {% elif task.subtitle_qc_failed %}
-                            <span class="badge bg-warning text-dark" title="{{ qc_tooltip }}" data-bs-toggle="tooltip" data-bs-placement="top">字幕异常</span>
+                            <span class="badge bg-warning text-dark" title="{{ qc_tooltip }}" data-bs-toggle="tooltip" data-bs-placement="top"><i class="bi bi-exclamation-triangle-fill me-1"></i>字幕异常</span>
                         {% else %}
-                            <span class="badge bg-warning text-dark" title="{{ asr_w_tip }}" data-bs-toggle="tooltip" data-bs-placement="top">字幕异常</span>
+                            <span class="badge bg-warning text-dark" title="{{ asr_w_tip }}" data-bs-toggle="tooltip" data-bs-placement="top"><i class="bi bi-exclamation-triangle-fill me-1"></i>字幕异常</span>
                         {% endif %}
                     </div>
                 {% endif %}
@@ -129,14 +129,14 @@
                         {% set subtitle_w_tip = '字幕处理警告: ' ~ subtitle_w %}
                     {% endif %}
                     <div class="mt-1">
-                        <span class="badge bg-warning text-dark" title="{{ subtitle_w_tip }}" data-bs-toggle="tooltip" data-bs-placement="top">字幕烧录异常</span>
+                        <span class="badge bg-warning text-dark" title="{{ subtitle_w_tip }}" data-bs-toggle="tooltip" data-bs-placement="top"><i class="bi bi-exclamation-triangle-fill me-1"></i>字幕烧录异常</span>
                     </div>
                 {% endif %}
             </div>
         </div>
 
-        <div class="mt-2 small text-muted d-flex flex-wrap gap-2">
-            <div><i class="bi bi-clock me-1"></i><span class="task-datetime" data-task-datetime data-datetime="{{ task.updated_at or task.created_at }}">{{ task.updated_at or task.created_at }}</span></div>
+        <div class="mt-2 small text-muted d-flex flex-wrap align-items-center gap-2">
+            <div><i class="bi bi-clock me-1 text-primary"></i><span class="task-datetime" data-task-datetime data-datetime="{{ task.updated_at or task.created_at }}">{{ task.updated_at or task.created_at }}</span></div>
             <div class="vr mx-1"></div>
             <div>
                 {% if target == 'bilibili' %}
@@ -148,8 +148,8 @@
                 {% endif %}
             </div>
             <div class="vr mx-1"></div>
-            <div>
-                <i class="bi bi-diagram-3 me-1"></i>
+            <div class="text-truncate" style="max-width: 180px;">
+                <i class="bi bi-folder2-open me-1 text-primary"></i>
                 {% if target == 'both' %}
                     {% set ac_pid = task.selected_partition_id_acfun or task.recommended_partition_id_acfun %}
                     {% set bili_pid = task.selected_partition_id_bilibili or task.recommended_partition_id_bilibili %}
@@ -179,14 +179,14 @@
                 {% set tags = parse_json(task.tags_generated) %}
                 <div class="d-flex flex-wrap gap-1">
                     {% for tag in tags[:3] %}
-                        <span class="badge bg-secondary">{{ tag }}</span>
+                        <span class="badge bg-secondary font-monospace fw-normal">{{ tag }}</span>
                     {% endfor %}
                     {% if tags|length > 3 %}
-                        <span class="badge bg-light text-dark">+{{ tags|length - 3 }}</span>
+                        <span class="badge bg-light text-dark border">+{{ tags|length - 3 }}</span>
                     {% endif %}
                 </div>
             {% else %}
-                <span class="badge bg-secondary">未生成标签</span>
+                <span class="badge bg-secondary font-monospace fw-normal">未生成标签</span>
             {% endif %}
         </div>
 
@@ -195,18 +195,18 @@
                 {% set ac_result = parse_json(task.acfun_upload_response) if task.acfun_upload_response else {} %}
                 {% set bili_result = parse_json(task.bilibili_upload_response) if task.bilibili_upload_response else {} %}
                 {% if bili_result and bili_result.bvid %}
-                    <a href="{{ bili_result.url or ('https://www.bilibili.com/video/' ~ bili_result.bvid) }}" target="_blank" rel="noopener" class="badge bg-success text-decoration-none">{{ bili_result.bvid }}</a>
+                    <a href="{{ bili_result.url or ('https://www.bilibili.com/video/' ~ bili_result.bvid) }}" target="_blank" rel="noopener" class="badge bg-success text-decoration-none shadow-sm"><i class="bi bi-box-arrow-up-right me-1"></i>{{ bili_result.bvid }}</a>
                 {% elif task.status == 'failed' and task.error_message %}
                     {% if ac_result and ac_result.ac_number %}
                     <button type="button"
-                            class="badge bg-warning text-dark error-message-badge error-message-trigger border-0"
+                            class="badge bg-warning text-dark error-message-badge error-message-trigger border-0 shadow-sm"
                             title="点击查看B站上传错误详情"
                             data-error-message="[B站] {{ task.error_message }}"
                             data-task-title="{{ display_title }}"
                             data-task-id="{{ task.id }}">B站上传错误</button>
                     {% else %}
                     <button type="button"
-                            class="badge bg-danger error-message-badge error-message-trigger border-0"
+                            class="badge bg-danger error-message-badge error-message-trigger border-0 shadow-sm"
                             title="点击查看B站上传失败详情"
                             data-error-message="[B站] {{ task.error_message }}"
                             data-task-title="{{ display_title }}"
@@ -216,18 +216,18 @@
                     <span class="badge bg-secondary">BV待上传</span>
                 {% endif %}
                 {% if ac_result and ac_result.ac_number %}
-                    <a href="https://www.acfun.cn/v/ac{{ ac_result.ac_number }}" target="_blank" rel="noopener" class="badge bg-success text-decoration-none">AC{{ ac_result.ac_number }}</a>
+                    <a href="https://www.acfun.cn/v/ac{{ ac_result.ac_number }}" target="_blank" rel="noopener" class="badge bg-success text-decoration-none shadow-sm"><i class="bi bi-box-arrow-up-right me-1"></i>AC{{ ac_result.ac_number }}</a>
                 {% elif task.status == 'failed' and task.error_message %}
                     {% if bili_result and bili_result.bvid %}
                     <button type="button"
-                            class="badge bg-warning text-dark error-message-badge error-message-trigger border-0"
+                            class="badge bg-warning text-dark error-message-badge error-message-trigger border-0 shadow-sm"
                             title="点击查看AcFun上传错误详情"
                             data-error-message="[AcFun] {{ task.error_message }}"
                             data-task-title="{{ display_title }}"
                             data-task-id="{{ task.id }}">AC上传错误</button>
                     {% else %}
                     <button type="button"
-                            class="badge bg-danger error-message-badge error-message-trigger border-0"
+                            class="badge bg-danger error-message-badge error-message-trigger border-0 shadow-sm"
                             title="点击查看AcFun上传失败详情"
                             data-error-message="[AcFun] {{ task.error_message }}"
                             data-task-title="{{ display_title }}"
@@ -239,8 +239,8 @@
             {% elif task.status == 'completed' and target == 'bilibili' and task.bilibili_upload_response %}
                 {% set upload_result = parse_json(task.bilibili_upload_response) %}
                 {% if upload_result and upload_result.bvid %}
-                    <a href="{{ upload_result.url or ('https://www.bilibili.com/video/' ~ upload_result.bvid) }}" target="_blank" rel="noopener" class="badge bg-success text-decoration-none">{{ upload_result.bvid }}</a>
-                    <button type="button" class="btn btn-sm btn-outline-success ms-1 copy-bv-btn" title="复制BV号" data-bv-number="{{ upload_result.bvid }}">
+                    <a href="{{ upload_result.url or ('https://www.bilibili.com/video/' ~ upload_result.bvid) }}" target="_blank" rel="noopener" class="badge bg-success text-decoration-none shadow-sm"><i class="bi bi-box-arrow-up-right me-1"></i>{{ upload_result.bvid }}</a>
+                    <button type="button" class="btn btn-sm btn-outline-success ms-1 copy-bv-btn p-1 border-0" title="复制BV号" data-bv-number="{{ upload_result.bvid }}">
                         <i class="bi bi-clipboard"></i>
                     </button>
                 {% else %}
@@ -249,8 +249,8 @@
             {% elif task.status == 'completed' and target != 'bilibili' and task.acfun_upload_response %}
                 {% set upload_result = parse_json(task.acfun_upload_response) %}
                 {% if upload_result and upload_result.ac_number %}
-                    <a href="https://www.acfun.cn/v/ac{{ upload_result.ac_number }}" target="_blank" rel="noopener" class="badge bg-success text-decoration-none">AC{{ upload_result.ac_number }}</a>
-                    <button type="button" class="btn btn-sm btn-outline-success ms-1 copy-ac-btn" title="复制AC号" data-ac-number="{{ upload_result.ac_number }}">
+                    <a href="https://www.acfun.cn/v/ac{{ upload_result.ac_number }}" target="_blank" rel="noopener" class="badge bg-success text-decoration-none shadow-sm"><i class="bi bi-box-arrow-up-right me-1"></i>AC{{ upload_result.ac_number }}</a>
+                    <button type="button" class="btn btn-sm btn-outline-success ms-1 copy-ac-btn p-1 border-0" title="复制AC号" data-ac-number="{{ upload_result.ac_number }}">
                         <i class="bi bi-clipboard"></i>
                     </button>
                 {% else %}
@@ -260,14 +260,14 @@
                 {% set error_msg = task.error_message %}
                 {% if error_msg|length > 24 %}
                     <button type="button"
-                            class="badge bg-warning text-dark error-message-badge error-message-trigger border-0"
+                            class="badge bg-warning text-dark error-message-badge error-message-trigger border-0 shadow-sm"
                             title="点击查看完整错误信息"
                             data-error-message="{{ error_msg }}"
                             data-task-title="{{ display_title }}"
                             data-task-id="{{ task.id }}">{{ error_msg[:21] }}...</button>
                 {% else %}
                     <button type="button"
-                            class="badge bg-warning text-dark error-message-badge error-message-trigger border-0"
+                            class="badge bg-warning text-dark error-message-badge error-message-trigger border-0 shadow-sm"
                             title="点击查看完整错误信息"
                             data-error-message="{{ error_msg }}"
                             data-task-title="{{ display_title }}"
@@ -277,14 +277,14 @@
                 {% set error_msg = task.error_message or '未知错误' %}
                 {% if error_msg|length > 24 %}
                     <button type="button"
-                            class="badge bg-danger error-message-badge error-message-trigger border-0"
+                            class="badge bg-danger error-message-badge error-message-trigger border-0 shadow-sm"
                             title="点击查看完整错误信息"
                             data-error-message="{{ error_msg }}"
                             data-task-title="{{ display_title }}"
                             data-task-id="{{ task.id }}">{{ error_msg[:21] }}...</button>
                 {% else %}
                     <button type="button"
-                            class="badge bg-danger error-message-badge error-message-trigger border-0"
+                            class="badge bg-danger error-message-badge error-message-trigger border-0 shadow-sm"
                             title="点击查看完整错误信息"
                             data-error-message="{{ error_msg }}"
                             data-task-title="{{ display_title }}"
@@ -297,22 +297,22 @@
 
         <div class="task-actions mt-3 d-grid gap-2 task-actions-grid-2">
             {% if task.status == 'awaiting_manual_review' %}
-                <a href="{{ url_for('review_task', task_id=task.id) }}" class="btn btn-sm btn-warning"><i class="bi bi-eye me-1"></i> 审核</a>
+                <a href="{{ url_for('review_task', task_id=task.id) }}" class="btn btn-sm btn-warning shadow-sm"><i class="bi bi-eye-fill me-1"></i> 审核</a>
             {% elif task.status == 'pending' or task.status == 'failed' %}
                 <form method="post" action="{{ url_for('start_task_route', task_id=task.id) }}" class="m-0 p-0 d-inline">
-                    <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-play-fill me-1"></i> 开始</button>
+                    <button type="submit" class="btn btn-sm btn-primary w-100 shadow-sm"><i class="bi bi-play-fill me-1"></i> 开始</button>
                 </form>
             {% elif task.status == 'ready_for_upload' %}
                 <form method="post" action="{{ url_for('force_upload_task_route', task_id=task.id) }}" class="m-0 p-0 d-inline">
-                    <button type="submit" class="btn btn-sm btn-success w-100"><i class="bi bi-cloud-upload me-1"></i> 上传到{{ '双平台' if target == 'both' else ('bilibili' if target == 'bilibili' else 'AcFun') }}</button>
+                    <button type="submit" class="btn btn-sm btn-success w-100 shadow-sm"><i class="bi bi-cloud-upload-fill me-1"></i> 上传到{{ '双平台' if target == 'both' else ('bilibili' if target == 'bilibili' else 'AcFun') }}</button>
                 </form>
             {% endif %}
-            <a href="{{ url_for('edit_task', task_id=task.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil me-1"></i> 编辑</a>
+            <a href="{{ url_for('edit_task', task_id=task.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> 编辑</a>
             <button type="button" class="btn btn-sm btn-outline-danger"
                 data-task-id="{{ task.id }}"
                 data-task-title="{{ display_title }}"
                 onclick="confirmDelete(this.dataset.taskId, this.dataset.taskTitle)">
-                <i class="bi bi-trash me-1"></i> 删除
+                <i class="bi bi-trash-fill me-1"></i> 删除
             </button>
         </div>
     </div>
