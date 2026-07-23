@@ -17,7 +17,9 @@ import httplib2
 import threading
 import time
 from urllib.parse import quote, urlsplit
+import re
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 from logging.handlers import RotatingFileHandler
 from modules.task_manager import add_task
 from .config_manager import load_config
@@ -101,6 +103,7 @@ MONITOR_CONFIG_FIELD_DEFAULTS: Dict[str, Any] = {
     'max_duration': 0,
     'schedule_type': 'manual',
     'schedule_interval': 120,
+    'schedule_time_points': '',
     'order_by': 'viewCount',
     'start_date': '',
     'end_date': '',
@@ -194,6 +197,11 @@ class YouTubeMonitor:
             
             try:
                 cursor.execute("ALTER TABLE monitor_configs ADD COLUMN auto_add_to_tasks BOOLEAN DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
+            
+            try:
+                cursor.execute("ALTER TABLE monitor_configs ADD COLUMN schedule_time_points TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
             
@@ -1703,13 +1711,7 @@ class YouTubeMonitor:
                             auto_start = config.get('AUTO_MODE_ENABLED', False)
                     except Exception as e:
                         logger.warning(f"读取配置文件失败: {str(e)}")
-            
-            logger.info(f"手动添加视频到任务队列")
-            task_id = self._add_video_to_tasks(video_info, auto_start=False)
-            if task_id:
-                self._mark_video_added_to_tasks(video_id, config_id)
-                logger.info(f"视频成功添加到任务队列: {video_info['title']}, 任务ID: {task_id}")
-                return True, f"视频已成功添加到任务队列，任务ID: {task_id}"
+                    return True, f"视频已成功添加到任务队列，任务ID: {task_id}"
             else:
                 logger.error(f"添加视频到任务队列失败: {video_info['title']}")
                 return False, "添加到任务队列失败"
@@ -1723,6 +1725,25 @@ class YouTubeMonitor:
                 (video_id, config_id)
             )
             conn.commit()
+    
+    def start_all_schedules(self):
+        """启动所有自动调度的监控任务"""
+        logger.info("开始启动所有自动调度的监控任务")
+        
+        configs = self.get_monitor_configs()
+        auto_configs = [config for config in configs if config.get('enabled') and config.get('schedule_type') in ('auto', 'daily_times')]
+        
+        logger.info(f"找到 {len(auto_configs)} 个启用的自动调度配置")
+        
+        for config in auto_configs:
+            logger.info(f"启动调度: {config['name']} (ID: {config['id']}), 类型: {config.get('schedule_type')}")
+            self._schedule_monitor(config['id'])
+        
+        if not self.scheduler.running:
+            self.scheduler.start()
+            logger.info("调度器已启动")
+        
+        logger.info(f"所有自动调度任务启动完成，共 {len(auto_configs)} 个配置")
     
     def _get_historical_time_range(self, config):
         """获取历史搬运模式的智能时间范围"""

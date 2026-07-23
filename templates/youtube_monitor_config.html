@@ -400,7 +400,8 @@
                                 <label for="schedule_type" class="form-label">调度类型</label>
                                 <select class="form-select" id="schedule_type" name="schedule_type" onchange="toggleScheduleInterval()">
                                     <option value="manual" {% if not config or config.schedule_type == 'manual' %}selected{% endif %}>手动执行</option>
-                                    <option value="auto" {% if config and config.schedule_type == 'auto' %}selected{% endif %}>自动调度</option>
+                                    <option value="auto" {% if config and config.schedule_type == 'auto' %}selected{% endif %}>固定间隔调度</option>
+                                    <option value="daily_times" {% if config and config.schedule_type == 'daily_times' %}selected{% endif %}>每日定点执行 (多时间点)</option>
                                 </select>
                             </div>
                         </div>
@@ -413,6 +414,26 @@
                                 <div class="form-text">
                                     执行间隔，同时作为API请求的时间窗口（推荐30分钟以上，最长30天）<br>
                                     <small class="text-primary" id="interval_display">约等于 2 小时</small>
+                                </div>
+                            </div>
+                            <div class="mb-3 d-none" id="schedule_time_points_group">
+                                <label class="form-label fw-bold"><i class="bi bi-clock-history me-1 text-primary"></i>每日执行时间点</label>
+                                <input type="hidden" id="schedule_time_points" name="schedule_time_points" value="{{ config.schedule_time_points if config and config.schedule_time_points else '' }}">
+                                <div class="d-flex gap-2 mb-2">
+                                    <input type="time" class="form-control" id="time_point_picker" value="08:00">
+                                    <button type="button" class="btn btn-primary text-nowrap btn-sm" onclick="addTimePoint()">
+                                        <i class="bi bi-plus-circle me-1"></i>添加
+                                    </button>
+                                </div>
+                                <div class="d-flex flex-wrap gap-1 mb-2 p-2 border rounded bg-light" id="time_points_badges_container" style="min-height: 42px;">
+                                    <span class="text-muted small align-self-center px-1" id="empty_time_points_hint">未设定时间点</span>
+                                </div>
+                                <div class="small text-muted">
+                                    快捷添加: 
+                                    <button type="button" class="btn btn-link p-0 small text-decoration-none me-2" onclick="addQuickTimePoint('06:00')">+ 06:00</button>
+                                    <button type="button" class="btn btn-link p-0 small text-decoration-none me-2" onclick="addQuickTimePoint('10:00')">+ 10:00</button>
+                                    <button type="button" class="btn btn-link p-0 small text-decoration-none me-2" onclick="addQuickTimePoint('18:00')">+ 18:00</button>
+                                    <button type="button" class="btn btn-link p-0 small text-decoration-none me-2" onclick="addQuickTimePoint('22:00')">+ 22:00</button>
                                 </div>
                             </div>
                         </div>
@@ -838,13 +859,83 @@ function updateRateLimitDescription() {
 function toggleScheduleInterval() {
     const scheduleType = document.getElementById('schedule_type').value;
     const intervalGroup = document.getElementById('schedule_interval_group');
+    const timePointsGroup = document.getElementById('schedule_time_points_group');
     
     if (scheduleType === 'auto') {
         intervalGroup.classList.remove('d-none');
-        updateIntervalDisplay(); // 显示时更新时间显示
+        if (timePointsGroup) timePointsGroup.classList.add('d-none');
+        updateIntervalDisplay();
+    } else if (scheduleType === 'daily_times') {
+        intervalGroup.classList.add('d-none');
+        if (timePointsGroup) timePointsGroup.classList.remove('d-none');
+        renderTimePointsBadges();
     } else {
         intervalGroup.classList.add('d-none');
+        if (timePointsGroup) timePointsGroup.classList.add('d-none');
     }
+}
+
+// 多时间点调度 JS 管理组件
+function parseTimePointsString(str) {
+    if (!str) return [];
+    return str.split(/[,;\s]+/).map(s => s.trim()).filter(s => /^\d{2}:\d{2}$/.test(s));
+}
+
+function getTimePoints() {
+    const hiddenInput = document.getElementById('schedule_time_points');
+    if (!hiddenInput) return [];
+    return parseTimePointsString(hiddenInput.value);
+}
+
+function setTimePoints(pointsArray) {
+    const uniqueSorted = Array.from(new Set(pointsArray)).sort();
+    const hiddenInput = document.getElementById('schedule_time_points');
+    if (hiddenInput) {
+        hiddenInput.value = uniqueSorted.join(', ');
+    }
+    renderTimePointsBadges();
+}
+
+function addTimePoint() {
+    const picker = document.getElementById('time_point_picker');
+    if (!picker || !picker.value) return;
+    const val = picker.value.trim();
+    if (!/^\d{2}:\d{2}$/.test(val)) return;
+    const points = getTimePoints();
+    if (!points.includes(val)) {
+        points.push(val);
+        setTimePoints(points);
+    }
+}
+
+function addQuickTimePoint(val) {
+    const points = getTimePoints();
+    if (!points.includes(val)) {
+        points.push(val);
+        setTimePoints(points);
+    }
+}
+
+function removeTimePoint(val) {
+    const points = getTimePoints().filter(p => p !== val);
+    setTimePoints(points);
+}
+
+function renderTimePointsBadges() {
+    const container = document.getElementById('time_points_badges_container');
+    if (!container) return;
+    const points = getTimePoints();
+    container.innerHTML = '';
+    if (points.length === 0) {
+        container.innerHTML = '<span class="text-muted small align-self-center px-1" id="empty_time_points_hint">未设定时间点</span>';
+        return;
+    }
+    points.forEach(pt => {
+        const badge = document.createElement('span');
+        badge.className = 'badge bg-primary d-inline-flex align-items-center gap-1 shadow-sm fs-6 font-monospace py-1 px-2 me-1 mb-1';
+        badge.innerHTML = `<i class="bi bi-clock me-1"></i>${pt}<i class="bi bi-x-circle-fill ms-1" style="cursor:pointer" onclick="removeTimePoint('${pt}')" title="删除时间点"></i>`;
+        container.appendChild(badge);
+    });
 }
 
 function updateIntervalDisplay() {

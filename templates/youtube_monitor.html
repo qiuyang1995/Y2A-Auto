@@ -100,10 +100,12 @@
                             {% endif %}
                         </td>
                         <td class="text-center" data-label="调度类型">
-                            {% if config.schedule_type == 'auto' %}
-                            <span class="badge bg-info text-dark">自动({{ config.schedule_interval }}分钟)</span>
+                            {% if config.schedule_type == 'daily_times' %}
+                            <span class="badge bg-primary shadow-sm" title="{{ config.schedule_time_points }}"><i class="bi bi-clock-history me-1"></i>每日 {{ config.schedule_time_points or '未指定' }}</span>
+                            {% elif config.schedule_type == 'auto' %}
+                            <span class="badge bg-info text-dark shadow-sm">间隔({{ config.schedule_interval }}分钟)</span>
                             {% else %}
-                            <span class="badge bg-warning text-dark">手动</span>
+                            <span class="badge bg-secondary shadow-sm">手动执行</span>
                             {% endif %}
                         </td>
                         <td data-label="最后运行">
