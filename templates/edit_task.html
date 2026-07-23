@@ -6,8 +6,15 @@
 <div class="edit-task-container" data-upload-target="{{ upload_target|default('acfun') }}">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>编辑任务</h2>
-        <a href="{{ url_for('tasks') }}" class="btn btn-outline-secondary">返回任务列表</a>
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" class="btn btn-primary" id="ai-auto-generate"
+                    data-url="{{ url_for('ai_generate_task_metadata', task_id=task.id) }}">
+                <i class="bi bi-stars me-1"></i>AI自动生成
+            </button>
+            <a href="{{ url_for('tasks') }}" class="btn btn-outline-secondary">返回任务列表</a>
+        </div>
     </div>
+    <div id="ai-auto-generate-status" class="alert d-none" role="alert" aria-live="polite"></div>
     
     {% if task %}
         <div class="row">
@@ -456,6 +463,105 @@
 
         // 初始化时同步一次
         collectTags();
+
+        // 一键生成标题、描述、分区和标签；成功后后端已同步任务字段与流水线检查点。
+        const aiGenerateButton = document.getElementById('ai-auto-generate');
+        const aiGenerateStatus = document.getElementById('ai-auto-generate-status');
+
+        function showAiGenerateStatus(message, level) {
+            if (!aiGenerateStatus) return;
+            aiGenerateStatus.className = `alert alert-${level}`;
+            aiGenerateStatus.textContent = message;
+        }
+
+        function selectGeneratedPartition(selectId, partitionId) {
+            if (!partitionId) return false;
+            const select = document.getElementById(selectId);
+            if (!select) return false;
+            const hasOption = Array.from(select.options).some(option => option.value === String(partitionId));
+            if (!hasOption) return false;
+            select.value = String(partitionId);
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
+        }
+
+        if (aiGenerateButton) {
+            aiGenerateButton.addEventListener('click', async function() {
+                collectTags();
+                const originalButtonHtml = aiGenerateButton.innerHTML;
+                aiGenerateButton.disabled = true;
+                aiGenerateButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>AI生成中...';
+                showAiGenerateStatus('AI 正在生成标题、描述、分区和标签，请稍候…', 'info');
+
+                try {
+                    let currentTags = [];
+                    try {
+                        currentTags = JSON.parse(tagsJsonField.value || '[]');
+                    } catch (e) {
+                        currentTags = [];
+                    }
+                    const response = await fetch(aiGenerateButton.dataset.url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: titleInput ? titleInput.value : '',
+                            description: descriptionTextarea ? descriptionTextarea.value : '',
+                            tags: currentTags
+                        })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || `请求失败（HTTP ${response.status}）`);
+                    }
+
+                    if (titleInput && data.title) {
+                        titleInput.value = data.title;
+                        titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    if (descriptionTextarea && data.description) {
+                        descriptionTextarea.value = data.description;
+                        descriptionTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    const generatedTags = Array.isArray(data.tags) ? data.tags.slice(0, tagInputs.length) : [];
+                    tagInputs.forEach((input, index) => {
+                        input.value = generatedTags[index] || '';
+                    });
+                    collectTags();
+
+                    const uploadTarget = document.querySelector('.edit-task-container').dataset.uploadTarget;
+                    const partitions = data.partitions || {};
+                    const clientWarnings = [];
+                    if (uploadTarget === 'both') {
+                        if (partitions.acfun && partitions.acfun.id &&
+                                !selectGeneratedPartition('selected_partition_id_acfun', partitions.acfun.id)) {
+                            clientWarnings.push('AcFun 推荐分区不在当前选项中');
+                        }
+                        if (partitions.bilibili && partitions.bilibili.id &&
+                                !selectGeneratedPartition('selected_partition_id_bilibili', partitions.bilibili.id)) {
+                            clientWarnings.push('bilibili 推荐分区不在当前选项中');
+                        }
+                    } else {
+                        const selection = partitions[uploadTarget] || {};
+                        if (selection.id && !selectGeneratedPartition('selected_partition_id', selection.id)) {
+                            clientWarnings.push('推荐分区不在当前选项中');
+                        }
+                    }
+
+                    const warnings = (Array.isArray(data.warnings) ? data.warnings : []).concat(clientWarnings);
+                    if (warnings.length) {
+                        showAiGenerateStatus(`AI 已保存并回填可用内容；${warnings.join('；')}。请检查未完成项。`, 'warning');
+                    } else {
+                        showAiGenerateStatus('AI 已生成、保存并回填标题、描述、分区和标签，任务流水线已更新。', 'success');
+                    }
+                } catch (error) {
+                    console.error('AI 自动生成失败:', error);
+                    showAiGenerateStatus(`AI 自动生成失败：${error.message}`, 'danger');
+                } finally {
+                    aiGenerateButton.disabled = false;
+                    aiGenerateButton.innerHTML = originalButtonHtml;
+                }
+            });
+        }
 
         // 提交前收集一次，防止遗漏
         const form = tagsJsonField.closest('form');

@@ -258,7 +258,7 @@ def _summarize_yt_dlp_error(stdout_text: str | None, stderr_text: str | None) ->
 
 
 def _find_yt_dlp_command(log: logging.Logger) -> list[str]:
-    """解析 yt-dlp 调用命令，优先使用当前解释器 python -m yt_dlp。"""
+    """解析 yt-dlp 调用命令，并隔离可能干扰应用行为的用户级 CLI 配置。"""
     log.info("开始查找yt-dlp执行命令...")
 
     current_python = sys.executable
@@ -274,14 +274,14 @@ def _find_yt_dlp_command(log: logging.Logger) -> list[str]:
             )
             if result.returncode == 0:
                 log.info(f"使用当前Python解释器调用yt-dlp: {current_python} -m yt_dlp")
-                return [current_python, '-m', 'yt_dlp']
+                return [current_python, '-m', 'yt_dlp', '--ignore-config']
         except Exception as exc:
             log.debug(f"验证当前Python解释器中的yt-dlp失败: {exc}")
 
     found = _which('yt-dlp')
     if found:
         log.info(f"找到系统中的yt-dlp: {found}")
-        return [found]
+        return [found, '--ignore-config']
 
     possible_paths = [
         '/home/y2a/.local/bin/yt-dlp',
@@ -291,16 +291,16 @@ def _find_yt_dlp_command(log: logging.Logger) -> list[str]:
     for path in possible_paths:
         if os.path.exists(path):
             log.info(f"找到存在的yt-dlp路径: {path}")
-            return [path]
+            return [path, '--ignore-config']
 
     if os.name == 'nt':
         venv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.venv', 'Scripts', 'yt-dlp.exe')
         if os.path.exists(venv_path):
             log.info(f"回退到虚拟环境中的yt-dlp.exe: {venv_path}")
-            return [venv_path]
+            return [venv_path, '--ignore-config']
 
     log.info("未找到显式yt-dlp路径，回退到PATH中的yt-dlp")
-    return ['yt-dlp']
+    return ['yt-dlp', '--ignore-config']
 
 
 def is_docker_env() -> bool:
@@ -518,7 +518,12 @@ def test_video_availability(youtube_url, yt_dlp_cmd, cookies_path=None, logger=N
 
             error_text = (process.stderr or process.stdout or "").strip()
             last_error = error_text or f"格式检查返回非零状态码: {process.returncode}"
-            logger.warning(f"格式检查返回非零状态码: {process.returncode}")
+            error_summary = _summarize_yt_dlp_error(process.stdout, process.stderr)
+            logger.warning(
+                "格式检查返回非零状态码 %s: %s",
+                process.returncode,
+                error_summary,
+            )
 
             if "The page needs to be reloaded." in last_error and attempt < max_attempts:
                 logger.warning("YouTube返回页面需重载，等待后重试")
@@ -627,8 +632,9 @@ def download_video_data(youtube_url, task_id=None, cookies_file_path=None, skip_
                 else:
                     logger.warning("CookieCloud同步失败")
             if not available:
-                logger.error("视频不可用或无法访问")
-                return False, "视频不可用或无法访问"
+                error_summary = _summarize_yt_dlp_error(None, error_msg)
+                logger.error("视频访问检查失败: %s", error_summary)
+                return False, f"视频访问检查失败: {error_summary}"
 
         if not available and error_msg and _looks_like_youtube_bot_challenge(error_msg):
             # 对于同时存在格式/访问混合异常的场景，保留诊断日志但不阻塞后续下载重试

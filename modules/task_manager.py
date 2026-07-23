@@ -776,6 +776,82 @@ def _mark_stage_done(task_id, completed_stages, stage):
     return completed_stages
 
 
+def apply_edit_ai_generation_result(task_id, result):
+    """保存编辑页 AI 生成结果，并同步完成的流水线检查点。"""
+    task = get_task(task_id)
+    if not task or not isinstance(result, dict) or not result.get('success'):
+        return False
+
+    title = str(result.get('title') or '').strip()
+    description = str(result.get('description') or '').strip()
+    if not title or not description:
+        return False
+
+    tags = _normalize_tags_list(result.get('tags'))
+    partitions = result.get('partitions') if isinstance(result.get('partitions'), dict) else {}
+
+    # 只继承显式 checkpoint；再按字段推断已完成阶段。待审核状态本身不能代表
+    # 内容审核完成，因为它也可能是此前标题描述生成失败导致的。
+    explicit_checkpoint = _parse_pipeline_checkpoint(task.get(PIPELINE_CHECKPOINT_FIELD))
+    explicit_stages = set(explicit_checkpoint.get('completed', []) or [])
+    completed_stages = explicit_stages | _infer_completed_stages_from_task(task)
+    if (
+        PIPELINE_STAGE_MODERATE_CONTENT not in explicit_stages
+        and not task.get('moderation_result')
+    ):
+        completed_stages.discard(PIPELINE_STAGE_MODERATE_CONTENT)
+
+    completed_stages.add(PIPELINE_STAGE_GENERATE_TITLE_DESCRIPTION)
+    if tags:
+        completed_stages.add(PIPELINE_STAGE_GENERATE_TAGS)
+
+    updates = {
+        'video_title_translated': title,
+        'description_translated': description,
+        'tags_generated': json.dumps(tags, ensure_ascii=False),
+        'error_message': None,
+    }
+    target = _get_task_upload_target(task)
+    required_platforms = _get_upload_platforms_for_target(target)
+    generated_partition_platforms = set()
+    for platform in required_platforms:
+        selection = partitions.get(platform)
+        selection = selection if isinstance(selection, dict) else {}
+        partition_id = str(selection.get('id') or '').strip()
+        if not partition_id:
+            continue
+        generated_partition_platforms.add(platform)
+        selected_field = _get_partition_field_name(platform, 'selected')
+        recommended_field = _get_partition_field_name(platform, 'recommended')
+        if selected_field:
+            updates[selected_field] = partition_id
+        if recommended_field:
+            updates[recommended_field] = partition_id
+
+    if set(required_platforms).issubset(generated_partition_platforms):
+        completed_stages.add(PIPELINE_STAGE_RECOMMEND_PARTITION)
+
+    safe_states_to_make_uploadable = {
+        TASK_STATES['DOWNLOADED'],
+        TASK_STATES['MODERATING'],
+        TASK_STATES['AWAITING_REVIEW'],
+        TASK_STATES['FAILED'],
+        TASK_STATES['READY_FOR_UPLOAD'],
+    }
+    if task.get('status') in safe_states_to_make_uploadable:
+        updates['status'] = TASK_STATES['READY_FOR_UPLOAD']
+
+    ordered_stages = [
+        stage for stage in PIPELINE_STAGE_ORDER if stage in completed_stages
+    ]
+    updates[PIPELINE_CHECKPOINT_FIELD] = json.dumps({
+        'version': 1,
+        'completed': ordered_stages,
+        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }, ensure_ascii=False)
+    return bool(update_task(task_id, silent=False, **updates))
+
+
 def recover_interrupted_tasks_to_pending():
     """将进程意外退出后卡在“处理中状态”的任务恢复为 pending，以便重启后自动续跑。"""
     processing_states = PROCESSING_STATES

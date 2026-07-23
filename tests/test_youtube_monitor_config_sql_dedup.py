@@ -4,6 +4,7 @@ import sys
 import tempfile
 import types
 import unittest
+from datetime import datetime
 from unittest.mock import patch
 
 
@@ -180,6 +181,50 @@ class YouTubeMonitorConfigSqlDedupTests(unittest.TestCase):
         self.assertEqual(config["schedule_type"], "manual")
         self.assertEqual(config["rate_limit_requests"], 100)
         self.assertEqual(config["video_types"], "video,short,live")
+
+    def test_manual_global_search_uses_time_period_instead_of_schedule_interval(self):
+        class FixedDateTime(datetime):
+            @classmethod
+            def utcnow(cls):
+                return cls(2026, 7, 15, 12, 0, 0)
+
+        config = {
+            "monitor_type": "youtube_search",
+            "channel_mode": "latest",
+            "schedule_type": "manual",
+            "schedule_interval": 360,
+            "time_period": 30,
+            "channel_ids": "",
+            "keywords": "test",
+        }
+
+        with patch("modules.youtube_monitor.datetime", FixedDateTime), \
+             patch.object(self.monitor, "_fetch_search_videos", return_value=[]) as fetch:
+            self.monitor._fetch_trending_videos(config)
+
+        fetch.assert_called_once_with(config, "2026-06-15T12:00:00Z", None)
+
+    def test_auto_global_search_still_uses_dynamic_schedule_window(self):
+        class FixedDateTime(datetime):
+            @classmethod
+            def utcnow(cls):
+                return cls(2026, 7, 15, 12, 0, 0)
+
+        config = {
+            "monitor_type": "youtube_search",
+            "channel_mode": "latest",
+            "schedule_type": "auto",
+            "schedule_interval": 360,
+            "time_period": 30,
+            "channel_ids": "",
+            "keywords": "test",
+        }
+
+        with patch("modules.youtube_monitor.datetime", FixedDateTime), \
+             patch.object(self.monitor, "_fetch_search_videos", return_value=[]) as fetch:
+            self.monitor._fetch_trending_videos(config)
+
+        fetch.assert_called_once_with(config, "2026-07-14T12:00:00Z", None)
 
 
 if __name__ == "__main__":

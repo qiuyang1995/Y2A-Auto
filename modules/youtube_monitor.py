@@ -981,15 +981,19 @@ class YouTubeMonitor:
                         published_after = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
                         logger.info("最新跟进模式：首次运行，仅从当前时间开始跟进新发布的视频")
                 else:
-                    # 其他模式或全局检索：使用配置的时间段
-                    if config.get('channel_mode') == 'latest':
-                        # 保持原有行为：对于非频道监控的'latest'，按调度间隔*2估算窗口
+                    # 其他模式或全局检索：手动执行必须使用显式配置的时间段；
+                    # 只有自动调度的 latest 模式才按调度间隔估算搜索窗口。
+                    is_auto_schedule = str(config.get('schedule_type', 'manual')).strip().lower() == 'auto'
+                    if config.get('channel_mode') == 'latest' and is_auto_schedule:
                         interval_hours = config.get('schedule_interval', 120) / 60 * 2
                         days = max(1, interval_hours / 24)  # 至少1天
                         logger.info(f"使用动态时间段: 最近 {days:.1f} 天（基于调度间隔 {config.get('schedule_interval', 120)} 分钟）")
                     else:
                         days = config.get('time_period', 7)
-                        logger.info(f"使用时间段: 最近 {days} 天")
+                        if config.get('channel_mode') == 'latest' and not is_auto_schedule:
+                            logger.info(f"手动执行：忽略调度间隔，使用配置时间段: 最近 {days} 天")
+                        else:
+                            logger.info(f"使用时间段: 最近 {days} 天")
                     published_after = (datetime.utcnow() - timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%SZ')
             
             # 如果指定了频道，优先使用频道搜索

@@ -8,7 +8,7 @@ import time
 import json
 import base64
 import traceback
-from typing import Any, Collection, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Collection, Dict, List, Mapping, Optional, Sequence
 from difflib import SequenceMatcher
 from logging.handlers import RotatingFileHandler
 from .utils import (
@@ -102,6 +102,31 @@ BILIBILI_TITLE_DESCRIPTION_PROMPT = """你是一个熟悉 B 站内容生态的�
 - JSON 格式严格为：{"title":"生成的中文标题","description":"生成的中文简介"}。
 """
 
+# yt-dlp 的 metadata.json 会携带每种格式、缩略图和字幕轨道的完整下载 URL。
+# 这些传输层字段对文案没有帮助，却可能让一次请求膨胀到数十万 token。
+_BILIBILI_AI_CONTEXT_MAX_CHARS = 40000
+_BILIBILI_SOURCE_TEXT_LIMITS = {
+    'title': 1000,
+    'fulltitle': 1000,
+    'alt_title': 1000,
+    'description': 12000,
+}
+_BILIBILI_SOURCE_FIELDS = (
+    'id', 'display_id', 'title', 'fulltitle', 'alt_title', 'description',
+    'uploader', 'uploader_id', 'uploader_url', 'channel', 'channel_id',
+    'channel_url', 'creator', 'artist', 'track', 'album', 'release_year',
+    'upload_date', 'release_date', 'timestamp', 'release_timestamp',
+    'duration', 'duration_string', 'availability', 'live_status', 'was_live',
+    'view_count', 'like_count', 'dislike_count', 'comment_count',
+    'repost_count', 'age_limit', 'language', 'location', 'webpage_url',
+    'original_url', 'extractor', 'extractor_key', 'license',
+)
+_BILIBILI_TECHNICAL_METADATA_FIELDS = {
+    'formats', 'requested_formats', 'requested_downloads', 'thumbnails',
+    'thumbnail', 'automatic_captions', 'subtitles', 'http_headers',
+    'cookies', 'fragments', 'url', 'manifest_url', 'filename', '_filename',
+}
+
 # Pre-compiled patterns for post-translation cleanup in translate_text
 _TRANSLATION_COMMENT_PATTERNS = [
     re.compile(r'（注：.*?）', re.IGNORECASE),
@@ -169,7 +194,16 @@ def setup_task_logger(task_id):
         file_handler.setFormatter(file_formatter)
         file_handler.setLevel(logging.INFO)
         logger.addHandler(file_handler)
-        logger.propagate = False
+    if not any(getattr(handler, '_y2a_ai_console_handler', False) for handler in logger.handlers):
+        console_handler = logging.StreamHandler()
+        console_handler._y2a_ai_console_handler = True
+        console_handler.setFormatter(
+            logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        )
+        console_handler.setLevel(logging.INFO)
+        logger.addHandler(console_handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
     return logger
 
@@ -558,6 +592,332 @@ def _build_metadata_translation_payload(
     return payload
 
 
+def _truncate_context_text(value: Any, limit: int) -> str:
+    text = safe_str(value).strip()
+    if len(text) <= limit:
+        return text
+    omitted = len(text) - limit
+    return f"{text[:limit].rstrip()}\n…（为控制 AI 上下文已省略 {omitted} 个字符）"
+
+
+def _bounded_metadata_value(value: Any, *, depth: int = 0) -> Any:
+    """保留轻量业务字段，阻止未知嵌套结构再次撑爆上下文。"""
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return _truncate_context_text(value, 800 if depth == 0 else 300)
+    if depth >= 2:
+        return _truncate_context_text(value, 300)
+    if isinstance(value, Mapping):
+        result = {}
+        for index, (key, item) in enumerate(value.items()):
+            if index >= 20:
+                result['_omitted_fields'] = len(value) - 20
+                break
+            result[safe_str(key)] = _bounded_metadata_value(item, depth=depth + 1)
+        return result
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        items = list(value)
+        result = [_bounded_metadata_value(item, depth=depth + 1) for item in items[:30]]
+        if len(items) > 30:
+            result.append({'_omitted_items': len(items) - 30})
+        return result
+    return _truncate_context_text(value, 300)
+
+
+def _summarize_yt_dlp_formats(formats: Any) -> Dict[str, Any]:
+    if not isinstance(formats, Sequence) or isinstance(formats, (str, bytes, bytearray)):
+        return {'count': 0}
+
+    heights = set()
+    widths = set()
+    fps_values = set()
+    extensions = set()
+    video_codecs = set()
+    audio_codecs = set()
+    resolutions = set()
+    for item in formats:
+        if not isinstance(item, Mapping):
+            continue
+        for field, target in (
+            ('height', heights), ('width', widths), ('fps', fps_values),
+            ('ext', extensions), ('vcodec', video_codecs), ('acodec', audio_codecs),
+        ):
+            value = item.get(field)
+            if value not in (None, '', 'none'):
+                if isinstance(value, (bool, int, float)):
+                    target.add(value)
+                else:
+                    target.add(_truncate_context_text(value, 80))
+        resolution = item.get('resolution')
+        if resolution:
+            resolutions.add(_truncate_context_text(resolution, 80))
+
+    def _sorted(values):
+        return sorted(values, key=lambda item: (safe_str(item).lower(), safe_str(item)))
+
+    summary = {
+        'count': len(formats),
+        'available_heights': _sorted(heights)[:50],
+        'available_widths': _sorted(widths)[:50],
+        'fps': _sorted(fps_values)[:50],
+        'extensions': _sorted(extensions)[:50],
+        'video_codecs': _sorted(video_codecs)[:50],
+        'audio_codecs': _sorted(audio_codecs)[:50],
+        'resolutions': _sorted(resolutions)[:40],
+    }
+    if heights:
+        numeric_heights = [value for value in heights if isinstance(value, (int, float))]
+        if numeric_heights:
+            summary['max_height'] = max(numeric_heights)
+    return {key: value for key, value in summary.items() if value not in (None, [], '')}
+
+
+def _summarize_caption_tracks(tracks: Any) -> Dict[str, Any]:
+    if not isinstance(tracks, Mapping):
+        return {'language_count': 0, 'track_count': 0, 'languages': []}
+    languages = sorted((_truncate_context_text(key, 80) for key in tracks.keys()), key=str.lower)
+    track_count = 0
+    for entries in tracks.values():
+        if isinstance(entries, Sequence) and not isinstance(entries, (str, bytes, bytearray)):
+            track_count += len(entries)
+        elif entries:
+            track_count += 1
+    return {
+        'language_count': len(languages),
+        'track_count': track_count,
+        'languages': languages[:200],
+        **({'omitted_languages': len(languages) - 200} if len(languages) > 200 else {}),
+    }
+
+
+def _compact_chapters(chapters: Any) -> List[Dict[str, Any]]:
+    if not isinstance(chapters, Sequence) or isinstance(chapters, (str, bytes, bytearray)):
+        return []
+    compact = []
+    for chapter in chapters[:60]:
+        if not isinstance(chapter, Mapping):
+            continue
+        item = {}
+        for key in ('title', 'start_time', 'end_time'):
+            value = chapter.get(key)
+            if value not in (None, ''):
+                item[key] = _truncate_context_text(value, 300) if isinstance(value, str) else value
+        if item:
+            compact.append(item)
+    return compact
+
+
+def _compact_bilibili_source_metadata(
+    source_metadata: Mapping[str, Any],
+    *,
+    max_chars: int = _BILIBILI_AI_CONTEXT_MAX_CHARS,
+) -> Dict[str, Any]:
+    """把 yt-dlp 元数据转换为适合文案生成、且有硬上限的语义上下文。"""
+    source = dict(source_metadata or {})
+    compact: Dict[str, Any] = {}
+    for key in _BILIBILI_SOURCE_FIELDS:
+        value = source.get(key)
+        if value in (None, '', [], {}):
+            continue
+        if isinstance(value, str):
+            value = _truncate_context_text(value, _BILIBILI_SOURCE_TEXT_LIMITS.get(key, 1000))
+        compact[key] = value
+
+    for key, item_limit, text_limit in (
+        ('tags', 80, 200),
+        ('categories', 40, 200),
+    ):
+        values = source.get(key)
+        if isinstance(values, Sequence) and not isinstance(values, (str, bytes, bytearray)):
+            compact[key] = [_truncate_context_text(item, text_limit) for item in values[:item_limit]]
+            if len(values) > item_limit:
+                compact[f'{key}_omitted_count'] = len(values) - item_limit
+
+    chapters = _compact_chapters(source.get('chapters'))
+    if chapters:
+        compact['chapters'] = chapters
+        chapter_count = len(source.get('chapters') or [])
+        if chapter_count > len(chapters):
+            compact['chapters_omitted_count'] = chapter_count - len(chapters)
+
+    compact['formats_summary'] = _summarize_yt_dlp_formats(source.get('formats'))
+    compact['subtitles_summary'] = _summarize_caption_tracks(source.get('subtitles'))
+    compact['automatic_captions_summary'] = _summarize_caption_tracks(source.get('automatic_captions'))
+    thumbnails = source.get('thumbnails')
+    compact['thumbnails_summary'] = {
+        'count': len(thumbnails) if isinstance(thumbnails, Sequence) and not isinstance(thumbnails, str) else 0
+    }
+
+    handled_fields = set(_BILIBILI_SOURCE_FIELDS) | {
+        'tags', 'categories', 'chapters',
+    } | _BILIBILI_TECHNICAL_METADATA_FIELDS
+    additional = {}
+    for key in sorted(source.keys(), key=lambda item: safe_str(item).lower()):
+        if key in handled_fields or safe_str(key).startswith('_') or len(additional) >= 40:
+            continue
+        additional[safe_str(key)] = _bounded_metadata_value(source[key])
+    if additional:
+        compact['additional_metadata'] = additional
+
+    try:
+        original_chars = len(json.dumps(source, ensure_ascii=False, default=safe_str))
+    except Exception:
+        original_chars = 0
+    compact['context_summary'] = {
+        'original_serialized_chars': original_chars,
+        'technical_download_urls_omitted': True,
+        'note': '格式、缩略图和字幕仅省略下载 URL 等传输字段，保留数量、能力及语言信息。',
+    }
+
+    def serialized_length() -> int:
+        return len(json.dumps(compact, ensure_ascii=False, default=safe_str))
+
+    # 正常 yt-dlp 数据在上述汇总后已远低于上限；下面是未知字段异常膨胀时的硬兜底。
+    if serialized_length() > max_chars:
+        compact.pop('additional_metadata', None)
+    if serialized_length() > max_chars and 'description' in compact:
+        compact['description'] = _truncate_context_text(compact['description'], 6000)
+    if serialized_length() > max_chars and 'chapters' in compact:
+        compact['chapters'] = compact['chapters'][:20]
+    if serialized_length() > max_chars and 'tags' in compact:
+        compact['tags'] = compact['tags'][:30]
+    if serialized_length() > max_chars:
+        # 最终仍超限时只保留文案生成必需字段，保证请求一定不会再次失控。
+        essential_keys = (
+            'id', 'title', 'description', 'uploader', 'channel', 'upload_date',
+            'duration', 'tags', 'categories', 'chapters', 'formats_summary',
+            'subtitles_summary', 'automatic_captions_summary', 'context_summary',
+        )
+        compact = {key: compact[key] for key in essential_keys if key in compact}
+        if 'description' in compact:
+            compact['description'] = _truncate_context_text(compact['description'], 4000)
+    if serialized_length() > max_chars:
+        # 字幕语言名或格式标识本身异常超长时，继续保留计数，仅缩短明细列表。
+        for key in ('subtitles_summary', 'automatic_captions_summary'):
+            summary = compact.get(key)
+            if isinstance(summary, dict) and isinstance(summary.get('languages'), list):
+                original_count = len(summary['languages'])
+                summary['languages'] = [
+                    _truncate_context_text(language, 40)
+                    for language in summary['languages'][:40]
+                ]
+                if original_count > 40:
+                    summary['omitted_languages'] = max(
+                        summary.get('omitted_languages', 0),
+                        summary.get('language_count', original_count) - 40,
+                    )
+        formats_summary = compact.get('formats_summary')
+        if isinstance(formats_summary, dict):
+            compact['formats_summary'] = {
+                key: formats_summary[key]
+                for key in ('count', 'max_height')
+                if key in formats_summary
+            }
+    if serialized_length() > max_chars:
+        # 不信任任何外部元数据长度；最后退化成固定上限的最小语义集。
+        compact = {
+            'id': _truncate_context_text(source.get('id'), 200),
+            'title': _truncate_context_text(source.get('title'), 1000),
+            'description': _truncate_context_text(source.get('description'), 2000),
+            'uploader': _truncate_context_text(source.get('uploader') or source.get('channel'), 500),
+            'upload_date': _truncate_context_text(source.get('upload_date'), 100),
+            'duration': (
+                source.get('duration')
+                if isinstance(source.get('duration'), (type(None), bool, int, float))
+                else _truncate_context_text(source.get('duration'), 100)
+            ),
+            'formats_summary': _summarize_yt_dlp_formats(source.get('formats')),
+            'subtitles_summary': {
+                'language_count': _summarize_caption_tracks(source.get('subtitles'))['language_count'],
+            },
+            'automatic_captions_summary': {
+                'language_count': _summarize_caption_tracks(source.get('automatic_captions'))['language_count'],
+            },
+            'context_summary': {
+                'original_serialized_chars': original_chars,
+                'technical_download_urls_omitted': True,
+                'hard_limit_fallback_applied': True,
+            },
+        }
+        compact['formats_summary'] = {
+            key: compact['formats_summary'][key]
+            for key in ('count', 'max_height')
+            if key in compact['formats_summary']
+        }
+    return compact
+
+
+def _compact_current_metadata(current_metadata: Mapping[str, Any]) -> Dict[str, Any]:
+    compact = {}
+    for index, key in enumerate(sorted((current_metadata or {}).keys(), key=lambda item: safe_str(item).lower())):
+        if index >= 40:
+            compact['_omitted_fields'] = len(current_metadata) - 40
+            break
+        compact[safe_str(key)] = _bounded_metadata_value(current_metadata[key])
+    return compact
+
+
+def _parse_bilibili_title_description_text(text: str) -> Optional[Dict[str, Any]]:
+    """兼容 GLM 偶尔返回的“标题/简介”Markdown 分段，而非合法 JSON。"""
+    sections: Dict[str, List[str]] = {}
+    current_key = None
+    heading_re = re.compile(
+        r'^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?'
+        r'(标题|title|简介|描述|description)\s*(?:(?:[:：])\s*(.*))?\s*$',
+        re.IGNORECASE,
+    )
+    key_map = {
+        '标题': 'title', 'title': 'title',
+        '简介': 'description', '描述': 'description', 'description': 'description',
+    }
+    for raw_line in safe_str(text).replace('```json', '').replace('```', '').splitlines():
+        normalized_line = raw_line.replace('**', '').replace('__', '')
+        match = heading_re.match(normalized_line)
+        if match:
+            current_key = key_map[match.group(1).lower()]
+            sections.setdefault(current_key, [])
+            if match.group(2):
+                sections[current_key].append(match.group(2).strip())
+        elif current_key is not None:
+            sections[current_key].append(raw_line)
+
+    title = '\n'.join(sections.get('title', [])).strip().strip('"“”')
+    description = '\n'.join(sections.get('description', [])).strip().strip('"“”')
+    if title and description:
+        return {'title': title, 'description': description}
+    return None
+
+
+_AI_LOG_INPUT_MAX_CHARS = 12000
+
+
+def _serialize_ai_log_value(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False, default=safe_str)
+    except Exception:
+        return safe_str(value)
+
+
+def _get_complete_ai_message_for_log(message: Any) -> str:
+    """提取未经清洗、截断或 JSON 解析的模型完整返回内容。"""
+    if message is None:
+        return '<空消息>'
+    blocks = []
+    reasoning = getattr(message, 'reasoning_content', None)
+    if reasoning not in (None, ''):
+        blocks.append(f"[reasoning_content]\n{_serialize_ai_log_value(reasoning)}")
+    content = getattr(message, 'content', None)
+    if content not in (None, ''):
+        blocks.append(f"[content]\n{_serialize_ai_log_value(content)}")
+    parsed = getattr(message, 'parsed', None)
+    if parsed is not None:
+        blocks.append(f"[parsed]\n{_serialize_ai_log_value(parsed)}")
+    return '\n'.join(blocks) if blocks else '<空输出>'
+
+
 def _request_chat_completion(
     client,
     model_name: str,
@@ -590,8 +950,31 @@ def _request_chat_completion(
         create_kwargs["response_format"] = response_format
     request_start = time.time()
     mode_label = "JSON模式" if response_format else "纯文本模式"
+    input_text = (
+        f"[system]\n{safe_str(system_prompt)}\n"
+        f"[user]\n{_serialize_ai_log_value(user_message_content)}"
+    )
     if logger_obj:
-        logger_obj.info(f"发起模型请求（{mode_label}）")
+        logger_obj.info(
+            "AI请求开始 | scene=%s | model=%s | mode=%s | max_tokens=%s | "
+            "temperature=%s | thinking=%s | input_chars=%d",
+            scene_name,
+            model_name,
+            mode_label,
+            max_tokens,
+            temperature,
+            thinking_enabled,
+            len(input_text),
+        )
+        if len(input_text) <= _AI_LOG_INPUT_MAX_CHARS:
+            logger_obj.info("AI输入完整内容 | scene=%s\n%s", scene_name, input_text)
+        else:
+            logger_obj.info(
+                "AI输入内容已省略 | scene=%s | input_chars=%d | log_limit=%d",
+                scene_name,
+                len(input_text),
+                _AI_LOG_INPUT_MAX_CHARS,
+            )
     try:
         response = openai_chat_create_with_thinking_control(
             client=client,
@@ -600,9 +983,36 @@ def _request_chat_completion(
             logger=logger_obj,
             scene_name=scene_name,
         )
+        if logger_obj:
+            choices = list(getattr(response, 'choices', None) or [])
+            if not choices:
+                logger_obj.info("AI输出完整内容 | scene=%s | choices=0\n<空 choices>", scene_name)
+            for index, choice in enumerate(choices):
+                output_text = _get_complete_ai_message_for_log(getattr(choice, 'message', None))
+                logger_obj.info(
+                    "AI输出完整内容 | scene=%s | choice=%d | finish_reason=%s | output_chars=%d\n%s",
+                    scene_name,
+                    index,
+                    safe_str(getattr(choice, 'finish_reason', '')),
+                    len(output_text),
+                    output_text,
+                )
+    except Exception as exc:
+        if logger_obj:
+            logger_obj.exception(
+                "AI请求失败 | scene=%s | model=%s | error=%s",
+                scene_name,
+                model_name,
+                safe_str(exc) or exc.__class__.__name__,
+            )
+        raise
     finally:
         if logger_obj:
-            logger_obj.info(f"模型请求结束，耗时: {time.time() - request_start:.2f}秒")
+            logger_obj.info(
+                "AI请求结束 | scene=%s | elapsed=%.2f秒",
+                scene_name,
+                time.time() - request_start,
+            )
     return response
 
 
@@ -618,6 +1028,7 @@ def _request_json_object(
     logger_obj,
     scene_name: str,
     user_content=None,
+    text_fallback_parser: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None,
 ) -> Optional[Dict[str, Any]]:
     try:
         response = _request_chat_completion(
@@ -652,6 +1063,12 @@ def _request_json_object(
 
     # JSON 解析失败，重试一次（纯文本模式，强化提示）
     raw_text = get_chat_message_text(response.choices[0].message)
+    if text_fallback_parser is not None:
+        fallback_parsed = text_fallback_parser(raw_text)
+        if isinstance(fallback_parsed, dict):
+            if logger_obj:
+                logger_obj.info("%s 已兼容解析模型返回的分段文本", scene_name)
+            return fallback_parsed
     if logger_obj:
         logger_obj.warning(
             "%s 模型返回内容无法解析为 JSON（正文长度=%d），重试中…",
@@ -676,6 +1093,13 @@ def _request_json_object(
                 if logger_obj:
                     logger_obj.info("%s 重试成功，已获取有效 JSON", scene_name)
                 return parsed
+            raw_text = get_chat_message_text(response.choices[0].message)
+            if text_fallback_parser is not None:
+                fallback_parsed = text_fallback_parser(raw_text)
+                if isinstance(fallback_parsed, dict):
+                    if logger_obj:
+                        logger_obj.info("%s 重试后已兼容解析模型返回的分段文本", scene_name)
+                    return fallback_parsed
 
     if logger_obj:
         logger_obj.warning(
@@ -721,7 +1145,7 @@ def generate_bilibili_title_description(
     title_limit: int = 80,
     description_limit: int = 2000,
 ) -> Dict[str, Any]:
-    """将原视频完整元数据交给 AI，生成适合 B 站投稿的标题与简介。"""
+    """将原视频的投稿相关元数据交给 AI，生成适合 B 站投稿的标题与简介。"""
     logger = setup_task_logger(task_id or "unknown")
     config = dict(openai_config or {})
     if not str(config.get('OPENAI_API_KEY') or '').strip():
@@ -732,10 +1156,9 @@ def generate_bilibili_title_description(
         'target_platform': 'bilibili',
         'title_limit': max(1, int(title_limit)),
         'description_limit': max(1, int(description_limit)),
-        # metadata.json 由 yt-dlp 生成；保留整个对象，确保标题、简介、标签、
-        # 章节、上传者、时间、统计信息等原视频信息都可供模型参考。
-        'source_metadata': dict(source_metadata or {}),
-        'current_metadata': dict(current_metadata or {}),
+        # 保留全部投稿相关语义；格式/字幕/缩略图的海量下载 URL 改为能力摘要。
+        'source_metadata': _compact_bilibili_source_metadata(source_metadata or {}),
+        'current_metadata': _compact_current_metadata(current_metadata or {}),
     }
 
     try:
@@ -749,6 +1172,7 @@ def generate_bilibili_title_description(
             thinking_enabled=bool(config.get('OPENAI_THINKING_ENABLED', False)),
             logger_obj=logger,
             scene_name='ai_enhancer_generate_bilibili_title_description',
+            text_fallback_parser=_parse_bilibili_title_description_text,
         )
     except Exception as exc:
         logger.exception("生成 B 站标题与简介失败")

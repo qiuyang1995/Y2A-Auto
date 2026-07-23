@@ -3,18 +3,56 @@ import logging
 import os
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from modules import config_manager
 from modules import task_manager as tm
 from modules.ai_enhancer import (
     BILIBILI_TITLE_DESCRIPTION_PROMPT,
+    _BILIBILI_AI_CONTEXT_MAX_CHARS,
+    _compact_bilibili_source_metadata,
+    _parse_bilibili_title_description_text,
+    _request_chat_completion,
     generate_bilibili_title_description,
 )
 
 
 class GenerateBilibiliTitleDescriptionTests(unittest.TestCase):
-    def test_sends_complete_source_metadata_and_applies_limits(self):
+    def test_model_request_logs_full_output_and_omits_oversized_input(self):
+        logger = MagicMock()
+        response = SimpleNamespace(choices=[SimpleNamespace(
+            finish_reason='stop',
+            message=SimpleNamespace(
+                content='{"title":"完整标题","description":"完整简介"}',
+                reasoning_content='完整推理内容',
+                parsed=None,
+            ),
+        )])
+        with patch(
+            'modules.ai_enhancer.openai_chat_create_with_thinking_control',
+            return_value=response,
+        ):
+            returned = _request_chat_completion(
+                MagicMock(),
+                'test-model',
+                'system prompt',
+                {},
+                temperature=0.2,
+                thinking_enabled=True,
+                logger_obj=logger,
+                scene_name='logging_test',
+                user_content='x' * 13000,
+            )
+
+        self.assertIs(returned, response)
+        log_calls = '\n'.join(str(call) for call in logger.info.call_args_list)
+        self.assertIn('AI输入内容已省略', log_calls)
+        self.assertIn('AI输出完整内容', log_calls)
+        self.assertIn('完整推理内容', log_calls)
+        self.assertIn('完整标题', log_calls)
+
+    def test_sends_compact_semantic_metadata_and_applies_limits(self):
         source_metadata = {
             'id': 'video-1',
             'title': 'Original title',
@@ -23,7 +61,18 @@ class GenerateBilibiliTitleDescriptionTests(unittest.TestCase):
             'chapters': [{'title': 'Opening', 'start_time': 0}],
             'uploader': 'Original uploader',
             'upload_date': '20260715',
-            'formats': [{'format_id': '137', 'height': 1080}],
+            'formats': [{
+                'format_id': '137',
+                'height': 1080,
+                'width': 1920,
+                'fps': 60,
+                'vcodec': 'avc1',
+                'url': 'https://download.example/video?' + ('x' * 10000),
+            }],
+            'automatic_captions': {
+                'ko': [{'url': 'https://captions.example/ko?' + ('y' * 10000)}],
+            },
+            'thumbnails': [{'url': 'https://images.example/cover'}],
         }
         parsed = {
             'title': '这是一个超过限制的中文标题',
@@ -48,10 +97,62 @@ class GenerateBilibiliTitleDescriptionTests(unittest.TestCase):
         self.assertEqual(result['title'], '这是一个超过')
         self.assertEqual(result['description'], '第一段\n\n第二段')
         payload = request_json.call_args.kwargs['payload']
-        self.assertEqual(payload['source_metadata'], source_metadata)
-        self.assertEqual(payload['source_metadata']['formats'][0]['height'], 1080)
+        compact = payload['source_metadata']
+        self.assertEqual(compact['title'], source_metadata['title'])
+        self.assertEqual(compact['tags'], source_metadata['tags'])
+        self.assertEqual(compact['chapters'], source_metadata['chapters'])
+        self.assertEqual(compact['formats_summary']['max_height'], 1080)
+        self.assertEqual(compact['formats_summary']['fps'], [60])
+        self.assertEqual(compact['automatic_captions_summary']['languages'], ['ko'])
+        self.assertEqual(compact['thumbnails_summary']['count'], 1)
+        self.assertNotIn('download.example', json.dumps(compact, ensure_ascii=False))
+        self.assertNotIn('captions.example', json.dumps(compact, ensure_ascii=False))
         self.assertEqual(payload['current_metadata']['upload_target'], 'bilibili')
         self.assertEqual(request_json.call_args.kwargs['system_prompt'], BILIBILI_TITLE_DESCRIPTION_PROMPT)
+        self.assertIs(
+            request_json.call_args.kwargs['text_fallback_parser'],
+            _parse_bilibili_title_description_text,
+        )
+
+    def test_bloated_yt_dlp_metadata_has_a_hard_context_limit(self):
+        formats = [
+            {
+                'height': 2160,
+                'width': 3840,
+                'fps': 60,
+                'url': 'https://download.example/' + ('f' * 10000),
+            }
+            for _ in range(50)
+        ]
+        captions = {
+            f'lang-{index}': [{'url': 'https://caption.example/' + ('c' * 10000)}]
+            for index in range(170)
+        }
+        compact = _compact_bilibili_source_metadata({
+            'id': 'video-1',
+            'title': '原始标题',
+            'description': '原始简介' * 10000,
+            'tags': [f'tag-{index}' for index in range(200)],
+            'formats': formats,
+            'automatic_captions': captions,
+        })
+        serialized = json.dumps(compact, ensure_ascii=False)
+
+        self.assertLessEqual(len(serialized), _BILIBILI_AI_CONTEXT_MAX_CHARS)
+        self.assertEqual(compact['automatic_captions_summary']['language_count'], 170)
+        self.assertEqual(compact['formats_summary']['count'], 50)
+        self.assertIn('原始标题', serialized)
+        self.assertNotIn('download.example', serialized)
+        self.assertNotIn('caption.example', serialized)
+
+    def test_parses_glm_markdown_title_and_description_sections(self):
+        parsed = _parse_bilibili_title_description_text(
+            '**标题**\n韩国女团舞台直拍 4K\n\n**简介：**\n'
+            '本视频记录了现场舞台表演。\n欢迎点赞收藏。'
+        )
+
+        self.assertEqual(parsed['title'], '韩国女团舞台直拍 4K')
+        self.assertEqual(parsed['description'], '本视频记录了现场舞台表演。\n欢迎点赞收藏。')
 
     def test_missing_description_is_reported_as_failure(self):
         with patch('modules.ai_enhancer.get_openai_client', return_value=MagicMock()), \

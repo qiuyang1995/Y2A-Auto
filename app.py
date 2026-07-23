@@ -1823,6 +1823,50 @@ def manual_review():
     
     return render_template('manual_review.html', tasks=review_tasks)
 
+
+@app.route('/tasks/<task_id>/ai_generate_metadata', methods=['POST'])
+@login_required
+def ai_generate_task_metadata(task_id):
+    """为编辑表单生成完整投稿元数据；只返回结果，不直接写入任务。"""
+    task = get_task(task_id)
+    if not task:
+        return jsonify({'success': False, 'message': '任务不存在'}), 404
+
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({'success': False, 'message': '请求数据格式错误'}), 400
+
+    try:
+        from modules.task_edit_ai import generate_edit_page_metadata
+
+        result = generate_edit_page_metadata(task, load_config(), payload)
+    except Exception as exc:
+        logger.exception("任务 %s 编辑页 AI 自动生成失败", task_id)
+        return jsonify({
+            'success': False,
+            'message': f'AI 自动生成失败：{str(exc)}',
+        }), 500
+
+    if not result.get('success'):
+        return jsonify(result), 502
+    try:
+        from modules.task_manager import apply_edit_ai_generation_result
+
+        if not apply_edit_ai_generation_result(task_id, result):
+            logger.error("任务 %s AI 生成成功，但保存任务字段与流水线状态失败", task_id)
+            return jsonify({
+                'success': False,
+                'message': 'AI 已生成内容，但保存任务字段与流水线状态失败，请重试。',
+            }), 500
+    except Exception as exc:
+        logger.exception("任务 %s 保存编辑页 AI 生成结果失败", task_id)
+        return jsonify({
+            'success': False,
+            'message': f'AI 已生成内容，但更新流水线状态失败：{str(exc)}',
+        }), 500
+    return jsonify(result)
+
+
 @app.route('/tasks/<task_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_task(task_id):
