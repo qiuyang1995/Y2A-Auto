@@ -76,6 +76,57 @@ DEFAULT_CONFIG = {
     "COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT": False,
     "COOKIECLOUD_LAST_SYNC_AT": "",
     "COOKIECLOUD_LAST_SYNC_STATUS": "",
+    "UPLOAD_APPEND_REPOST_NOTICE": True,
+    "GENERATE_TAGS": False,
+    "YOUTUBE_UPLOADER_AS_FIRST_TAG": False,
+    "RECOMMEND_PARTITION": False,
+    "RECOMMEND_PARTITION_WITH_COVER": False,
+    "CONTENT_MODERATION_ENABLED": False,
+    "LOG_CLEANUP_ENABLED": True, # 是否启用日志自动清理
+    "LOG_CLEANUP_HOURS": 72, # 保留最近多少小时的日志
+    "LOG_CLEANUP_INTERVAL": 12, # 日志清理间隔（小时）
+    "DOWNLOAD_CLEANUP_ENABLED": False, # 是否启用下载内容自动清理
+    "DOWNLOAD_CLEANUP_HOURS": 72, # 保留最近多少小时的下载内容
+    "DOWNLOAD_CLEANUP_INTERVAL": 24, # 下载内容清理间隔（小时）
+    # 主动消息推送
+    "NOTIFY_ENABLED": False,
+    "NOTIFY_EVENT_TASK_ADDED": True,
+    "NOTIFY_EVENT_TASK_COMPLETED": True,
+    "NOTIFY_EVENT_TASK_FAILED": True,
+    "NOTIFY_EVENT_LOGIN_SUCCESS": True,
+    "NOTIFY_EVENT_LOGIN_LOCKED": True,
+    "NOTIFY_EVENT_QR_LOGIN_SUCCESS": True,
+    "NOTIFY_EVENT_QR_LOGIN_FAILED": True,
+    "NOTIFY_WECOM_ENABLED": False,
+    "NOTIFY_WECOM_WEBHOOK_URL": "",
+    "NOTIFY_SERVERCHAN_ENABLED": False,
+    "NOTIFY_SERVERCHAN_SENDKEY": "",
+    "NOTIFY_MESSAGE_PUSHER_ENABLED": False,
+    "NOTIFY_MESSAGE_PUSHER_SERVER": "",
+    "NOTIFY_MESSAGE_PUSHER_USERNAME": "",
+    "NOTIFY_MESSAGE_PUSHER_TOKEN": "",
+    "NOTIFY_MESSAGE_PUSHER_CHANNEL": "",
+    "password_protection_enabled": False,
+    "password": "",
+    "TG_BOT_API_TOKEN_HASH": "",
+    "TG_BOT_API_TOKEN_CREATED_AT": "",
+    "TG_BOT_API_TOKEN_LAST4": "",
+    # 登录安全控制
+    "LOGIN_MAX_FAILED_ATTEMPTS": 5,  # 达到该失败次数后触发锁定
+    "LOGIN_LOCKOUT_MINUTES": 15,     # 被锁定后持续的分钟数
+    "LOGIN_SESSION_TIMEOUT_MINUTES": 30,  # 登录空闲超时时长（分钟）
+    "YOUTUBE_COOKIES_PATH": "cookies/yt_cookies.txt", # 相对于项目根目录
+    "ACFUN_COOKIES_PATH": "cookies/ac_cookies.json", # AcFun Cookie文件路径
+    "BILIBILI_COOKIES_PATH": "cookies/bili_cookies.json", # bilibili Cookie 文件路径
+    # CookieCloud（首版仅用于手动拉取 YouTube Cookies）
+    "COOKIECLOUD_ENABLED": False,
+    "COOKIECLOUD_SERVER_URL": "",
+    "COOKIECLOUD_UUID": "",
+    "COOKIECLOUD_PASSWORD": "",
+    "COOKIECLOUD_CRYPTO_TYPE": "auto",
+    "COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT": False,
+    "COOKIECLOUD_LAST_SYNC_AT": "",
+    "COOKIECLOUD_LAST_SYNC_STATUS": "",
     "COOKIECLOUD_LAST_SYNC_MESSAGE": "",
     "ACFUN_USERNAME": "",
     "ACFUN_PASSWORD": "",
@@ -84,12 +135,10 @@ DEFAULT_CONFIG = {
     "OPENAI_BASE_URL": "https://api.openai.com/v1",
     "OPENAI_MODEL_NAME": "gpt-3.5-turbo",
     "OPENAI_THINKING_ENABLED": False,
-    "OPENAI_TIMEOUT_SECONDS": 600,  # OpenAI API 请求超时秒数；思考模型输出可达64k token，建议不低于300
-    # 固定分区ID（可选）：如设置则推荐分区将直接使用该ID
-    "FIXED_PARTITION_ID": "",
-    # bilibili固定分区ID（可选）：如设置则bilibili推荐分区将直接使用该ID
-    "FIXED_PARTITION_ID_BILIBILI": "",
-    # 字幕翻译可单独指定OpenAI Base URL；为空则回退到 OPENAI_BASE_URL
+    "OPENAI_TIMEOUT_SECONDS": 600,  # OpenAI API 请求超时秒数
+    "OPENAI_FALLBACK_MODEL_NAME": "",  # 备用模型名，如 gemini-2.0-flash / gpt-4o-mini
+    "OPENAI_FALLBACK_BASE_URL": "",  # 备用接口 Base URL
+    "OPENAI_FALLBACK_API_KEY": "",  # 备用 API Key
     "SUBTITLE_OPENAI_BASE_URL": "",
     # 字幕翻译可单独指定 API Key 与 模型名；为空则分别回退到 OPENAI_API_KEY 与 OPENAI_MODEL_NAME
     "SUBTITLE_OPENAI_API_KEY": "",

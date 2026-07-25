@@ -950,6 +950,7 @@ def _request_chat_completion(
     scene_name: str,
     user_content=None,
     response_format=None,
+    openai_config: Optional[Dict[str, Any]] = None,
 ):
     """公共 LLM 调用逻辑：构建消息、计时、执行请求，返回原始 response。"""
     user_message_content = user_content
@@ -995,13 +996,63 @@ def _request_chat_completion(
                 _AI_LOG_INPUT_MAX_CHARS,
             )
     try:
-        response = openai_chat_create_with_thinking_control(
-            client=client,
-            create_kwargs=create_kwargs,
-            thinking_enabled=thinking_enabled,
-            logger=logger_obj,
-            scene_name=scene_name,
-        )
+        try:
+            response = openai_chat_create_with_thinking_control(
+                client=client,
+                create_kwargs=create_kwargs,
+                thinking_enabled=thinking_enabled,
+                logger=logger_obj,
+                scene_name=scene_name,
+            )
+        except Exception as exc:
+            cfg = openai_config or {}
+            fallback_model = str(cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
+            if not fallback_model:
+                try:
+                    from .config_manager import load_config
+                    cfg = load_config() or {}
+                    fallback_model = str(cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
+                except Exception:
+                    pass
+
+            is_failover_err = (
+                '429' in safe_str(exc) or
+                'RateLimitError' in type(exc).__name__ or
+                'RESOURCE_EXHAUSTED' in safe_str(exc) or
+                _is_timeout_like_error(exc) or
+                '500' in safe_str(exc) or
+                '503' in safe_str(exc)
+            )
+
+            if is_failover_err and fallback_model and model_name != fallback_model:
+                if logger_obj:
+                    logger_obj.warning(
+                        "AI请求主模型失败，正在自动故障转移切至备用模型 | scene=%s | 主模型=%s | 备用模型=%s | 错误=%s: %s",
+                        scene_name,
+                        model_name,
+                        fallback_model,
+                        exc.__class__.__name__,
+                        safe_str(exc),
+                    )
+                fb_cfg = dict(cfg)
+                fb_cfg['OPENAI_MODEL_NAME'] = fallback_model
+                if fb_cfg.get('OPENAI_FALLBACK_BASE_URL'):
+                    fb_cfg['OPENAI_BASE_URL'] = fb_cfg['OPENAI_FALLBACK_BASE_URL']
+                if fb_cfg.get('OPENAI_FALLBACK_API_KEY'):
+                    fb_cfg['OPENAI_API_KEY'] = fb_cfg['OPENAI_FALLBACK_API_KEY']
+                
+                fb_client = get_openai_client(fb_cfg)
+                fb_create_kwargs = copy.deepcopy(create_kwargs)
+                fb_create_kwargs['model'] = fallback_model
+                response = openai_chat_create_with_thinking_control(
+                    client=fb_client,
+                    create_kwargs=fb_create_kwargs,
+                    thinking_enabled=thinking_enabled,
+                    logger=logger_obj,
+                    scene_name=f"{scene_name}_fallback",
+                )
+            else:
+                raise
         if logger_obj:
             choices = list(getattr(response, 'choices', None) or [])
             if not choices:

@@ -681,9 +681,33 @@
                                                             </div>
                                                         </div>
                                                         <div class="col-12">
-                                                            <div class="form-check form-switch">
+                                                            <div class="form-check form-switch mb-2">
                                                                 <input class="form-check-input" type="checkbox" id="openai-thinking-enabled" name="OPENAI_THINKING_ENABLED" {% if config.get('OPENAI_THINKING_ENABLED', False) %}checked{% endif %}>
                                                                 <label class="form-check-label" for="openai-thinking-enabled">通用模型启用思考模式</label>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12 mt-2">
+                                                            <div class="border-top pt-3">
+                                                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                                                    <label class="form-label fw-bold mb-0 text-secondary">
+                                                                        <i class="bi bi-shield-check me-1 text-success"></i>自动故障转移备用模型 (Fallback)
+                                                                    </label>
+                                                                    <span class="badge bg-light text-dark border">主模型遭遇 429 配额耗尽或报错时无缝切换</span>
+                                                                </div>
+                                                                <div class="row g-2">
+                                                                    <div class="col-md-4">
+                                                                        <label for="openai-fallback-model" class="form-label text-muted small">备用模型名称</label>
+                                                                        <input type="text" id="openai-fallback-model" name="OPENAI_FALLBACK_MODEL_NAME" value="{{ config.get('OPENAI_FALLBACK_MODEL_NAME', '') }}" class="form-control form-control-sm" placeholder="如 gemini-2.0-flash / gpt-4o-mini">
+                                                                    </div>
+                                                                    <div class="col-md-4">
+                                                                        <label for="openai-fallback-url" class="form-label text-muted small">备用 Base URL (可选)</label>
+                                                                        <input type="text" id="openai-fallback-url" name="OPENAI_FALLBACK_BASE_URL" value="{{ config.get('OPENAI_FALLBACK_BASE_URL', '') }}" class="form-control form-control-sm" placeholder="留空则沿用主 Base URL">
+                                                                    </div>
+                                                                    <div class="col-md-4">
+                                                                        <label for="openai-fallback-key" class="form-label text-muted small">备用 API 密钥 (可选)</label>
+                                                                        <input type="password" id="openai-fallback-key" name="OPENAI_FALLBACK_API_KEY" value="{{ config.get('OPENAI_FALLBACK_API_KEY', '') }}" class="form-control form-control-sm" placeholder="留空则沿用主 API 密钥">
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
