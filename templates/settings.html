@@ -3306,5 +3306,88 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     });
+
+window.testAIModelConnection = function (sectionName, btnElement) {
+    if (!sectionName || !btnElement) return;
+
+    const resultContainer = document.getElementById('test-result-' + sectionName);
+    const originalBtnContent = btnElement.innerHTML;
+
+    let urlInputId, keyInputId, modelInputId, thinkingInputId;
+    if (sectionName === 'global_openai') {
+        urlInputId = 'openai-url';
+        keyInputId = 'openai-key';
+        modelInputId = 'openai-model';
+        thinkingInputId = 'openai-thinking-enabled';
+    } else if (sectionName === 'subtitle_openai') {
+        urlInputId = 'subtitle-openai-url';
+        keyInputId = 'subtitle-openai-key';
+        modelInputId = 'subtitle-openai-model';
+        thinkingInputId = 'subtitle-openai-thinking-enabled';
+    } else if (sectionName === 'subtitle_qc') {
+        urlInputId = 'subtitle-qc-url';
+        keyInputId = 'subtitle-qc-key';
+        modelInputId = 'subtitle-qc-model';
+        thinkingInputId = 'subtitle-qc-thinking-enabled';
+    } else if (sectionName === 'whisper') {
+        urlInputId = 'whisper-base-url';
+        keyInputId = 'whisper-api-key';
+        modelInputId = 'whisper-model';
+    } else if (sectionName === 'voxtral') {
+        urlInputId = 'voxtral-base-url';
+        keyInputId = 'voxtral-api-key';
+        modelInputId = 'voxtral-model';
+    }
+
+    const baseUrl = urlInputId && document.getElementById(urlInputId) ? document.getElementById(urlInputId).value.trim() : '';
+    const apiKey = keyInputId && document.getElementById(keyInputId) ? document.getElementById(keyInputId).value.trim() : '';
+    const modelName = modelInputId && document.getElementById(modelInputId) ? document.getElementById(modelInputId).value.trim() : '';
+    const thinkingEnabled = thinkingInputId && document.getElementById(thinkingInputId) ? document.getElementById(thinkingInputId).checked : false;
+
+    btnElement.disabled = true;
+    btnElement.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>测试中...';
+
+    if (resultContainer) {
+        resultContainer.innerHTML = '<span class="badge bg-secondary opacity-75"><span class="spinner-grow spinner-grow-sm me-1"></span>连接测试中</span>';
+    }
+
+    fetch('/api/test_ai_model_connection', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            target_section: sectionName,
+            base_url: baseUrl,
+            api_key: apiKey,
+            model_name: modelName,
+            thinking_enabled: thinkingEnabled
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btnElement.disabled = false;
+        btnElement.innerHTML = originalBtnContent;
+
+        if (resultContainer) {
+            if (data.success) {
+                let msText = data.latency_ms ? ` (${data.latency_ms}ms)` : '';
+                resultContainer.innerHTML = `<span class="badge bg-success shadow-sm" title="${data.message || '连接成功'}"><i class="bi bi-check-circle-fill me-1"></i>连接成功${msText}</span>`;
+            } else {
+                let errMsg = data.error || '连接失败';
+                resultContainer.innerHTML = `<span class="badge bg-danger shadow-sm" title="${data.detail || errMsg}" style="cursor:help;"><i class="bi bi-exclamation-triangle-fill me-1"></i>${errMsg}</span>`;
+            }
+        }
+    })
+    .catch(err => {
+        btnElement.disabled = false;
+        btnElement.innerHTML = originalBtnContent;
+        if (resultContainer) {
+            resultContainer.innerHTML = `<span class="badge bg-danger shadow-sm" title="${err.message}"><i class="bi bi-x-circle-fill me-1"></i>请求异常</span>`;
+        }
+    });
+};
+
 </script>
 {% endblock %}
