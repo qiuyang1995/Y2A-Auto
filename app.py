@@ -2808,6 +2808,145 @@ def settings():
     )
 
 
+@app.route('/api/test_ai_model_connection', methods=['POST'])
+@login_required
+def test_ai_model_connection():
+    """测试指定 AI/ASR 模型配置的连通性"""
+    import openai
+    import time
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    target_section = str(data.get('target_section') or '').strip().lower()
+
+    if not target_section:
+        return jsonify({'success': False, 'error': '未指定测试的目标模型板块'})
+
+    saved_config = load_config()
+
+    input_url = str(data.get('base_url') or '').strip()
+    input_key = str(data.get('api_key') or '').strip()
+    input_model = str(data.get('model_name') or '').strip()
+    input_thinking = data.get('thinking_enabled')
+
+    # 按继承规则确定生效的 URL、Key 和 Model
+    if target_section == 'global_openai':
+        api_key = input_key or saved_config.get('OPENAI_API_KEY', '')
+        base_url = input_url or saved_config.get('OPENAI_BASE_URL', '')
+        model_name = input_model or saved_config.get('OPENAI_MODEL_NAME', 'gpt-4o-mini')
+        thinking_enabled = input_thinking if input_thinking is not None else saved_config.get('OPENAI_THINKING_ENABLED', False)
+
+    elif target_section == 'subtitle_openai':
+        api_key = input_key or saved_config.get('SUBTITLE_OPENAI_API_KEY') or saved_config.get('OPENAI_API_KEY', '')
+        base_url = input_url or saved_config.get('SUBTITLE_OPENAI_BASE_URL') or saved_config.get('OPENAI_BASE_URL', '')
+        model_name = input_model or saved_config.get('SUBTITLE_OPENAI_MODEL_NAME') or saved_config.get('OPENAI_MODEL_NAME', 'gpt-4o-mini')
+        thinking_enabled = input_thinking if input_thinking is not None else saved_config.get('SUBTITLE_OPENAI_THINKING_ENABLED', False)
+
+    elif target_section == 'subtitle_qc':
+        api_key = (input_key or saved_config.get('SUBTITLE_QC_API_KEY') or
+                   saved_config.get('SUBTITLE_OPENAI_API_KEY') or saved_config.get('OPENAI_API_KEY', ''))
+        base_url = (input_url or saved_config.get('SUBTITLE_QC_BASE_URL') or
+                    saved_config.get('SUBTITLE_OPENAI_BASE_URL') or saved_config.get('OPENAI_BASE_URL', ''))
+        model_name = (input_model or saved_config.get('SUBTITLE_QC_MODEL_NAME') or
+                      saved_config.get('SUBTITLE_OPENAI_MODEL_NAME') or saved_config.get('OPENAI_MODEL_NAME', 'gpt-4o-mini'))
+        thinking_enabled = input_thinking if input_thinking is not None else saved_config.get('SUBTITLE_QC_THINKING_ENABLED', False)
+
+    elif target_section == 'whisper':
+        api_key = input_key or saved_config.get('WHISPER_API_KEY') or saved_config.get('OPENAI_API_KEY', '')
+        base_url = input_url or saved_config.get('WHISPER_BASE_URL') or saved_config.get('OPENAI_BASE_URL', '')
+        model_name = input_model or saved_config.get('WHISPER_MODEL_NAME', 'whisper-1')
+        thinking_enabled = False
+
+    elif target_section == 'voxtral':
+        api_key = input_key or saved_config.get('VOXTRAL_API_KEY', '')
+        base_url = input_url or saved_config.get('VOXTRAL_BASE_URL', 'https://api.mistral.ai/v1')
+        model_name = input_model or saved_config.get('VOXTRAL_MODEL_NAME', 'voxtral-mini-latest')
+        thinking_enabled = False
+
+    else:
+        return jsonify({'success': False, 'error': f'未知的模型板块: {target_section}'})
+
+    if not api_key:
+        return jsonify({'success': False, 'error': 'API 密钥为空（请填写密钥或在全局配置中添加）'})
+
+    start_time = time.time()
+    try:
+        options = {'timeout': 15.0}
+        if base_url:
+            options['base_url'] = base_url
+
+        client = openai.OpenAI(api_key=api_key, **options)
+
+        if target_section in ('global_openai', 'subtitle_openai', 'subtitle_qc'):
+            messages = [{"role": "user", "content": "Hi"}]
+            create_kwargs = {
+                "model": model_name,
+                "messages": messages,
+                "max_tokens": 5
+            }
+            response = client.chat.completions.create(**create_kwargs)
+            latency_ms = int((time.time() - start_time) * 1000)
+            sample_text = ""
+            if response.choices and len(response.choices) > 0:
+                sample_text = (response.choices[0].message.content or "").strip()
+
+            return jsonify({
+                'success': True,
+                'message': '连接成功！模型响正常',
+                'latency_ms': latency_ms,
+                'used_model': model_name,
+                'sample': sample_text[:30]
+            })
+
+        else:
+            # ASR / 语音服务存活性探针
+            try:
+                client.models.list()
+                latency_ms = int((time.time() - start_time) * 1000)
+                return jsonify({
+                    'success': True,
+                    'message': '连接成功！API 探针正常',
+                    'latency_ms': latency_ms,
+                    'used_model': model_name
+                })
+            except Exception as probe_err:
+                err_text = str(probe_err)
+                err_type = type(probe_err).__name__
+                if '404' in err_text or 'NotFoundError' in err_type:
+                    latency_ms = int((time.time() - start_time) * 1000)
+                    return jsonify({
+                        'success': True,
+                        'message': '接口连通成功（鉴权已通过）',
+                        'latency_ms': latency_ms,
+                        'used_model': model_name
+                    })
+                raise probe_err
+
+    except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000)
+        err_str = str(e)
+        err_type = type(e).__name__
+
+        if 'AuthenticationError' in err_type or '401' in err_str:
+            user_error = "认证失败 (401)：API 密钥无效或未授权"
+        elif 'NotFoundError' in err_type or '404' in err_str:
+            user_error = f"未找到资源 (404)：请检查接口地址或模型名称 '{model_name}'"
+        elif 'APITimeoutError' in err_type or 'Timeout' in err_type or 'timed out' in err_str.lower():
+            user_error = "连接超时：无法建立网络连接，请检查接口地址或网络代理"
+        elif 'APIConnectionError' in err_type or 'ConnectionError' in err_type or 'connection' in err_str.lower():
+            user_error = "连接失败：域名解析失败或目标网络不可达"
+        elif 'RateLimitError' in err_type or '429' in err_str:
+            user_error = "触发表限/欠费 (429)：API 配额不足或请求频率过高"
+        else:
+            user_error = f"调用异常: {err_str[:100]}"
+
+        return jsonify({
+            'success': False,
+            'error': user_error,
+            'detail': err_str,
+            'latency_ms': latency_ms
+        })
+
+
 @app.route('/settings/tgbot-token', methods=['POST'])
 @login_required
 def settings_tgbot_token():

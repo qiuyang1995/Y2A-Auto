@@ -649,11 +649,17 @@
                                             </div>
                                             <div class="settings-card-body">
                                                 <div class="settings-subcard">
-                                                    <div class="settings-subcard-header">
+                                                    <div class="settings-subcard-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                                                         <h5>全局模型</h5>
-                                                        <span class="settings-status-badge {{ 'is-success' if config.get('OPENAI_API_KEY') else 'is-warning' }}">
-                                                            {{ '已配置' if config.get('OPENAI_API_KEY') else '未配置' }}
-                                                        </span>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <span id="test-result-global_openai"></span>
+                                                            <button type="button" class="btn btn-sm btn-outline-primary shadow-sm" onclick="testAIModelConnection('global_openai', this)">
+                                                                <i class="bi bi-plug-fill me-1"></i>测试连接
+                                                            </button>
+                                                            <span class="settings-status-badge {{ 'is-success' if config.get('OPENAI_API_KEY') else 'is-warning' }}">
+                                                                {{ '已配置' if config.get('OPENAI_API_KEY') else '未配置' }}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                     <div class="row g-3">
                                                         <div class="col-12">
@@ -684,11 +690,17 @@
                                                 </div>
 
                                                 <div class="settings-subcard">
-                                                    <div class="settings-subcard-header">
+                                                    <div class="settings-subcard-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                                                         <h5>字幕翻译专用覆盖</h5>
-                                                        <span class="settings-status-badge {{ 'is-info' if config.get('SUBTITLE_OPENAI_API_KEY') or config.get('SUBTITLE_OPENAI_MODEL_NAME') or config.get('SUBTITLE_OPENAI_BASE_URL') else 'is-neutral' }}">
-                                                            {{ '已覆盖全局配置' if config.get('SUBTITLE_OPENAI_API_KEY') or config.get('SUBTITLE_OPENAI_MODEL_NAME') or config.get('SUBTITLE_OPENAI_BASE_URL') else '留空即继承全局' }}
-                                                        </span>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <span id="test-result-subtitle_openai"></span>
+                                                            <button type="button" class="btn btn-sm btn-outline-primary shadow-sm" onclick="testAIModelConnection('subtitle_openai', this)">
+                                                                <i class="bi bi-plug-fill me-1"></i>测试连接
+                                                            </button>
+                                                            <span class="settings-status-badge {{ 'is-info' if config.get('SUBTITLE_OPENAI_API_KEY') or config.get('SUBTITLE_OPENAI_MODEL_NAME') or config.get('SUBTITLE_OPENAI_BASE_URL') else 'is-neutral' }}">
+                                                                {{ '已覆盖全局配置' if config.get('SUBTITLE_OPENAI_API_KEY') or config.get('SUBTITLE_OPENAI_MODEL_NAME') or config.get('SUBTITLE_OPENAI_BASE_URL') else '留空即继承全局' }}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                     <div class="row g-3">
                                                         <div class="col-12">
