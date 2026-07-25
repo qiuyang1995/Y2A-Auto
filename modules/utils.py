@@ -176,34 +176,44 @@ def safe_str(value, default=''):
         return default
 
 
-def _extract_balanced_json_block(text: str, start_char: str, end_char: str) -> Optional[str]:
-    start = text.find(start_char)
-    if start == -1:
-        return None
-
-    depth = 0
-    in_string = False
-    escaped = False
-    for index in range(start, len(text)):
-        char = text[index]
-        if escaped:
+def _extract_all_balanced_json_blocks(text, start_char='{', end_char='}'):
+    """提取文本中所有平衡的 JSON 字符串块。"""
+    blocks = []
+    i = 0
+    while i < len(text):
+        if text[i] == start_char:
+            start = i
+            depth = 0
+            in_string = False
             escaped = False
-            continue
-        if char == '\\':
-            escaped = True
-            continue
-        if char == '"':
-            in_string = not in_string
-            continue
-        if in_string:
-            continue
-        if char == start_char:
-            depth += 1
-        elif char == end_char:
-            depth -= 1
-            if depth == 0:
-                return text[start:index + 1]
-    return None
+            found_end = False
+            for j in range(start, len(text)):
+                char = text[j]
+                if escaped:
+                    escaped = False
+                    continue
+                if char == '\\':
+                    escaped = True
+                    continue
+                if char == '"':
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if char == start_char:
+                    depth += 1
+                elif char == end_char:
+                    depth -= 1
+                    if depth == 0:
+                        blocks.append(text[start:j + 1])
+                        i = j + 1
+                        found_end = True
+                        break
+            if not found_end:
+                i += 1
+        else:
+            i += 1
+    return blocks
 
 
 def extract_json_from_text(text, expected_type=None):
@@ -214,9 +224,10 @@ def extract_json_from_text(text, expected_type=None):
 
     candidates = [raw]
     for start_char, end_char in (('{', '}'), ('[', ']')):
-        block = _extract_balanced_json_block(raw, start_char, end_char)
-        if block and block not in candidates:
-            candidates.append(block)
+        blocks = _extract_all_balanced_json_blocks(raw, start_char, end_char)
+        for block in blocks:
+            if block and block not in candidates:
+                candidates.append(block)
 
     for candidate in candidates:
         try:
@@ -225,6 +236,13 @@ def extract_json_from_text(text, expected_type=None):
             continue
         if expected_type is not None and not isinstance(parsed, expected_type):
             continue
+        # 过滤模型镜像反射用户输入的伪 JSON（即包含入参键但缺乏实际输出键）
+        if isinstance(parsed, dict):
+            is_input_mirror = ('target_platform' in parsed or 'source_metadata' in parsed) and not any(
+                k in parsed for k in ('title', 'description', 'tags', 'keywords', 'summary', 'video_title', 'bilibili_title', 'desc', 'intro')
+            )
+            if is_input_mirror:
+                continue
         return parsed
     return None
 

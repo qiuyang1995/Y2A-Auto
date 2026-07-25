@@ -16,6 +16,7 @@ from .utils import (
     safe_str,
     openai_chat_create_with_thinking_control,
     extract_chat_message_json,
+    extract_json_from_text,
     get_chat_message_text,
 )
 
@@ -859,19 +860,37 @@ def _compact_current_metadata(current_metadata: Mapping[str, Any]) -> Dict[str, 
 
 
 def _parse_bilibili_title_description_text(text: str) -> Optional[Dict[str, Any]]:
-    """兼容 GLM 偶尔返回的“标题/简介”Markdown 分段，而非合法 JSON。"""
+    """兼容各种格式返回（如键名变异的 JSON、Markdown 分段、混合包裹文本）。"""
+    raw_str = safe_str(text)
+
+    # 1. 尝试检测文本中可能存在的任何 JSON 字典
+    try:
+        parsed_dict = extract_json_from_text(raw_str, expected_type=dict)
+        if isinstance(parsed_dict, dict):
+            title_keys = ('title', 'video_title', 'bilibili_title', 'new_title', 'generated_title', '标题', '中文标题')
+            desc_keys = ('description', 'video_description', 'bilibili_description', 'desc', 'intro', 'generated_description', '简介', '中文简介', '描述')
+
+            t_val = next((str(parsed_dict[k]).strip() for k in title_keys if k in parsed_dict and parsed_dict[k]), '')
+            d_val = next((str(parsed_dict[k]).strip() for k in desc_keys if k in parsed_dict and parsed_dict[k]), '')
+
+            if t_val or d_val:
+                return {'title': t_val, 'description': d_val}
+    except Exception:
+        pass
+
+    # 2. 如果无法通过 JSON 检索解析，继续尝试 Markdown / 正文标题简介分段结构
     sections: Dict[str, List[str]] = {}
     current_key = None
     heading_re = re.compile(
         r'^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?'
-        r'(标题|title|简介|描述|description)\s*(?:(?:[:：])\s*(.*))?\s*$',
+        r'(标题|title|bilibili_title|video_title|简介|描述|description|desc|intro)\s*(?:(?:[:：])\s*(.*))?\s*$',
         re.IGNORECASE,
     )
     key_map = {
-        '标题': 'title', 'title': 'title',
-        '简介': 'description', '描述': 'description', 'description': 'description',
+        '标题': 'title', 'title': 'title', 'bilibili_title': 'title', 'video_title': 'title',
+        '简介': 'description', '描述': 'description', 'description': 'description', 'desc': 'description', 'intro': 'description',
     }
-    for raw_line in safe_str(text).replace('```json', '').replace('```', '').splitlines():
+    for raw_line in raw_str.replace('```json', '').replace('```', '').splitlines():
         normalized_line = raw_line.replace('**', '').replace('__', '')
         match = heading_re.match(normalized_line)
         if match:
@@ -884,7 +903,7 @@ def _parse_bilibili_title_description_text(text: str) -> Optional[Dict[str, Any]
 
     title = '\n'.join(sections.get('title', [])).strip().strip('"“”')
     description = '\n'.join(sections.get('description', [])).strip().strip('"“”')
-    if title and description:
+    if title or description:
         return {'title': title, 'description': description}
     return None
 
@@ -1161,12 +1180,23 @@ def generate_bilibili_title_description(
         'current_metadata': _compact_current_metadata(current_metadata or {}),
     }
 
+    user_prompt_text = (
+        "请根据以下给出的原始视频元数据与当前任务信息，生成用于 B 站投稿的中文标题和中文简介。\n\n"
+        f"【生成限制】\n"
+        f"- 标题字符上限: {payload['title_limit']} 字\n"
+        f"- 简介字符上限: {payload['description_limit']} 字\n\n"
+        "【输入元数据】\n"
+        f"{json.dumps(payload, ensure_ascii=False, default=safe_str)}\n\n"
+        '请严格仅返回包含 "title" 和 "description" 两个字段的 JSON 对象！'
+    )
+
     try:
         parsed = _request_json_object(
             client=get_openai_client(config),
             model_name=model_name,
             system_prompt=BILIBILI_TITLE_DESCRIPTION_PROMPT,
             payload=payload,
+            user_content=user_prompt_text,
             max_tokens=1200,
             temperature=0.6,
             thinking_enabled=bool(config.get('OPENAI_THINKING_ENABLED', False)),
