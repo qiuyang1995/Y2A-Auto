@@ -578,6 +578,7 @@
     "order_by": "{{ config.order_by or 'viewCount' }}",
     "schedule_type": "{{ config.schedule_type or 'manual' }}",
     "schedule_interval": {{ config.schedule_interval or 120 }},
+    "schedule_time_points": "{{ config.schedule_time_points or '' }}",
     "auto_add_to_tasks": {{ 'true' if config.auto_add_to_tasks else 'false' }},
     "video_types": "{{ (config.video_types or 'video,short,live') if config else 'video,short,live' }}"
 }
@@ -626,6 +627,9 @@ function initializeFormState() {
         }
         if (configData.schedule_interval) {
             document.getElementById('schedule_interval').value = configData.schedule_interval;
+        }
+        if (configData.schedule_time_points) {
+            document.getElementById('schedule_time_points').value = configData.schedule_time_points;
         }
         if (configData.auto_add_to_tasks !== undefined) {
             document.getElementById('auto_add_to_tasks').checked = configData.auto_add_to_tasks;
@@ -1010,6 +1014,7 @@ function loadTemplate(templateType) {
 document.addEventListener('DOMContentLoaded', function() {
     // 初始化监控类型选择（基于现有配置）
     initializeFormState();
+    renderTimePointsBadges();
     
     // 确保状态正确恢复
     setTimeout(function() {
