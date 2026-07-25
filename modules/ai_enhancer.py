@@ -7,6 +7,7 @@ import re
 import time
 import json
 import base64
+import copy
 import traceback
 from typing import Any, Callable, Collection, Dict, List, Mapping, Optional, Sequence
 from difflib import SequenceMatcher
