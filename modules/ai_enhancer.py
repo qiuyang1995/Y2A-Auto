@@ -1789,7 +1789,7 @@ def generate_acfun_tags(title, description, openai_config=None, task_id=None):
                 "title": title,
                 "description": description[:200],
             },
-            max_tokens=160,
+            max_tokens=600,
             temperature=0.2,
             thinking_enabled=openai_config.get('OPENAI_THINKING_ENABLED', False),
             logger_obj=logger,

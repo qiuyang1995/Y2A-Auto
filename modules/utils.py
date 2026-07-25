@@ -324,6 +324,28 @@ def _is_thinking_param_unsupported_error(exc):
     return any(sig in text for sig in signals)
 
 
+def _invoke_chat_create_with_rate_limit_retry(client, kwargs, logger=None, max_retries=1):
+    """底层支持短时间 429 配额限制自动避让重试。"""
+    attempts = 0
+    while True:
+        try:
+            return client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            err_text = safe_str(exc)
+            is_429 = '429' in err_text or 'RateLimitError' in type(exc).__name__ or 'RESOURCE_EXHAUSTED' in err_text
+            if is_429 and attempts < max_retries:
+                attempts += 1
+                import time, re
+                match = re.search(r'retry\s+(?:in\s+)?(\d+)\s*s', err_text, re.IGNORECASE)
+                wait_sec = int(match.group(1)) if match else 3
+                if wait_sec <= 6:
+                    if logger:
+                        logger.warning("触发 API 频率限制 (429)，自动休眠等待 %d 秒后进行重试 (次 %d)...", wait_sec, attempts)
+                    time.sleep(wait_sec)
+                    continue
+            raise
+
+
 def openai_chat_create_with_thinking_control(
     client,
     create_kwargs,
@@ -331,9 +353,9 @@ def openai_chat_create_with_thinking_control(
     logger=None,
     scene_name='unknown',
 ):
-    """统一 chat.completions 请求，支持“尝试关闭思考 + 自动降级”策略。"""
+    """统一 chat.completions 请求，支持“尝试关闭思考 + 自动降级 + 429避让”策略。"""
     if _coerce_bool(thinking_enabled, default=False):
-        return client.chat.completions.create(**create_kwargs)
+        return _invoke_chat_create_with_rate_limit_retry(client, create_kwargs, logger=logger)
 
     disabled_kwargs = copy.deepcopy(create_kwargs or {})
     extra_body = disabled_kwargs.get('extra_body')
@@ -348,7 +370,7 @@ def openai_chat_create_with_thinking_control(
     disabled_kwargs['extra_body'] = extra_body
 
     try:
-        return client.chat.completions.create(**disabled_kwargs)
+        return _invoke_chat_create_with_rate_limit_retry(client, disabled_kwargs, logger=logger)
     except Exception as exc:
         if not _is_thinking_param_unsupported_error(exc):
             raise
@@ -370,4 +392,4 @@ def openai_chat_create_with_thinking_control(
                 logger.debug(
                     "thinking 控制参数不受支持，继续普通请求"
                 )
-        return client.chat.completions.create(**create_kwargs)
+        return _invoke_chat_create_with_rate_limit_retry(client, create_kwargs, logger=logger)
