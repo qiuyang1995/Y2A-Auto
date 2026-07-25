@@ -25,6 +25,26 @@ from modules.task_manager import add_task
 from .config_manager import load_config
 from .utils import get_app_subdir
 
+
+def parse_daily_time_points(time_points_str):
+    """解析形如 '16:00, 17:00' 或 '06:00,10:00,18:30' 的每日定点时间列表 [(16, 0), (17, 0)]"""
+    result = []
+    if not time_points_str:
+        return result
+    for raw in str(time_points_str).replace('，', ',').split(','):
+        item = raw.strip()
+        if not item:
+            continue
+        parts = item.split(':')
+        if len(parts) == 2:
+            try:
+                h, m = int(parts[0]), int(parts[1])
+                if 0 <= h <= 23 and 0 <= m <= 59:
+                    result.append((h, m))
+            except ValueError:
+                pass
+    return result
+
 def setup_youtube_monitor_logger():
     """设置YouTube监控专用日志"""
     logger = logging.getLogger('Y2A-Auto.YouTube-Monitor')
@@ -1821,53 +1841,76 @@ class YouTubeMonitor:
             )
             conn.commit()
     
-    def _schedule_monitor(self, config_id, interval_minutes):
-        """添加监控任务到调度器"""
-        job_id = f"monitor_{config_id}"
-        
+    def _remove_schedule(self, config_id):
+        """移除指定配置的所有调度任务（包括 interval 任务与 cron 定点任务）"""
+        prefix = f"monitor_{config_id}"
+        try:
+            removed_count = 0
+            for job in list(self.scheduler.get_jobs()):
+                if job.id == prefix or job.id.startswith(f"{prefix}_"):
+                    self.scheduler.remove_job(job.id)
+                    removed_count += 1
+            if removed_count > 0:
+                logger.info(f"已移除配置 (ID: {config_id}) 的 {removed_count} 个调度任务")
+        except Exception as e:
+            logger.error(f"移除调度任务失败 (ID: {config_id}): {str(e)}")
+
+    def _schedule_monitor(self, config_id, interval_minutes=None):
+        """添加监控任务到调度器，自动支持 interval (固定间隔) 和 daily_times (每日定点)"""
         try:
             config = self.get_monitor_config(config_id)
-            config_name = config['name'] if config else f"ID-{config_id}"
+            if not config or not config.get('enabled'):
+                return
             
-            self.scheduler.add_job(
-                func=self.run_monitor,
-                trigger='interval',
-                minutes=interval_minutes,
-                id=job_id,
-                args=[config_id],
-                replace_existing=True
-            )
+            config_name = config.get('name', f"ID-{config_id}")
+            schedule_type = config.get('schedule_type', 'manual')
+            
+            # 先清理原有任务
+            self._remove_schedule(config_id)
+            
+            if schedule_type == 'auto':
+                minutes = interval_minutes if interval_minutes is not None else config.get('schedule_interval', 120)
+                job_id = f"monitor_{config_id}"
+                self.scheduler.add_job(
+                    func=self.run_monitor,
+                    trigger='interval',
+                    minutes=minutes,
+                    id=job_id,
+                    args=[config_id],
+                    replace_existing=True
+                )
+                logger.info(f"添加间隔调度任务: {config_name} ({job_id}), 间隔: {minutes}分钟")
+                
+            elif schedule_type == 'daily_times':
+                time_points = parse_daily_time_points(config.get('schedule_time_points', ''))
+                if not time_points:
+                    logger.warning(f"配置 {config_name} (ID: {config_id}) 类型为每日定点，但未设置有效的时间点")
+                    return
+                
+                for h, m in time_points:
+                    job_id = f"monitor_{config_id}_cron_{h:02d}_{m:02d}"
+                    self.scheduler.add_job(
+                        func=self.run_monitor,
+                        trigger=CronTrigger(hour=h, minute=m),
+                        id=job_id,
+                        args=[config_id],
+                        replace_existing=True
+                    )
+                    logger.info(f"添加每日定点调度任务: {config_name} ({job_id}), 触发时间: {h:02d}:{m:02d}")
             
             if not self.scheduler.running:
                 self.scheduler.start()
                 logger.info("调度器已启动")
                 
-            logger.info(f"添加监控调度任务: {config_name} ({job_id}), 间隔: {interval_minutes}分钟")
         except Exception as e:
-            logger.error(f"添加调度任务失败: {str(e)}")
-    
+            logger.error(f"添加调度任务失败 (ID: {config_id}): {str(e)}")
+
     def _update_schedule(self, config_id, config_data):
         """更新调度任务"""
-        job_id = f"monitor_{config_id}"
-        
-        # 移除现有任务
         self._remove_schedule(config_id)
-        
-        # 如果是自动调度，重新添加
-        if config_data.get('schedule_type') == 'auto' and config_data.get('enabled'):
-            self._schedule_monitor(config_id, config_data.get('schedule_interval', 120))
-    
-    def _remove_schedule(self, config_id):
-        """移除调度任务"""
-        job_id = f"monitor_{config_id}"
-        
-        try:
-            if self.scheduler.get_job(job_id):
-                self.scheduler.remove_job(job_id)
-                logger.info(f"移除监控调度任务: {job_id}")
-        except Exception as e:
-            logger.error(f"移除调度任务失败: {str(e)}")
-    
+        if config_data.get('enabled') and config_data.get('schedule_type') in ('auto', 'daily_times'):
+            self._schedule_monitor(config_id, config_data.get('schedule_interval'))
+
     def get_monitor_history(self, config_id=None, limit=100):
         """获取监控历史记录"""
         with sqlite3.connect(self.db_path) as conn:
