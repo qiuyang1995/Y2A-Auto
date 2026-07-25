@@ -2868,6 +2868,20 @@ def test_ai_model_connection():
     if not api_key:
         return jsonify({'success': False, 'error': 'API 密钥为空（请填写密钥或在全局配置中添加）'})
 
+    # 智能规范化 Base URL（修剪多余的 /chat/completions，自动转换 Gemini 官方 OpenAI Endpoint）
+    clean_url = str(base_url).strip().rstrip('/')
+    url_note = ''
+    if clean_url.endswith('/chat/completions'):
+        clean_url = clean_url[:-17].rstrip('/')
+        url_note = ' (已自动裁剪末尾 /chat/completions)'
+
+    if 'generativelanguage.googleapis.com' in clean_url.lower():
+        if not clean_url.lower().endswith('/openai') and not clean_url.lower().endswith('/openai/'):
+            clean_url = clean_url.rstrip('/') + '/v1beta/openai/'
+            url_note = ' (已自动修正为 Gemini 官方 OpenAI 格式)'
+
+    base_url = clean_url
+
     start_time = time.time()
     try:
         options = {'timeout': 15.0}
@@ -2891,7 +2905,7 @@ def test_ai_model_connection():
 
             return jsonify({
                 'success': True,
-                'message': '连接成功！模型响正常',
+                'message': f'连接成功！模型响应正常{url_note}',
                 'latency_ms': latency_ms,
                 'used_model': model_name,
                 'sample': sample_text[:30]
@@ -2904,7 +2918,7 @@ def test_ai_model_connection():
                 latency_ms = int((time.time() - start_time) * 1000)
                 return jsonify({
                     'success': True,
-                    'message': '连接成功！API 探针正常',
+                    'message': f'连接成功！API 探针正常{url_note}',
                     'latency_ms': latency_ms,
                     'used_model': model_name
                 })
@@ -2915,7 +2929,7 @@ def test_ai_model_connection():
                     latency_ms = int((time.time() - start_time) * 1000)
                     return jsonify({
                         'success': True,
-                        'message': '接口连通成功（鉴权已通过）',
+                        'message': f'接口连通成功（鉴权已通过）{url_note}',
                         'latency_ms': latency_ms,
                         'used_model': model_name
                     })
@@ -2929,7 +2943,12 @@ def test_ai_model_connection():
         if 'AuthenticationError' in err_type or '401' in err_str:
             user_error = "认证失败 (401)：API 密钥无效或未授权"
         elif 'NotFoundError' in err_type or '404' in err_str:
-            user_error = f"未找到资源 (404)：请检查接口地址或模型名称 '{model_name}'"
+            if 'generativelanguage.googleapis.com' in str(data.get('base_url', '')).lower() and '/openai' not in str(data.get('base_url', '')).lower():
+                user_error = "404 错误：Gemini 官方 Endpoint 需设为 https://generativelanguage.googleapis.com/v1beta/openai/"
+            elif '/chat/completions' in str(data.get('base_url', '')):
+                user_error = "404 错误：接口地址中包含了多余的 '/chat/completions'，请删除该后缀"
+            else:
+                user_error = f"未找到资源 (404)：请检查接口地址或模型名称 '{model_name}'"
         elif 'APITimeoutError' in err_type or 'Timeout' in err_type or 'timed out' in err_str.lower():
             user_error = "连接超时：无法建立网络连接，请检查接口地址或网络代理"
         elif 'APIConnectionError' in err_type or 'ConnectionError' in err_type or 'connection' in err_str.lower():
