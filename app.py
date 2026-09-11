@@ -12,6 +12,7 @@ import shutil
 import time
 import uuid
 import threading
+import requests
 
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
@@ -3892,6 +3893,53 @@ def youtube_monitor_reset_offset(config_id):
     youtube_monitor.reset_historical_offset(config_id)
     
     return redirect(url_for('youtube_monitor_index'))
+
+@app.route('/youtube_monitor/cover/<video_id>')
+@login_required
+def youtube_monitor_cover(video_id):
+    """获取 YouTube 视频封面（支持本地缓存与独立代理）"""
+    if not video_id or not re.match(r'^[a-zA-Z0-9_-]{6,30}$', video_id):
+        return Response(status=404)
+        
+    covers_cache_dir = os.path.join(get_app_subdir('cache'), 'monitor_covers')
+    os.makedirs(covers_cache_dir, exist_ok=True)
+    cache_file = os.path.join(covers_cache_dir, f'{video_id}.jpg')
+    
+    if os.path.exists(cache_file) and os.path.getsize(cache_file) > 0:
+        return send_file(cache_file, mimetype='image/jpeg', max_age=86400)
+    
+    cfg = load_config() or {}
+    proxy_url = None
+    if cfg.get('YOUTUBE_API_PROXY_ENABLED', False):
+        proxy_url = str(cfg.get('YOUTUBE_API_PROXY_URL') or '').strip()
+    if not proxy_url:
+        proxy_url = str(cfg.get('YOUTUBE_PROXY_URL') or '').strip()
+    
+    proxies = {'http': proxy_url, 'https': proxy_url} if proxy_url else None
+    
+    urls = [
+        f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+        f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg",
+    ]
+    
+    for url in urls:
+        try:
+            resp = requests.get(url, proxies=proxies, timeout=6)
+            if resp.status_code == 200 and len(resp.content) > 1000:
+                with open(cache_file, 'wb') as f:
+                    f.write(resp.content)
+                return send_file(cache_file, mimetype='image/jpeg', max_age=86400)
+        except Exception:
+            continue
+            
+    placeholder_svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">'
+        '<rect width="320" height="180" fill="#212529"/>'
+        '<path d="M140 70 L190 90 L140 110 Z" fill="#6c757d"/>'
+        '<text x="50%" y="80%" dominant-baseline="middle" text-anchor="middle" fill="#adb5bd" font-size="14" font-family="sans-serif">无封面预览</text>'
+        '</svg>'
+    )
+    return Response(placeholder_svg, mimetype='image/svg+xml', headers={'Cache-Control': 'max-age=3600'})
 
 @app.route('/api/cookies/sync', methods=['POST'])
 @login_required

@@ -45,6 +45,37 @@ def parse_daily_time_points(time_points_str):
                 pass
     return result
 
+
+def normalize_search_keywords(keywords: str) -> str:
+    """规整 YouTube 搜索关键词。
+    YouTube Search API 中空格优先级高于竖线 |（空格为隐式 AND），
+    当用户使用 | 连接多个多词短语时（如 '아이브 직캠|IVE fancam'），
+    未加引号的多词短语会被引擎错误解析为超长跨词 AND 关系。
+    本函数将全角 ｜ 转换为半角 |，并自动为每个包含空格且未被引号包裹的短语添加双引号。
+    """
+    if not keywords or not isinstance(keywords, str):
+        return ""
+    
+    cleaned = keywords.replace('｜', '|').strip()
+    if not cleaned:
+        return ""
+        
+    if '|' in cleaned:
+        tokens = [t.strip() for t in cleaned.split('|')]
+        normalized_tokens = []
+        for t in tokens:
+            if not t:
+                continue
+            is_quoted = (t.startswith('"') and t.endswith('"')) or (t.startswith("'") and t.endswith("'"))
+            if any(c.isspace() for c in t) and not is_quoted:
+                normalized_tokens.append(f'"{t}"')
+            else:
+                normalized_tokens.append(t)
+        return '|'.join(normalized_tokens)
+    
+    return cleaned
+
+
 def setup_youtube_monitor_logger():
     """设置YouTube监控专用日志"""
     logger = logging.getLogger('Y2A-Auto.YouTube-Monitor')
@@ -289,6 +320,7 @@ class YouTubeMonitor:
                     duration TEXT,
                     published_at TEXT,
                     added_to_tasks BOOLEAN DEFAULT 0,
+                    thumbnail_url TEXT,
                     run_time TEXT DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (config_id) REFERENCES monitor_configs (id)
                 )
@@ -297,6 +329,12 @@ class YouTubeMonitor:
             # 为历史表新增 video_type 字段（向后兼容）
             try:
                 cursor.execute("ALTER TABLE monitor_history ADD COLUMN video_type TEXT")
+            except sqlite3.OperationalError:
+                pass
+
+            # 为历史表新增 thumbnail_url 字段（向后兼容）
+            try:
+                cursor.execute("ALTER TABLE monitor_history ADD COLUMN thumbnail_url TEXT")
             except sqlite3.OperationalError:
                 pass
             
@@ -1081,8 +1119,12 @@ class YouTubeMonitor:
             search_params['publishedBefore'] = published_before
         
         # 添加关键词搜索
-        if config['keywords']:
-            search_params['q'] = config['keywords']
+        if config.get('keywords'):
+            raw_keywords = config['keywords']
+            normalized_keywords = normalize_search_keywords(raw_keywords)
+            if normalized_keywords != raw_keywords:
+                logger.info(f"关键词已自动规整: '{raw_keywords}' -> '{normalized_keywords}'")
+            search_params['q'] = normalized_keywords
         
         # 添加分类过滤
         if config['category_id'] and config['category_id'] != '0':
@@ -1194,7 +1236,10 @@ class YouTubeMonitor:
             return []
             
         try:
-            keywords = config.get('channel_keywords', '')
+            raw_keywords = config.get('channel_keywords', '')
+            keywords = normalize_search_keywords(raw_keywords) if raw_keywords else ''
+            if keywords and keywords != raw_keywords:
+                logger.info(f"频道搜索关键词已自动规整: '{raw_keywords}' -> '{keywords}'")
             
             # 构建搜索参数
             search_params = {
@@ -1450,6 +1495,16 @@ class YouTubeMonitor:
                 'like_count': int(video['statistics'].get('likeCount', 0)),
                 'comment_count': int(video['statistics'].get('commentCount', 0))
             }
+            # 提取缩略图 URL（按 high -> medium -> default 优先级，或保底通过 video_id 构造）
+            thumbnails = video.get('snippet', {}).get('thumbnails', {}) or {}
+            thumbnail_url = (
+                thumbnails.get('high', {}).get('url')
+                or thumbnails.get('medium', {}).get('url')
+                or thumbnails.get('default', {}).get('url')
+                or f"https://i.ytimg.com/vi/{video['id']}/hqdefault.jpg"
+            )
+            video_info['thumbnail_url'] = thumbnail_url
+
             # 基于 API 字段的内容类型判定：live 优先，其次 shorts，再否则 video
             try:
                 video_info['video_type'] = self._detect_video_type(video)
@@ -1625,8 +1680,8 @@ class YouTubeMonitor:
                 INSERT INTO monitor_history (
                     config_id, video_id, video_type, video_title, channel_title,
                     view_count, like_count, comment_count, duration,
-                    published_at, added_to_tasks
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    published_at, added_to_tasks, thumbnail_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 config_id,
                 video_info['id'],
@@ -1638,7 +1693,8 @@ class YouTubeMonitor:
                 video_info['comment_count'],
                 video_info['duration'],
                 video_info['published_at'],
-                1 if auto_add_to_tasks else 0
+                1 if auto_add_to_tasks else 0,
+                video_info.get('thumbnail_url') or f"https://i.ytimg.com/vi/{video_info['id']}/hqdefault.jpg"
             ))
             
             conn.commit()
@@ -1938,6 +1994,9 @@ class YouTubeMonitor:
             history = []
             for row in cursor.fetchall():
                 record = dict(zip(columns, row))
+                if not record.get('thumbnail_url'):
+                    vid = record.get('video_id', '')
+                    record['thumbnail_url'] = f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg" if vid else ''
                 history.append(record)
             
             return history

@@ -170,6 +170,7 @@
                 <thead class="table-dark">
                     <tr>
                         <th>时间</th>
+                        <th>封面</th>
                         <th>配置名称</th>
                         <th>视频标题</th>
                         <th>频道</th>
@@ -184,6 +185,16 @@
                     {% for record in history %}
                     <tr>
                         <td data-label="时间"><small>{{ record.run_time }}</small></td>
+                        <td data-label="封面" class="text-center align-middle" style="width: 85px;">
+                            <img src="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}" 
+                                 alt="封面" 
+                                 class="monitor-cover-thumb rounded shadow-sm"
+                                 loading="lazy"
+                                 data-cover-url="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}"
+                                 data-video-title="{{ record.video_title }}"
+                                 data-youtube-url="https://www.youtube.com/watch?v={{ record.video_id }}"
+                                 title="点击放大查看封面">
+                        </td>
                         <td data-label="配置名称">{{ record.config_name }}</td>
                         <td data-label="视频标题">
                             <div class="text-truncate-300" title="{{ record.video_title }}">
@@ -236,6 +247,32 @@
     </div>
 </div>
 
+<!-- 封面大图预览模态框 -->
+<div class="modal fade" id="coverPreviewModal" tabindex="-1" aria-labelledby="coverPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark text-white shadow-lg">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-truncate" id="coverPreviewModalLabel" style="max-width: 85%;">封面预览</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body text-center p-2 bg-black">
+                <img id="coverPreviewImg" src="" alt="封面大图" class="img-fluid rounded" style="max-height: 72vh; width: auto; object-fit: contain;">
+            </div>
+            <div class="modal-footer border-secondary justify-content-between">
+                <div>
+                    <a id="coverPreviewOriginalBtn" href="" target="_blank" rel="noopener" class="btn btn-outline-info btn-sm me-2">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>查看原图
+                    </a>
+                    <a id="coverPreviewYoutubeBtn" href="" target="_blank" rel="noopener" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-youtube me-1"></i>打开YouTube
+                    </a>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_css %}
@@ -252,6 +289,17 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.monitor-cover-thumb {
+    width: 76px;
+    height: 43px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.monitor-cover-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35) !important;
 }
 /* Consistent icon button size */
 .btn-icon {
@@ -480,6 +528,41 @@ function showAlert(type, message) {
         }
     }, 3000);
 }
+
+function showCoverModal(imgUrl, title, youtubeUrl) {
+    const modalEl = document.getElementById('coverPreviewModal');
+    const imgEl = document.getElementById('coverPreviewImg');
+    const titleEl = document.getElementById('coverPreviewModalLabel');
+    const originalBtn = document.getElementById('coverPreviewOriginalBtn');
+    const youtubeBtn = document.getElementById('coverPreviewYoutubeBtn');
+    
+    if (imgEl) imgEl.src = imgUrl;
+    if (titleEl) titleEl.textContent = title || '封面预览';
+    if (originalBtn) originalBtn.href = imgUrl;
+    if (youtubeBtn) {
+        if (youtubeUrl) {
+            youtubeBtn.href = youtubeUrl;
+            youtubeBtn.style.display = 'inline-block';
+        } else {
+            youtubeBtn.style.display = 'none';
+        }
+    }
+    
+    if (modalEl && window.bootstrap) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const thumb = e.target.closest('.monitor-cover-thumb');
+    if (!thumb) return;
+    showCoverModal(
+        thumb.dataset.coverUrl || thumb.src,
+        thumb.dataset.videoTitle || '封面预览',
+        thumb.dataset.youtubeUrl || ''
+    );
+});
 
 document.addEventListener('DOMContentLoaded', bindMonitorRunForms);
 </script>
