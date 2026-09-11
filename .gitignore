@@ -11,6 +11,8 @@ build/
 .venv/
 venv/
 env/
+cache/
+output/
 
 # IDE specific
 .vscode/
