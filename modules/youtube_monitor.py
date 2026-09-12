@@ -1616,12 +1616,27 @@ class YouTubeMonitor:
             return False
         
         # 检查排除关键词
-        if config['exclude_keywords']:
+        if config.get('exclude_keywords'):
             exclude_words = [word.strip().lower() for word in config['exclude_keywords'].split(',')]
             title_lower = video_info['title'].lower()
             for word in exclude_words:
                 if word and word in title_lower:
                     return False
+        
+        # 检查直拍监控强白名单校验：
+        # 若配置关键词或任务名称中显式包含直拍标识（직캠、fancam、直拍、饭拍），
+        # 则视频标题必须包含直拍关键词（직캠 或 fancam），防止自制综艺日常口语切片因黑名单不全而混入
+        keywords_str = str(config.get('keywords', '')).lower()
+        config_name = str(config.get('name', '')).lower()
+        is_fancam_monitor = (
+            '직캠' in keywords_str or 'fancam' in keywords_str or
+            '직캠' in config_name or 'fancam' in config_name or
+            '直拍' in config_name or '饭拍' in config_name
+        )
+        if is_fancam_monitor:
+            title_lower = video_info['title'].lower()
+            if '직캠' not in title_lower and 'fancam' not in title_lower:
+                return False
         
         # 检查频道ID过滤
         if config['exclude_channel_ids']:
@@ -1769,25 +1784,24 @@ class YouTubeMonitor:
             logger.info(f"准备添加视频: {video_info['title']} (频道: {video_info['channel_title']})")
             
             # 添加到任务队列，是否自动启动由系统配置决定
-            # 尝试获取系统配置
             auto_start = False
             try:
                 from flask import current_app
                 if hasattr(current_app, 'config') and 'Y2A_SETTINGS' in current_app.config:
                     auto_start = current_app.config['Y2A_SETTINGS'].get('AUTO_MODE_ENABLED', False)
             except (ImportError, RuntimeError):
-                # 如果无法从Flask获取，尝试从文件加载
-                import os
-                import json
-                config_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config', 'config.json')
-                if os.path.exists(config_file):
-                    try:
-                        with open(config_file, 'r', encoding='utf-8') as f:
-                            config = json.load(f)
-                            auto_start = config.get('AUTO_MODE_ENABLED', False)
-                    except Exception as e:
-                        logger.warning(f"读取配置文件失败: {str(e)}")
-                    return True, f"视频已成功添加到任务队列，任务ID: {task_id}"
+                try:
+                    cfg = load_config() or {}
+                    auto_start = cfg.get('AUTO_MODE_ENABLED', False)
+                except Exception as e:
+                    logger.warning(f"读取配置文件失败: {str(e)}")
+            
+            logger.info(f"手动添加视频，自动启动处理: {'是' if auto_start else '否'}")
+            task_id = self._add_video_to_tasks(video_info, auto_start=auto_start)
+            if task_id:
+                self._mark_video_added_to_tasks(video_id, config_id)
+                logger.info(f"视频成功添加到任务队列: {video_info['title']}, 任务ID: {task_id}")
+                return True, f"视频已成功添加到任务队列，任务ID: {task_id}"
             else:
                 logger.error(f"添加视频到任务队列失败: {video_info['title']}")
                 return False, "添加到任务队列失败"
@@ -2017,22 +2031,55 @@ class YouTubeMonitor:
                 cursor.execute('SELECT COUNT(*) FROM monitor_history WHERE config_id = ?', (config_id,))
                 count = cursor.fetchone()[0]
                 
+                # 获取关联的 video_id 用于清除封面缓存
+                cursor.execute('SELECT video_id FROM monitor_history WHERE config_id = ?', (config_id,))
+                video_ids = [row[0] for row in cursor.fetchall() if row[0]]
+                
+                # 无论是否有历史记录，均重置该配置的历史偏移量与上次运行时间，确保状态彻底重置
+                cursor.execute('''
+                    UPDATE monitor_configs 
+                    SET historical_offset = 0, historical_progress_date = '', last_run_time = NULL 
+                    WHERE id = ?
+                ''', (config_id,))
+                
                 if count > 0:
                     # 删除历史记录
                     cursor.execute('DELETE FROM monitor_history WHERE config_id = ?', (config_id,))
                     conn.commit()
-                    logger.info(f"已清除配置 {config_name} (ID: {config_id}) 的 {count} 条监控历史记录")
-                    return True, f"成功清除 {count} 条历史记录"
+                    self._clear_cover_cache(video_ids)
+                    logger.info(f"已清除配置 {config_name} (ID: {config_id}) 的 {count} 条监控历史记录并重置历史状态")
+                    return True, f"成功清除 {count} 条历史记录并重置状态"
                 else:
-                    logger.info(f"配置 {config_name} (ID: {config_id}) 没有历史记录需要清除")
-                    return True, "没有历史记录需要清除"
+                    conn.commit()
+                    logger.info(f"配置 {config_name} (ID: {config_id}) 没有历史记录需要清除（已重置运行状态）")
+                    return True, "没有历史记录需要清除（已重置运行状态）"
                     
         except Exception as e:
             logger.error(f"清除监控历史记录失败，配置ID: {config_id}, 错误: {str(e)}")
             return False, f"清除历史记录失败: {str(e)}"
     
+    def _clear_cover_cache(self, video_ids=None):
+        """清空封面本地缓存文件"""
+        try:
+            from modules.utils import get_app_subdir
+            cache_dir = os.path.join(get_app_subdir('cache'), 'monitor_covers')
+            if not os.path.exists(cache_dir):
+                return
+            if video_ids:
+                for vid in video_ids:
+                    fpath = os.path.join(cache_dir, f'{vid}.jpg')
+                    if os.path.exists(fpath):
+                        os.remove(fpath)
+            else:
+                for fname in os.listdir(cache_dir):
+                    fpath = os.path.join(cache_dir, fname)
+                    if os.path.isfile(fpath):
+                        os.remove(fpath)
+        except Exception as e:
+            logger.warning(f"清除封面本地缓存失败: {e}")
+
     def clear_all_monitor_history(self):
-        """清除所有监控历史记录"""
+        """清除所有监控历史记录并重置所有配置的运行状态与封面缓存"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
@@ -2041,14 +2088,24 @@ class YouTubeMonitor:
                 cursor.execute('SELECT COUNT(*) FROM monitor_history')
                 count = cursor.fetchone()[0]
                 
+                # 重置所有配置的运行状态、偏移量与进度，彻底清除排重历史痕迹
+                cursor.execute('''
+                    UPDATE monitor_configs 
+                    SET historical_offset = 0, historical_progress_date = '', last_run_time = NULL
+                ''')
+                
                 if count > 0:
                     # 删除所有历史记录
                     cursor.execute('DELETE FROM monitor_history')
                     conn.commit()
-                    logger.info(f"已清除所有 {count} 条监控历史记录")
-                    return True, f"成功清除所有 {count} 条历史记录"
+                    self._clear_cover_cache()
+                    logger.info(f"已清除所有 {count} 条监控历史记录，并重置所有配置状态与封面缓存")
+                    return True, f"成功清除所有 {count} 条历史记录并重置运行状态"
                 else:
-                    return True, "没有历史记录需要清除"
+                    conn.commit()
+                    self._clear_cover_cache()
+                    logger.info("没有历史记录需要清除，已重置所有配置状态")
+                    return True, "没有历史记录需要清除（已重置所有配置状态）"
                     
         except Exception as e:
             logger.error(f"清除所有监控历史记录失败: {str(e)}")

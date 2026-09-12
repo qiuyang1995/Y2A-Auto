@@ -129,6 +129,160 @@ class TestYouTubeMonitorKeywordsAndCover(unittest.TestCase):
         self.assertEqual(resp_valid.status_code, 200)
         self.assertIn(resp_valid.mimetype, ['image/jpeg', 'image/svg+xml'])
 
+    def test_fancam_whitelist_filtering(self):
+        """测试直拍白名单筛选机制：拦截团综口语切片，放行真直拍"""
+        monitor = YouTubeMonitor.__new__(YouTubeMonitor)
+        config = {
+            'name': '韩国女团饭拍直拍（全站发现）',
+            'keywords': '"트리플에스 직캠"|"tripleS fancam"',
+            'exclude_keywords': 'Official MV,Teaser',
+            'exclude_channel_ids': '',
+            'channel_ids': '',
+            'min_view_count': 0,
+            'min_like_count': 0,
+            'min_comment_count': 0,
+            'min_duration': 0,
+            'max_duration': 0,
+            'video_types': 'video,short,live'
+        }
+
+        # 真实的真直拍案例
+        valid_video = {
+            'id': 'v1',
+            'title': '260905 트리플에스 나경 - Girls Never Die 4K 직캠 @천안 K-컬쳐 박람회 (tripleS KIMNAGYOUNG FANCAM)',
+            'channel_id': 'c1',
+            'view_count': 1000,
+            'like_count': 100,
+            'comment_count': 10,
+            'duration': 'PT3M',
+            'video_type': 'video'
+        }
+        self.assertTrue(monitor._meets_criteria(valid_video, config))
+
+        # 真实的团综切片案例（无 직캠 / fancam）
+        badge_war_video = {
+            'id': 'v2',
+            'title': '요원 vs 스파이 마피아 게임의 우승자가 밝혀진다 #tripleS #트리플에스 #BadgeWar4 #배지전쟁4',
+            'channel_id': 'c2',
+            'view_count': 1000,
+            'like_count': 100,
+            'comment_count': 10,
+            'duration': 'PT1M',
+            'video_type': 'short'
+        }
+        self.assertFalse(monitor._meets_criteria(badge_war_video, config))
+
+        # 非直拍监控配置，不受直拍白名单影响
+        normal_config = {
+            'name': '普通音乐节目监控',
+            'keywords': 'KPOP Music',
+            'exclude_keywords': '',
+            'exclude_channel_ids': '',
+            'channel_ids': '',
+            'min_view_count': 0,
+            'min_like_count': 0,
+            'min_comment_count': 0,
+            'min_duration': 0,
+            'max_duration': 0,
+            'video_types': 'video,short,live'
+        }
+        self.assertTrue(monitor._meets_criteria(badge_war_video, normal_config))
+
+    def test_clear_monitor_history_cascade_reset(self):
+        """测试清空监控历史时级联重置配置运行状态与偏移量"""
+        temp_dir = tempfile.mkdtemp()
+        test_db = os.path.join(temp_dir, 'test_cascade.db')
+        try:
+            monitor = YouTubeMonitor.__new__(YouTubeMonitor)
+            monitor.db_path = test_db
+            monitor.scheduler = None
+            monitor.api_key = None
+            monitor.youtube = None
+            monitor.youtube_http = None
+            monitor._api_proxy_enabled = False
+            monitor._last_api_init_error = None
+            monitor._init_database()
+
+            # 插入或替换带状态的配置与历史记录
+            conn = sqlite3.connect(test_db)
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO monitor_configs (id, name, last_run_time, historical_offset, historical_progress_date)
+                VALUES (1, '测试级联', '2026-09-11 12:00:00', 50, '2026-09-01')
+            """)
+            cursor.execute("""
+                INSERT INTO monitor_history (config_id, video_id, video_title, channel_title)
+                VALUES (1, 'test_vid_1', '测试视频1', '测试频道')
+            """)
+            conn.commit()
+            conn.close()
+
+            # 执行清理单个配置历史
+            success, msg = monitor.clear_monitor_history(config_id=1)
+            self.assertTrue(success)
+
+            # 验证历史已清空且配置状态被重置
+            conn = sqlite3.connect(test_db)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM monitor_history WHERE config_id = 1")
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+            cursor.execute("SELECT last_run_time, historical_offset, historical_progress_date FROM monitor_configs WHERE id = 1")
+            row = cursor.fetchone()
+            self.assertIsNone(row[0])
+            self.assertEqual(row[1], 0)
+            self.assertEqual(row[2], '')
+            conn.close()
+        finally:
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_add_video_to_tasks_manually(self):
+        """测试手动添加视频到任务队列功能"""
+        from unittest.mock import patch
+        temp_dir = tempfile.mkdtemp()
+        test_db = os.path.join(temp_dir, 'test_manual_add.db')
+        try:
+            monitor = YouTubeMonitor.__new__(YouTubeMonitor)
+            monitor.db_path = test_db
+            monitor.scheduler = None
+            monitor.api_key = None
+            monitor.youtube = None
+            monitor.youtube_http = None
+            monitor._api_proxy_enabled = False
+            monitor._last_api_init_error = None
+            monitor._init_database()
+
+            conn = sqlite3.connect(test_db)
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO monitor_history (config_id, video_id, video_title, channel_title, added_to_tasks)
+                VALUES (1, 'vid_manual_1', '直拍测试视频', '频道A', 0)
+            """)
+            conn.commit()
+            conn.close()
+
+            # Mock add_task 返回假任务ID 'task-uuid-12345'
+            with patch('modules.youtube_monitor.add_task', return_value='task-uuid-12345'):
+                success, message = monitor.add_video_to_tasks_manually('vid_manual_1', 1)
+                self.assertTrue(success)
+                self.assertIn('task-uuid-12345', message)
+
+            # 验证数据库中 added_to_tasks 已被置为 1
+            conn = sqlite3.connect(test_db)
+            cursor = conn.cursor()
+            cursor.execute("SELECT added_to_tasks FROM monitor_history WHERE video_id = 'vid_manual_1' AND config_id = 1")
+            self.assertEqual(cursor.fetchone()[0], 1)
+            conn.close()
+
+            # 再次添加同一视频，应被拦截提示已添加
+            success_repeat, message_repeat = monitor.add_video_to_tasks_manually('vid_manual_1', 1)
+            self.assertFalse(success_repeat)
+            self.assertIn('已经添加到任务队列', message_repeat)
+        finally:
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -79,6 +79,22 @@
             </button>
         </div>
     </td>
+    <td class="col-cover text-center">
+        <div class="d-flex align-items-center justify-content-center">
+            <img src="{{ url_for('get_task_cover', task_id=task.id) }}"
+                 alt="封面"
+                 class="task-cover-thumb rounded shadow-sm"
+                 style="width: 72px; height: 40px; object-fit: cover; cursor: pointer; transition: transform 0.15s ease-in-out;"
+                 data-cover-url="{{ url_for('get_task_cover', task_id=task.id) }}"
+                 data-video-title="{{ display_title }}"
+                 data-youtube-url="{{ task.youtube_url or '' }}"
+                 title="点击放大查看封面"
+                 loading="lazy"
+                 onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'72\' height=\'40\' viewBox=\'0 0 72 40\'><rect width=\'72\' height=\'40\' fill=\'%23212529\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'10\' fill=\'%23adb5bd\'>无封面</text></svg>';"
+                 onmouseover="this.style.transform='scale(1.08)'"
+                 onmouseout="this.style.transform='scale(1)'">
+        </div>
+    </td>
     <td>
         <div class="title-clamp title-clamp-3" title="{{ display_title }}">{{ display_title }}</div>
         {% if task.video_title_translated and task.video_title_original %}

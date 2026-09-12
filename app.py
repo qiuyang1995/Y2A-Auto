@@ -2034,28 +2034,95 @@ def edit_task(task_id):
         current_cover_filename=current_cover_filename
     )
 
+def _extract_video_id(url_or_id: str) -> str | None:
+    """从 YouTube URL 或输入中提取 11 位 video_id"""
+    if not url_or_id:
+        return None
+    url_or_id = str(url_or_id).strip()
+    patterns = [
+        r'(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/shorts\/)([a-zA-Z0-9_-]{11})',
+        r'^[a-zA-Z0-9_-]{11}$'
+    ]
+    for p in patterns:
+        m = re.search(p, url_or_id)
+        if m:
+            return m.group(1) if m.groups() else m.group(0)
+    return None
+
+def _serve_placeholder_cover():
+    """返回统一的无封面 SVG 占位图"""
+    placeholder_svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">'
+        '<rect width="320" height="180" fill="#212529"/>'
+        '<path d="M140 70 L190 90 L140 110 Z" fill="#6c757d"/>'
+        '<text x="50%" y="80%" dominant-baseline="middle" text-anchor="middle" fill="#adb5bd" font-size="14" font-family="sans-serif">无封面预览</text>'
+        '</svg>'
+    )
+    return Response(placeholder_svg, mimetype='image/svg+xml', headers={'Cache-Control': 'max-age=3600'})
+
+def _serve_youtube_cover(video_id: str):
+    """通过本地缓存或配置代理拉取 YouTube 视频封面"""
+    if not video_id or not re.match(r'^[a-zA-Z0-9_-]{6,30}$', video_id):
+        return Response(status=404)
+        
+    covers_cache_dir = os.path.join(get_app_subdir('cache'), 'monitor_covers')
+    os.makedirs(covers_cache_dir, exist_ok=True)
+    cache_file = os.path.join(covers_cache_dir, f'{video_id}.jpg')
+    
+    if os.path.exists(cache_file) and os.path.getsize(cache_file) > 0:
+        return send_file(cache_file, mimetype='image/jpeg', max_age=86400)
+    
+    cfg = load_config() or {}
+    proxy_url = None
+    if cfg.get('YOUTUBE_API_PROXY_ENABLED', False):
+        proxy_url = str(cfg.get('YOUTUBE_API_PROXY_URL') or '').strip()
+    if not proxy_url:
+        proxy_url = str(cfg.get('YOUTUBE_PROXY_URL') or '').strip()
+    
+    proxies = {'http': proxy_url, 'https': proxy_url} if proxy_url else None
+    
+    urls = [
+        f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+        f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg",
+    ]
+    
+    for url in urls:
+        try:
+            resp = requests.get(url, proxies=proxies, timeout=6)
+            if resp.status_code == 200 and len(resp.content) > 1000:
+                with open(cache_file, 'wb') as f:
+                    f.write(resp.content)
+                return send_file(cache_file, mimetype='image/jpeg', max_age=86400)
+        except Exception:
+            continue
+            
+    return _serve_placeholder_cover()
+
 @app.route('/tasks/<task_id>/cover')
 @login_required
 def get_task_cover(task_id):
-    """获取任务封面图片"""
+    """获取任务封面图片（优先本地封面，未完成时自动从 YouTube 官方封面拉取缓存）"""
     task = get_task(task_id)
-    
     if not task:
-        # 返回默认图片或404
-        return '', 404
+        return _serve_placeholder_cover()
     
+    # 1. 优先尝试从本地 downloads 目录读取已有封面（如已下载完成或设置了自定义封面）
     try:
         task_dir_real = _get_task_dir_real(task_id)
+        cover_path = _get_current_cover_path(task, task_dir_real)
+        if cover_path and os.path.exists(cover_path) and os.path.getsize(cover_path) > 0:
+            mime_type, _ = mimetypes.guess_type(cover_path)
+            return send_file(cover_path, mimetype=mime_type or 'image/jpeg')
     except (ValueError, OSError):
-        return '', 404
+        pass
 
-    cover_path = _get_current_cover_path(task, task_dir_real)
-    if cover_path and os.path.exists(cover_path):
-        mime_type, _ = mimetypes.guess_type(cover_path)
-        return send_file(cover_path, mimetype=mime_type)
-    
-    # 没有找到封面
-    return '', 404
+    # 2. 本地尚无封面（例如刚加入队列排队或下载中），从 youtube_url 提取 video_id 并拉取封面
+    video_id = _extract_video_id(task.get('youtube_url'))
+    if video_id:
+        return _serve_youtube_cover(video_id)
+
+    # 3. 兜底返回 SVG 占位图
+    return _serve_placeholder_cover()
 
 @app.route('/tasks/<task_id>/review')
 @login_required
@@ -3898,48 +3965,7 @@ def youtube_monitor_reset_offset(config_id):
 @login_required
 def youtube_monitor_cover(video_id):
     """获取 YouTube 视频封面（支持本地缓存与独立代理）"""
-    if not video_id or not re.match(r'^[a-zA-Z0-9_-]{6,30}$', video_id):
-        return Response(status=404)
-        
-    covers_cache_dir = os.path.join(get_app_subdir('cache'), 'monitor_covers')
-    os.makedirs(covers_cache_dir, exist_ok=True)
-    cache_file = os.path.join(covers_cache_dir, f'{video_id}.jpg')
-    
-    if os.path.exists(cache_file) and os.path.getsize(cache_file) > 0:
-        return send_file(cache_file, mimetype='image/jpeg', max_age=86400)
-    
-    cfg = load_config() or {}
-    proxy_url = None
-    if cfg.get('YOUTUBE_API_PROXY_ENABLED', False):
-        proxy_url = str(cfg.get('YOUTUBE_API_PROXY_URL') or '').strip()
-    if not proxy_url:
-        proxy_url = str(cfg.get('YOUTUBE_PROXY_URL') or '').strip()
-    
-    proxies = {'http': proxy_url, 'https': proxy_url} if proxy_url else None
-    
-    urls = [
-        f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
-        f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg",
-    ]
-    
-    for url in urls:
-        try:
-            resp = requests.get(url, proxies=proxies, timeout=6)
-            if resp.status_code == 200 and len(resp.content) > 1000:
-                with open(cache_file, 'wb') as f:
-                    f.write(resp.content)
-                return send_file(cache_file, mimetype='image/jpeg', max_age=86400)
-        except Exception:
-            continue
-            
-    placeholder_svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">'
-        '<rect width="320" height="180" fill="#212529"/>'
-        '<path d="M140 70 L190 90 L140 110 Z" fill="#6c757d"/>'
-        '<text x="50%" y="80%" dominant-baseline="middle" text-anchor="middle" fill="#adb5bd" font-size="14" font-family="sans-serif">无封面预览</text>'
-        '</svg>'
-    )
-    return Response(placeholder_svg, mimetype='image/svg+xml', headers={'Cache-Control': 'max-age=3600'})
+    return _serve_youtube_cover(video_id)
 
 @app.route('/api/cookies/sync', methods=['POST'])
 @login_required

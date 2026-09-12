@@ -73,11 +73,25 @@
 <div class="card task-card mb-3 status-{{ task.status }} shadow-sm" data-task-id="{{ task.id }}" data-task-status="{{ task.status }}">
     <div class="card-body p-3">
         <div class="d-flex align-items-start justify-content-between gap-2">
-            <div class="flex-grow-1">
-                <div class="task-title text-dark fw-bold fs-6 title-clamp title-clamp-3" title="{{ display_title }}">{{ display_title }}</div>
-                {% if task.video_title_translated and task.video_title_original %}
-                    <div class="small text-muted text-truncate mt-1" title="原标题: {{ task.video_title_original }}"><i class="bi bi-translate me-1 text-primary"></i>原标题: {{ task.video_title_original }}</div>
-                {% endif %}
+            <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
+                <div class="flex-shrink-0">
+                    <img src="{{ url_for('get_task_cover', task_id=task.id) }}"
+                         alt="封面"
+                         class="task-cover-thumb rounded shadow-sm"
+                         style="width: 72px; height: 40px; object-fit: cover; cursor: pointer;"
+                         data-cover-url="{{ url_for('get_task_cover', task_id=task.id) }}"
+                         data-video-title="{{ display_title }}"
+                         data-youtube-url="{{ task.youtube_url or '' }}"
+                         title="点击放大查看封面"
+                         loading="lazy"
+                         onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'72\' height=\'40\' viewBox=\'0 0 72 40\'><rect width=\'72\' height=\'40\' fill=\'%23212529\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'10\' fill=\'%23adb5bd\'>无封面</text></svg>';">
+                </div>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="task-title text-dark fw-bold fs-6 title-clamp title-clamp-3" title="{{ display_title }}">{{ display_title }}</div>
+                    {% if task.video_title_translated and task.video_title_original %}
+                        <div class="small text-muted text-truncate mt-1" title="原标题: {{ task.video_title_original }}"><i class="bi bi-translate me-1 text-primary"></i>原标题: {{ task.video_title_original }}</div>
+                    {% endif %}
+                </div>
             </div>
             <div class="text-end flex-shrink-0">
                 <div class="id-cell d-flex align-items-center justify-content-end mb-1">

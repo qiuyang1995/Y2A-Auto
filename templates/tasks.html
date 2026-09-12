@@ -40,6 +40,7 @@
                 <table class="table table-hover align-middle mb-0 tasks-table no-min-width">
                     <colgroup>
                         <col class="col-id">
+                        <col class="col-cover" style="width: 85px;">
                         <col class="col-title">
                         <col class="col-status">
                         <col class="col-time">
@@ -52,6 +53,7 @@
                     <thead>
                         <tr>
                             <th class="col-id">ID</th>
+                            <th class="col-cover text-center">封面</th>
                             <th class="col-title">视频标题</th>
                             <th class="col-status">状态</th>
                             <th class="col-time">时间</th>
@@ -135,6 +137,32 @@
         </div>
     </nav>
     {% endif %}
+    </div>
+</div>
+
+<!-- 封面大图预览模态框 -->
+<div class="modal fade" id="taskCoverPreviewModal" tabindex="-1" aria-labelledby="taskCoverPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header py-2 px-3 bg-light">
+                <h6 class="modal-title text-truncate me-2" id="taskCoverPreviewModalLabel" style="max-width: 80%;">封面预览</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-dark position-relative" style="min-height: 240px; display: flex; align-items: center; justify-content: center;">
+                <img id="taskCoverPreviewImg" src="" alt="封面大图" class="img-fluid rounded" style="max-height: 75vh; width: auto; object-fit: contain;">
+            </div>
+            <div class="modal-footer py-2 px-3 justify-content-between">
+                <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>点击背景或右上角关闭</span>
+                <div class="d-flex gap-2">
+                    <a id="taskCoverPreviewYoutubeBtn" href="#" target="_blank" class="btn btn-sm btn-outline-danger" style="display: none;">
+                        <i class="bi bi-youtube me-1"></i>打开 YouTube
+                    </a>
+                    <a id="taskCoverPreviewOriginalBtn" href="#" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-arrows-fullscreen me-1"></i>查看原图
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1206,6 +1234,41 @@ tr.status-awaiting_manual_review td { background-color: rgba(255,193,7,0.05); }
                 refreshTasksData(true);
             }
         });
+    });
+
+    function showTaskCoverModal(imgUrl, title, youtubeUrl) {
+        const modalEl = document.getElementById('taskCoverPreviewModal');
+        const imgEl = document.getElementById('taskCoverPreviewImg');
+        const titleEl = document.getElementById('taskCoverPreviewModalLabel');
+        const originalBtn = document.getElementById('taskCoverPreviewOriginalBtn');
+        const youtubeBtn = document.getElementById('taskCoverPreviewYoutubeBtn');
+        
+        if (imgEl) imgEl.src = imgUrl;
+        if (titleEl) titleEl.textContent = title || '封面预览';
+        if (originalBtn) originalBtn.href = imgUrl;
+        if (youtubeBtn) {
+            if (youtubeUrl) {
+                youtubeBtn.href = youtubeUrl;
+                youtubeBtn.style.display = 'inline-block';
+            } else {
+                youtubeBtn.style.display = 'none';
+            }
+        }
+        
+        if (modalEl && window.bootstrap) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        const thumb = e.target.closest('.task-cover-thumb');
+        if (!thumb) return;
+        showTaskCoverModal(
+            thumb.dataset.coverUrl || thumb.src,
+            thumb.dataset.videoTitle || '封面预览',
+            thumb.dataset.youtubeUrl || ''
+        );
     });
 </script>
 {% endblock %} 
