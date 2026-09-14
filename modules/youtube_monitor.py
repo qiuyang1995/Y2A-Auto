@@ -6,7 +6,7 @@ import json
 import logging
 import sqlite3
 import datetime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import socket
 import ssl
 from typing import Optional, Dict, List, Any, Union, Tuple
@@ -220,8 +220,8 @@ class YouTubeMonitor:
                     rate_limit_requests INTEGER DEFAULT 20,
                     rate_limit_window INTEGER DEFAULT 60,
                     last_run_time TEXT,
-                    created_time TEXT DEFAULT CURRENT_TIMESTAMP,
-                    updated_time TEXT DEFAULT CURRENT_TIMESTAMP
+                    created_time TEXT DEFAULT (datetime('now', 'localtime')),
+                    updated_time TEXT DEFAULT (datetime('now', 'localtime'))
                 )
             ''')
             
@@ -321,7 +321,7 @@ class YouTubeMonitor:
                     published_at TEXT,
                     added_to_tasks BOOLEAN DEFAULT 0,
                     thumbnail_url TEXT,
-                    run_time TEXT DEFAULT CURRENT_TIMESTAMP,
+                    run_time TEXT DEFAULT (datetime('now', 'localtime')),
                     FOREIGN KEY (config_id) REFERENCES monitor_configs (id)
                 )
             ''')
@@ -659,7 +659,7 @@ class YouTubeMonitor:
         assignments_sql = ', '.join(f'{field} = ?' for field in MONITOR_CONFIG_DB_FIELDS)
         values = self._collect_monitor_config_values(config_data, field_default_overrides)
         cursor.execute(
-            f'UPDATE monitor_configs SET {assignments_sql}, updated_time = CURRENT_TIMESTAMP WHERE id = ?',
+            f"UPDATE monitor_configs SET {assignments_sql}, updated_time = datetime('now', 'localtime') WHERE id = ?",
             tuple(values + [config_id])
         )
     
@@ -679,7 +679,7 @@ class YouTubeMonitor:
                     is_channel_monitor = bool(config_data.get('channel_ids') and str(config_data.get('channel_ids')).strip())
                     if config_data.get('channel_mode') == 'latest' and is_channel_monitor:
                         cursor.execute(
-                            'UPDATE monitor_configs SET last_run_time = CURRENT_TIMESTAMP WHERE id = ?',
+                            "UPDATE monitor_configs SET last_run_time = datetime('now', 'localtime') WHERE id = ?",
                             (config_id,)
                         )
                         conn.commit()
@@ -840,7 +840,7 @@ class YouTubeMonitor:
                     is_channel_monitor = bool(config_data.get('channel_ids') and str(config_data.get('channel_ids')).strip())
                     if became_latest and is_channel_monitor:
                         cursor.execute(
-                            'UPDATE monitor_configs SET last_run_time = CURRENT_TIMESTAMP WHERE id = ?',
+                            "UPDATE monitor_configs SET last_run_time = datetime('now', 'localtime') WHERE id = ?",
                             (config_id,)
                         )
                         conn.commit()
@@ -1033,11 +1033,11 @@ class YouTubeMonitor:
                     # 持续跟进最新（频道监控）：从开启/上次运行时间开始算
                     last_run_str = config.get('last_run_time')
                     if last_run_str:
-                        # SQLite CURRENT_TIMESTAMP 格式为 'YYYY-MM-DD HH:MM:SS'
+                        # 数据库中存储的是本地时间（YYYY-MM-DD HH:MM:SS），需转为 UTC 供 YouTube API 使用
                         try:
                             last_run_dt = datetime.strptime(last_run_str, '%Y-%m-%d %H:%M:%S')
-                            published_after = last_run_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-                            logger.info(f"最新跟进模式：使用上次运行时间为基准: {published_after}")
+                            published_after = last_run_dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                            logger.info(f"最新跟进模式：使用上次运行时间为基准(UTC): {published_after}")
                         except Exception:
                             # 解析失败则退回到当前时间
                             published_after = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -1102,18 +1102,19 @@ class YouTubeMonitor:
             'regionCode': config['region_code']
         }
 
-        # 根据所选类型决定是否在搜索阶段过滤直播或非直播
+        # 根据所选类型决定是否在搜索阶段过滤直播
         selected_types = str(config.get('video_types', 'video,short,live')).split(',')
         selected_types = [t.strip() for t in selected_types if t.strip()]
         only_live = set(selected_types) == {'live'}
-        include_live = 'live' in set(selected_types)
-        only_non_live = not include_live
-        # live 精准过滤在搜索阶段；Shorts 不使用 videoDuration=short（过宽），改为详情阶段判断
+        # 注意：eventType 是「把搜索范围限制到直播事件」的过滤器，
+        # 官方语义为 completed = Only include completed broadcasts。
+        # 因此只能在「只要直播」时设置 eventType=live；
+        # 若在排除直播时设置 eventType=completed，会把普通投稿一并排除，
+        # 导致搜索结果几乎为空（实测 28 关键词仅返回 1 条）。
+        # 非直播类型统一交由详情阶段的 _detect_video_type 判定，搜索阶段不加 eventType。
         if only_live:
             search_params['eventType'] = 'live'
-        elif only_non_live:
-            search_params['eventType'] = 'completed'
-        
+
         # 添加结束日期限制
         if published_before:
             search_params['publishedBefore'] = published_before
@@ -1251,16 +1252,12 @@ class YouTubeMonitor:
                 'maxResults': config.get('max_results', 10),
                 'order': config.get('order_by', 'relevance')
             }
-            # 根据选择增加 eventType/videoDuration
+            # 根据选择增加 eventType（同上：仅「只要直播」时才限制搜索范围）
             selected_types = str(config.get('video_types', 'video,short,live')).split(',')
             selected_types = [t.strip() for t in selected_types if t.strip()]
             only_live = set(selected_types) == {'live'}
-            include_live = 'live' in set(selected_types)
-            only_non_live = not include_live
             if only_live:
                 search_params['eventType'] = 'live'
-            elif only_non_live:
-                search_params['eventType'] = 'completed'
             
             # 添加结束日期限制
             if published_before:
@@ -1695,8 +1692,8 @@ class YouTubeMonitor:
                 INSERT INTO monitor_history (
                     config_id, video_id, video_type, video_title, channel_title,
                     view_count, like_count, comment_count, duration,
-                    published_at, added_to_tasks, thumbnail_url
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    published_at, added_to_tasks, thumbnail_url, run_time
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
             ''', (
                 config_id,
                 video_info['id'],
@@ -1725,14 +1722,14 @@ class YouTubeMonitor:
                         (video_info['id'], config_id)
                     )
     
-    def _add_video_to_tasks(self, video_info, auto_start=True):
+    def _add_video_to_tasks(self, video_info, auto_start=True, auto_pipeline=True):
         """将视频添加到任务队列"""
         try:
             video_url = f"https://www.youtube.com/watch?v={video_info['id']}"
-            task_id = add_task(video_url)
+            task_id = add_task(video_url, upload_target='bilibili', auto_pipeline=auto_pipeline)
             
             if task_id:
-                logger.info(f"视频已添加到任务队列: {video_info['title']}, 任务ID: {task_id}")
+                logger.info(f"视频已添加到任务队列: {video_info['title']}, 任务ID: {task_id}, 平台: bilibili, 自动化流水线: {auto_pipeline}")
                 
                 # 移除自动启动逻辑，让全局任务处理器的队列管理机制来处理
                 # 这样避免重复调度和冲突
@@ -1797,7 +1794,7 @@ class YouTubeMonitor:
                     logger.warning(f"读取配置文件失败: {str(e)}")
             
             logger.info(f"手动添加视频，自动启动处理: {'是' if auto_start else '否'}")
-            task_id = self._add_video_to_tasks(video_info, auto_start=auto_start)
+            task_id = self._add_video_to_tasks(video_info, auto_start=auto_start, auto_pipeline=True)
             if task_id:
                 self._mark_video_added_to_tasks(video_id, config_id)
                 logger.info(f"视频成功添加到任务队列: {video_info['title']}, 任务ID: {task_id}")
@@ -1906,7 +1903,7 @@ class YouTubeMonitor:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                'UPDATE monitor_configs SET last_run_time = CURRENT_TIMESTAMP WHERE id = ?',
+                "UPDATE monitor_configs SET last_run_time = datetime('now', 'localtime') WHERE id = ?",
                 (config_id,)
             )
             conn.commit()
@@ -2111,6 +2108,49 @@ class YouTubeMonitor:
             logger.error(f"清除所有监控历史记录失败: {str(e)}")
             return False, f"清除历史记录失败: {str(e)}"
     
+    def delete_monitor_history_records(self, record_ids):
+        """删除指定的监控历史记录（支持单条或多选批量删除）"""
+        if not record_ids:
+            return False, "未指定要删除的记录"
+
+        try:
+            # 标准化为整数列表
+            if isinstance(record_ids, (int, str)):
+                clean_ids = [int(record_ids)] if str(record_ids).isdigit() else []
+            else:
+                clean_ids = [int(rid) for rid in record_ids if str(rid).isdigit()]
+
+            if not clean_ids:
+                return False, "无效的记录ID"
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                placeholders = ','.join('?' * len(clean_ids))
+
+                # 获取关联的 video_id 用于清理封面缓存
+                cursor.execute(f'SELECT video_id FROM monitor_history WHERE id IN ({placeholders})', clean_ids)
+                video_ids = [row[0] for row in cursor.fetchall() if row[0]]
+
+                # 执行删除
+                cursor.execute(f'DELETE FROM monitor_history WHERE id IN ({placeholders})', clean_ids)
+                deleted_count = cursor.rowcount
+                conn.commit()
+
+                if video_ids:
+                    # 检查是否还有其它记录引用这些 video_id
+                    placeholders_v = ','.join('?' * len(video_ids))
+                    cursor.execute(f'SELECT DISTINCT video_id FROM monitor_history WHERE video_id IN ({placeholders_v})', video_ids)
+                    still_used = {row[0] for row in cursor.fetchall()}
+                    to_remove_covers = [vid for vid in video_ids if vid not in still_used]
+                    if to_remove_covers:
+                        self._clear_cover_cache(to_remove_covers)
+
+                logger.info(f"成功删除 {deleted_count} 条监控历史记录: {clean_ids}")
+                return True, f"成功删除 {deleted_count} 条记录"
+        except Exception as e:
+            logger.error(f"删除监控历史记录失败: {str(e)}")
+            return False, f"删除失败: {str(e)}"
+
     def start_all_schedules(self):
         """启动所有自动调度的监控任务"""
         logger.info("开始启动所有自动调度的监控任务")

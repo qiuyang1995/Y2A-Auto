@@ -3929,6 +3929,30 @@ def youtube_monitor_add_to_tasks():
     else:
         return jsonify({'success': False, 'message': message}), 400
 
+@app.route('/youtube_monitor/history/delete', methods=['POST'])
+@login_required
+def youtube_monitor_delete_history():
+    """删除指定的监控历史记录（支持单条或多选批量删除）"""
+    data = request.get_json(silent=True) or {}
+    record_ids = data.get('record_ids')
+    if not record_ids:
+        record_ids = request.form.getlist('record_ids') or request.form.get('record_ids')
+    
+    if not record_ids:
+        return jsonify({'success': False, 'message': '未指定要删除的记录ID'}), 400
+
+    if isinstance(record_ids, (int, str)):
+        if isinstance(record_ids, str) and ',' in record_ids:
+            record_ids = [r.strip() for r in record_ids.split(',') if r.strip()]
+        else:
+            record_ids = [record_ids]
+
+    success, message = youtube_monitor.delete_monitor_history_records(record_ids)
+    if success:
+        return jsonify({'success': True, 'message': message})
+    else:
+        return jsonify({'success': False, 'message': message}), 400
+
 @app.route('/youtube_monitor/history/<int:config_id>/clear', methods=['POST'])
 @login_required
 def youtube_monitor_clear_history(config_id):

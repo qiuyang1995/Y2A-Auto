@@ -1083,7 +1083,8 @@ def init_db():
         acfun_upload_response TEXT,
         bilibili_upload_response TEXT,
         asr_warning_message TEXT,  -- ASR/VAD阶段的非致命警告（如vad_low_coverage），不影响上传流程
-        subtitle_warning_message TEXT  -- 字幕处理阶段的非致命警告（如烧录失败），不影响上传流程
+        subtitle_warning_message TEXT,  -- 字幕处理阶段的非致命警告（如烧录失败），不影响上传流程
+        auto_pipeline INTEGER DEFAULT 0  -- 是否走监控自动化流水线（下载->AI元数据->上传B站）
     )
     ''')
     
@@ -1159,6 +1160,11 @@ def init_db():
         if 'selected_partition_id_bilibili' not in columns:
             cursor.execute("ALTER TABLE tasks ADD COLUMN selected_partition_id_bilibili TEXT")
             logger.info("数据库升级：添加selected_partition_id_bilibili字段")
+            conn.commit()
+
+        if 'auto_pipeline' not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN auto_pipeline INTEGER DEFAULT 0")
+            logger.info("数据库升级：添加auto_pipeline字段")
             conn.commit()
 
         cursor.execute("PRAGMA table_info(tasks)")
@@ -1351,13 +1357,14 @@ def get_db_connection():
         logger.debug(f"设置SQLite连接参数失败，将使用默认参数: {e}")
     return conn
 
-def add_task(youtube_url, upload_target=None):
+def add_task(youtube_url, upload_target=None, auto_pipeline=False):
     """
     添加新任务到数据库
     
     Args:
         youtube_url: YouTube视频URL
         upload_target: 投稿平台(acfun|bilibili|both)，为空则使用配置默认值
+        auto_pipeline: 是否开启监控自动化流水线（下载->AI元数据->上传B站）
         
     Returns:
         task_id: 新创建的任务ID
@@ -1375,11 +1382,11 @@ def add_task(youtube_url, upload_target=None):
             except Exception:
                 normalized_target = UPLOAD_TARGET_BILIBILI
         conn.execute(
-            'INSERT INTO tasks (id, youtube_url, upload_target, status) VALUES (?, ?, ?, ?)',
-            (task_id, youtube_url, normalized_target, TASK_STATES['PENDING'])
+            'INSERT INTO tasks (id, youtube_url, upload_target, status, auto_pipeline) VALUES (?, ?, ?, ?, ?)',
+            (task_id, youtube_url, normalized_target, TASK_STATES['PENDING'], 1 if auto_pipeline else 0)
         )
         conn.commit()
-        logger.info(f"新任务添加成功, ID: {task_id}, URL: {youtube_url}, 平台: {normalized_target}")
+        logger.info(f"新任务添加成功, ID: {task_id}, URL: {youtube_url}, 平台: {normalized_target}, 自动化流水线: {bool(auto_pipeline)}")
         
         # 新任务添加后，触发全局任务处理器检查是否需要启动任务
         try:
@@ -2305,6 +2312,105 @@ class TaskProcessor:
             update_task(task_id, status=TASK_STATES['FAILED'], error_message=f"调度失败: {str(e)}")
             return None
     
+    def _process_monitor_auto_task(self, task_id, task, task_logger):
+        """
+        监控自动化任务专用流水线：
+        1. 下载视频（含原元数据与封面）
+        2. 调用 AI 自动生成标题、描述、标签、分类（利用现有编辑接口）
+        3. 上传到 Bilibili
+        """
+        try:
+            _raise_if_cancelled(task_id, task_logger)
+
+            # ----------------------------------------------------
+            # 步骤 1：下载视频实体文件与封面元数据
+            # ----------------------------------------------------
+            video_path = task.get('video_path_local', '')
+            if not video_path or not os.path.exists(video_path):
+                # 检查封面与原信息是否已获取，若无则先采集
+                cover_path = task.get('cover_path_local', '')
+                if not cover_path or not os.path.exists(cover_path):
+                    task_logger.info("【自动流水线】步骤 1.1: 采集原视频信息与封面...")
+                    self._fetch_video_info(task_id, task['youtube_url'], task_logger)
+                    _raise_if_cancelled(task_id, task_logger)
+                    task = get_task(task_id)
+                    if not task or task.get('status') == TASK_STATES['FAILED']:
+                        task_logger.error("【自动流水线】采集原视频信息失败，终止后续流程")
+                        return
+
+                task_logger.info("【自动流水线】步骤 1.2: 下载视频实体文件...")
+                self._download_video_file(task_id, task['youtube_url'], task_logger)
+                _raise_if_cancelled(task_id, task_logger)
+                task = get_task(task_id)
+                if not task or task.get('status') == TASK_STATES['FAILED']:
+                    task_logger.error("【自动流水线】下载视频文件失败，终止后续流程")
+                    return
+            else:
+                task_logger.info("【自动流水线】检测到视频文件已存在，跳过下载步骤: %s", video_path)
+
+            _raise_if_cancelled(task_id, task_logger)
+
+            # ----------------------------------------------------
+            # 步骤 2：调用 AI 自动生成标题、描述、标签、分类（利用现有接口）
+            # ----------------------------------------------------
+            task = get_task(task_id)
+            if not task:
+                task_logger.error("【自动流水线】获取任务对象失败")
+                return
+
+            task_logger.info("【自动流水线】步骤 2: 调用AI自动生成标题、描述、标签、分类...")
+            update_task(task_id, status=TASK_STATES['GENERATING_METADATA'])
+
+            from modules.task_edit_ai import generate_edit_page_metadata
+            ai_result = generate_edit_page_metadata(task, self.config, {})
+            if not ai_result or not ai_result.get('success'):
+                err_msg = (ai_result.get('message') if ai_result else None) or "AI未能生成有效元数据"
+                task_logger.error(f"【自动流水线】AI自动生成失败: {err_msg}")
+                update_task(task_id, status=TASK_STATES['FAILED'], error_message=f"AI生成元数据失败: {err_msg}")
+                return
+
+            # 应用生成结果到任务表（包含标题、简介、标签、B站分区，并同步流水线检查点）
+            apply_ok = apply_edit_ai_generation_result(task_id, ai_result)
+            if not apply_ok:
+                task_logger.error("【自动流水线】保存AI生成结果到任务失败")
+                update_task(task_id, status=TASK_STATES['FAILED'], error_message="保存AI生成结果失败")
+                return
+
+            # 分区兜底检查：若仍未设置B站分区ID，回退至配置或默认分区（21: 舞蹈区/日常舞蹈）
+            task = get_task(task_id)
+            bili_pid = _get_task_partition_id(task, UPLOAD_TARGET_BILIBILI, prefer_selected=True)
+            if not bili_pid:
+                fallback_pid = str(self.config.get('FIXED_PARTITION_ID_BILIBILI', '') or '21').strip()
+                task_logger.info(f"【自动流水线】B站分区为空，使用兜底分区: {fallback_pid}")
+                update_task(task_id, selected_partition_id_bilibili=fallback_pid, recommended_partition_id_bilibili=fallback_pid)
+
+            task_logger.info("【自动流水线】AI元数据生成完成: 标题=%s, 标签=%s",
+                             ai_result.get('title'), ai_result.get('tags'))
+
+            _raise_if_cancelled(task_id, task_logger)
+
+            # ----------------------------------------------------
+            # 步骤 3：上传到 B站
+            # ----------------------------------------------------
+            task = get_task(task_id)
+            task_logger.info("【自动流水线】步骤 3: 开始上传到 B站...")
+            self._upload_to_bilibili(task_id, task_logger)
+
+            task = get_task(task_id)
+            if task and task.get('status') == TASK_STATES['COMPLETED']:
+                task_logger.info("【自动流水线】任务全部执行完毕并成功发布至 B站！")
+            elif task and task.get('status') == TASK_STATES['FAILED']:
+                task_logger.error(f"【自动流水线】发布至 B站 失败: {task.get('error_message')}")
+
+        except TaskCancelledError:
+            task_logger.info("【自动流水线】任务已取消")
+            update_task(task_id, status=TASK_STATES['FAILED'], error_message="任务已取消")
+        except Exception as e:
+            task_logger.error(f"【自动流水线】执行出错: {str(e)}")
+            import traceback
+            task_logger.error(traceback.format_exc())
+            update_task(task_id, status=TASK_STATES['FAILED'], error_message=f"自动化流水线异常: {str(e)}")
+
     def process_task(self, task_id, slot_already_acquired=False, acquired_task_semaphore=None):
         """
         处理任务，包括采集信息、内容审核、下载、上传等步骤
@@ -2395,6 +2501,10 @@ class TaskProcessor:
                     if task.get('status') != TASK_STATES['COMPLETED']:
                         update_task(task_id, status=TASK_STATES['COMPLETED'], error_message=None, upload_progress=None)
                         task_logger.info("失败平台重试成功，任务已标记为完成")
+            # 监控自动化任务专用流水线检测（下载视频 -> AI生成标题/描述/标签/分类 -> 上传B站）
+            if task.get('auto_pipeline') == 1:
+                task_logger.info(f"任务 {task_id} 启用了监控自动化流水线，进入自动下载、AI生成与上传B站流程")
+                self._process_monitor_auto_task(task_id, task, task_logger)
                 return
 
             # 1. 采集视频信息（只获取元数据和封面，不下载视频文件）

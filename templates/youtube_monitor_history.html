@@ -102,9 +102,12 @@
             <i class="bi bi-pencil"></i> 编辑配置
         </a>
         {% if history %}
+        <button type="button" class="btn btn-outline-danger" id="batchDeleteBtn" onclick="batchDeleteRecords()" disabled>
+            <i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">0</span>)
+        </button>
         <form method="POST" action="{{ url_for('youtube_monitor_clear_history', config_id=config.id) }}" class="d-inline" onsubmit="return confirm('确定要清除该配置的所有历史记录吗？此操作不可恢复！')">
             <button type="submit" class="btn btn-danger">
-                <i class="bi bi-trash"></i> 清除历史记录
+                <i class="bi bi-trash"></i> 清除全部历史
             </button>
         </form>
         {% endif %}
@@ -114,9 +117,12 @@
 <!-- 监控历史列表 -->
 {% if history %}
 <div class="table-responsive">
-    <table class="table table-striped">
+    <table class="table table-striped align-middle">
         <thead class="table-dark">
             <tr>
+                <th style="width: 40px;" class="text-center">
+                    <input type="checkbox" class="form-check-input" id="selectAllHistory" title="全选/取消全选">
+                </th>
                 <th>时间</th>
                 <th>封面</th>
                 <th>视频标题</th>
@@ -132,7 +138,10 @@
         </thead>
         <tbody>
             {% for record in history %}
-            <tr>
+            <tr id="history-row-{{ record.id }}">
+                <td class="text-center align-middle">
+                    <input type="checkbox" class="form-check-input record-checkbox" value="{{ record.id }}" onchange="updateSelectedCount()">
+                </td>
                 <td>
                     <small>{{ record.run_time }}</small>
                 </td>
@@ -204,6 +213,11 @@
                             <i class="bi bi-plus-circle"></i>
                         </button>
                         {% endif %}
+                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                onclick="deleteSingleRecord('{{ record.id }}', {{ record.video_title|tojson }})"
+                                title="删除记录">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 </td>
             </tr>
@@ -417,6 +431,116 @@ function addToTasks(videoId, configId) {
         button.disabled = false;
         button.innerHTML = originalHtml;
         showAlert('danger', '操作失败，请重试');
+    });
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.record-checkbox');
+    const checked = document.querySelectorAll('.record-checkbox:checked');
+    const countSpan = document.getElementById('selectedCount');
+    const batchBtn = document.getElementById('batchDeleteBtn');
+    const selectAll = document.getElementById('selectAllHistory');
+    
+    if (countSpan) countSpan.textContent = checked.length;
+    if (batchBtn) batchBtn.disabled = (checked.length === 0);
+    if (selectAll) {
+        selectAll.checked = (checkboxes.length > 0 && checked.length === checkboxes.length);
+        selectAll.indeterminate = (checked.length > 0 && checked.length < checkboxes.length);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAllHistory');
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.record-checkbox');
+            checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+            updateSelectedCount();
+        });
+    }
+});
+
+function deleteSingleRecord(recordId, title) {
+    const displayName = title ? `"${title}"` : '该记录';
+    if (!confirm(`确定要删除 ${displayName} 吗？`)) {
+        return;
+    }
+    
+    fetch('/youtube_monitor/history/delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ record_ids: [recordId] })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message || '删除成功');
+            const row = document.getElementById(`history-row-${recordId}`);
+            if (row) {
+                row.remove();
+            } else {
+                window.location.reload();
+            }
+            updateSelectedCount();
+        } else {
+            showAlert('danger', data.message || '删除失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('danger', '删除请求出错，请稍后重试');
+    });
+}
+
+function batchDeleteRecords() {
+    const checked = document.querySelectorAll('.record-checkbox:checked');
+    const ids = Array.from(checked).map(cb => cb.value);
+    if (ids.length === 0) {
+        showAlert('warning', '请先勾选需要删除的记录');
+        return;
+    }
+    
+    if (!confirm(`确定要批量删除选中的 ${ids.length} 条监控记录吗？此操作不可恢复！`)) {
+        return;
+    }
+    
+    const batchBtn = document.getElementById('batchDeleteBtn');
+    if (batchBtn) {
+        batchBtn.disabled = true;
+        batchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>正在删除...';
+    }
+    
+    fetch('/youtube_monitor/history/delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ record_ids: ids })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message || '批量删除成功');
+            setTimeout(() => {
+                window.location.reload();
+            }, 800);
+        } else {
+            if (batchBtn) {
+                batchBtn.disabled = false;
+                batchBtn.innerHTML = `<i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">${ids.length}</span>)`;
+            }
+            showAlert('danger', data.message || '批量删除失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (batchBtn) {
+            batchBtn.disabled = false;
+            batchBtn.innerHTML = `<i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">${ids.length}</span>)`;
+        }
+        showAlert('danger', '批量删除请求出错，请稍后重试');
     });
 }
 

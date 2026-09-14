@@ -284,6 +284,8 @@ def extract_chat_message_json(message, expected_type=dict):
 
 _THINKING_FALLBACK_WARNED_SCENES = set()
 _THINKING_FALLBACK_WARNED_SCENES_MAX = 128
+_KNOWN_UNSUPPORTED_THINKING_PARAM = set()
+_KNOWN_UNSUPPORTED_THINKING_PARAM_MAX = 256
 
 
 def _coerce_bool(value, default=False):
@@ -320,11 +322,12 @@ def _is_thinking_param_unsupported_error(exc):
         'thinking',
         'reasoning_effort',
         'not permitted',
+        'invalid json payload received',
     )
     return any(sig in text for sig in signals)
 
 
-def _invoke_chat_create_with_rate_limit_retry(client, kwargs, logger=None, max_retries=1):
+def _invoke_chat_create_with_rate_limit_retry(client, kwargs, logger=None, max_retries=2):
     """底层支持短时间 429 配额限制自动避让重试。"""
     attempts = 0
     while True:
@@ -336,11 +339,11 @@ def _invoke_chat_create_with_rate_limit_retry(client, kwargs, logger=None, max_r
             if is_429 and attempts < max_retries:
                 attempts += 1
                 import time, re
-                match = re.search(r'retry\s+(?:in\s+)?(\d+)\s*s', err_text, re.IGNORECASE)
-                wait_sec = int(match.group(1)) if match else 3
-                if wait_sec <= 6:
+                match = re.search(r'retry\s+(?:in\s+)?(\d+(?:\.\d+)?)\s*s', err_text, re.IGNORECASE)
+                wait_sec = float(match.group(1)) if match else 3.0
+                if wait_sec <= 15.0:
                     if logger:
-                        logger.warning("触发 API 频率限制 (429)，自动休眠等待 %d 秒后进行重试 (次 %d)...", wait_sec, attempts)
+                        logger.warning("触发 API 频率限制 (429)，自动休眠等待 %.1f 秒后进行重试 (次 %d)...", wait_sec, attempts)
                     time.sleep(wait_sec)
                     continue
             raise
@@ -357,17 +360,34 @@ def openai_chat_create_with_thinking_control(
     if _coerce_bool(thinking_enabled, default=False):
         return _invoke_chat_create_with_rate_limit_retry(client, create_kwargs, logger=logger)
 
+    model_name = safe_str((create_kwargs or {}).get('model'), default='unknown').strip()
+    endpoint_label = _mask_base_url(getattr(client, 'base_url', None))
+    client_base_url = safe_str(getattr(client, 'base_url', '')).lower()
+    model_lower = model_name.lower()
+
+    unsupported_key = f"{endpoint_label}:{model_name}"
+    if unsupported_key in _KNOWN_UNSUPPORTED_THINKING_PARAM:
+        return _invoke_chat_create_with_rate_limit_retry(client, create_kwargs, logger=logger)
+
+    is_gemini = 'googleapis.com' in client_base_url or 'gemini' in model_lower
+    is_openai_reasoning = any(k in model_lower for k in ('o1-', 'o3-', 'o4-')) or model_lower in ('o1', 'o3', 'o4')
+
     disabled_kwargs = copy.deepcopy(create_kwargs or {})
-    extra_body = disabled_kwargs.get('extra_body')
-    if not isinstance(extra_body, dict):
-        extra_body = {}
-    extra_body = copy.deepcopy(extra_body)
-    thinking_body = extra_body.get('thinking')
-    if not isinstance(thinking_body, dict):
-        thinking_body = {}
-    thinking_body.update({'type': 'disabled', 'enabled': False})
-    extra_body['thinking'] = thinking_body
-    disabled_kwargs['extra_body'] = extra_body
+    if is_gemini or is_openai_reasoning:
+        # Google Gemini OpenAI 接口及 OpenAI o系列支持 reasoning_effort 控制思考预算
+        disabled_kwargs['reasoning_effort'] = 'low'
+    else:
+        # Anthropic 或支持 extra_body.thinking 的服务商
+        extra_body = disabled_kwargs.get('extra_body')
+        if not isinstance(extra_body, dict):
+            extra_body = {}
+        extra_body = copy.deepcopy(extra_body)
+        thinking_body = extra_body.get('thinking')
+        if not isinstance(thinking_body, dict):
+            thinking_body = {}
+        thinking_body.update({'type': 'disabled', 'enabled': False})
+        extra_body['thinking'] = thinking_body
+        disabled_kwargs['extra_body'] = extra_body
 
     try:
         return _invoke_chat_create_with_rate_limit_retry(client, disabled_kwargs, logger=logger)
@@ -375,8 +395,10 @@ def openai_chat_create_with_thinking_control(
         if not _is_thinking_param_unsupported_error(exc):
             raise
 
-        model_name = safe_str((create_kwargs or {}).get('model'), default='unknown')
-        endpoint_label = _mask_base_url(getattr(client, 'base_url', None))
+        _KNOWN_UNSUPPORTED_THINKING_PARAM.add(unsupported_key)
+        if len(_KNOWN_UNSUPPORTED_THINKING_PARAM) > _KNOWN_UNSUPPORTED_THINKING_PARAM_MAX:
+            _KNOWN_UNSUPPORTED_THINKING_PARAM.clear()
+
         scene = safe_str(scene_name, default='unknown')
         warn_key = f"{scene}:{model_name}:{endpoint_label}"
         if logger:
@@ -385,7 +407,6 @@ def openai_chat_create_with_thinking_control(
                     "模型不支持 thinking 控制参数，已降级为普通请求"
                 )
                 _THINKING_FALLBACK_WARNED_SCENES.add(warn_key)
-                # 防止集合无限增长
                 if len(_THINKING_FALLBACK_WARNED_SCENES) > _THINKING_FALLBACK_WARNED_SCENES_MAX:
                     _THINKING_FALLBACK_WARNED_SCENES.clear()
             else:
@@ -393,3 +414,4 @@ def openai_chat_create_with_thinking_control(
                     "thinking 控制参数不受支持，继续普通请求"
                 )
         return _invoke_chat_create_with_rate_limit_retry(client, create_kwargs, logger=logger)
+

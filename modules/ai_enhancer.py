@@ -938,6 +938,9 @@ def _get_complete_ai_message_for_log(message: Any) -> str:
     return '\n'.join(blocks) if blocks else '<空输出>'
 
 
+_MODEL_EXHAUSTED_COOLDOWN_MAP: Dict[str, float] = {}
+
+
 def _request_chat_completion(
     client,
     model_name: str,
@@ -957,8 +960,39 @@ def _request_chat_completion(
     user_message_content = user_content
     if user_message_content is None:
         user_message_content = json.dumps(payload, ensure_ascii=False)
+
+    cfg = dict(openai_config or {})
+    fallback_model = str(cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
+    if not fallback_model:
+        try:
+            from .config_manager import load_config
+            cfg = load_config() or {}
+            fallback_model = str(cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
+        except Exception:
+            pass
+
+    # 检查主模型是否处于日配额耗尽冷却期，若是则直接切换至备用模型，避免后续各阶段重复消耗无效请求
+    active_model = model_name
+    active_client = client
+    now_ts = time.time()
+    if active_model in _MODEL_EXHAUSTED_COOLDOWN_MAP and now_ts < _MODEL_EXHAUSTED_COOLDOWN_MAP[active_model]:
+        if fallback_model and fallback_model != active_model and (fallback_model not in _MODEL_EXHAUSTED_COOLDOWN_MAP or now_ts >= _MODEL_EXHAUSTED_COOLDOWN_MAP[fallback_model]):
+            if logger_obj:
+                logger_obj.info(
+                    "模型 %s 处于配额耗尽冷却期，直接使用备用模型 %s | scene=%s",
+                    active_model, fallback_model, scene_name
+                )
+            active_model = fallback_model
+            fb_cfg = dict(cfg)
+            fb_cfg['OPENAI_MODEL_NAME'] = fallback_model
+            if fb_cfg.get('OPENAI_FALLBACK_BASE_URL'):
+                fb_cfg['OPENAI_BASE_URL'] = fb_cfg['OPENAI_FALLBACK_BASE_URL']
+            if fb_cfg.get('OPENAI_FALLBACK_API_KEY'):
+                fb_cfg['OPENAI_API_KEY'] = fb_cfg['OPENAI_FALLBACK_API_KEY']
+            active_client = get_openai_client(fb_cfg)
+
     create_kwargs = {
-        "model": model_name,
+        "model": active_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message_content},
@@ -966,7 +1000,8 @@ def _request_chat_completion(
         "temperature": temperature,
     }
     if max_tokens is not None:
-        create_kwargs["max_tokens"] = max_tokens
+        # 为防止带思考能力的模型（Gemini / OpenAI o系列等）思考过程消耗 Token 导致输出在途中被截断，为请求提供至少 2048 Token 的预算
+        create_kwargs["max_tokens"] = max(max_tokens, 2048)
     if response_format is not None:
         create_kwargs["response_format"] = response_format
     request_start = time.time()
@@ -980,7 +1015,7 @@ def _request_chat_completion(
             "AI请求开始 | scene=%s | model=%s | mode=%s | max_tokens=%s | "
             "temperature=%s | thinking=%s | input_chars=%d",
             scene_name,
-            model_name,
+            active_model,
             mode_label,
             max_tokens,
             temperature,
@@ -999,61 +1034,79 @@ def _request_chat_completion(
     try:
         try:
             response = openai_chat_create_with_thinking_control(
-                client=client,
+                client=active_client,
                 create_kwargs=create_kwargs,
                 thinking_enabled=thinking_enabled,
                 logger=logger_obj,
                 scene_name=scene_name,
             )
         except Exception as exc:
-            cfg = openai_config or {}
-            fallback_model = str(cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
-            if not fallback_model:
-                try:
-                    from .config_manager import load_config
-                    cfg = load_config() or {}
-                    fallback_model = str(cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
-                except Exception:
-                    pass
+            err_text = safe_str(exc)
+            now_ts = time.time()
+            if 'PerDay' in err_text or 'generate_content_free_tier_requests' in err_text:
+                _MODEL_EXHAUSTED_COOLDOWN_MAP[active_model] = now_ts + 1800
 
             is_failover_err = (
-                '429' in safe_str(exc) or
+                '429' in err_text or
                 'RateLimitError' in type(exc).__name__ or
-                'RESOURCE_EXHAUSTED' in safe_str(exc) or
+                'RESOURCE_EXHAUSTED' in err_text or
                 _is_timeout_like_error(exc) or
-                '500' in safe_str(exc) or
-                '503' in safe_str(exc)
+                '500' in err_text or
+                '503' in err_text
             )
 
-            if is_failover_err and fallback_model and model_name != fallback_model:
-                if logger_obj:
-                    logger_obj.warning(
-                        "AI请求主模型失败，正在自动故障转移切至备用模型 | scene=%s | 主模型=%s | 备用模型=%s | 错误=%s: %s",
-                        scene_name,
-                        model_name,
-                        fallback_model,
-                        exc.__class__.__name__,
-                        safe_str(exc),
-                    )
-                fb_cfg = dict(cfg)
-                fb_cfg['OPENAI_MODEL_NAME'] = fallback_model
-                if fb_cfg.get('OPENAI_FALLBACK_BASE_URL'):
-                    fb_cfg['OPENAI_BASE_URL'] = fb_cfg['OPENAI_FALLBACK_BASE_URL']
-                if fb_cfg.get('OPENAI_FALLBACK_API_KEY'):
-                    fb_cfg['OPENAI_API_KEY'] = fb_cfg['OPENAI_FALLBACK_API_KEY']
-                
-                fb_client = get_openai_client(fb_cfg)
-                fb_create_kwargs = copy.deepcopy(create_kwargs)
-                fb_create_kwargs['model'] = fallback_model
-                response = openai_chat_create_with_thinking_control(
-                    client=fb_client,
-                    create_kwargs=fb_create_kwargs,
-                    thinking_enabled=thinking_enabled,
-                    logger=logger_obj,
-                    scene_name=f"{scene_name}_fallback",
-                )
-            else:
-                raise
+            # 构建故障转移候选模型链：配置的 fallback_model -> 若仍不可用且为 Gemini，尝试稳定版 gemini-2.5-flash
+            candidates = []
+            if fallback_model and fallback_model != active_model:
+                candidates.append(fallback_model)
+
+            client_base_url = safe_str(getattr(active_client, 'base_url', '')).lower()
+            is_gemini_endpoint = 'googleapis.com' in client_base_url or 'gemini' in active_model.lower()
+            if is_gemini_endpoint and 'gemini-2.5-flash' not in candidates and active_model != 'gemini-2.5-flash':
+                candidates.append('gemini-2.5-flash')
+
+            response = None
+            last_exc = exc
+            if is_failover_err and candidates:
+                for candidate_model in candidates:
+                    if candidate_model in _MODEL_EXHAUSTED_COOLDOWN_MAP and now_ts < _MODEL_EXHAUSTED_COOLDOWN_MAP[candidate_model]:
+                        continue
+                    if logger_obj:
+                        logger_obj.warning(
+                            "AI请求模型 %s 失败，正在自动故障转移切至备用模型 %s | scene=%s | 错误=%s: %s",
+                            active_model,
+                            candidate_model,
+                            scene_name,
+                            last_exc.__class__.__name__,
+                            safe_str(last_exc),
+                        )
+                    fb_cfg = dict(cfg)
+                    fb_cfg['OPENAI_MODEL_NAME'] = candidate_model
+                    if fb_cfg.get('OPENAI_FALLBACK_BASE_URL'):
+                        fb_cfg['OPENAI_BASE_URL'] = fb_cfg['OPENAI_FALLBACK_BASE_URL']
+                    if fb_cfg.get('OPENAI_FALLBACK_API_KEY'):
+                        fb_cfg['OPENAI_API_KEY'] = fb_cfg['OPENAI_FALLBACK_API_KEY']
+
+                    fb_client = get_openai_client(fb_cfg)
+                    fb_create_kwargs = copy.deepcopy(create_kwargs)
+                    fb_create_kwargs['model'] = candidate_model
+                    try:
+                        response = openai_chat_create_with_thinking_control(
+                            client=fb_client,
+                            create_kwargs=fb_create_kwargs,
+                            thinking_enabled=thinking_enabled,
+                            logger=logger_obj,
+                            scene_name=f"{scene_name}_fallback_{candidate_model}",
+                        )
+                        break
+                    except Exception as fb_exc:
+                        last_exc = fb_exc
+                        if 'PerDay' in safe_str(fb_exc) or 'generate_content_free_tier_requests' in safe_str(fb_exc):
+                            _MODEL_EXHAUSTED_COOLDOWN_MAP[candidate_model] = time.time() + 1800
+                        continue
+
+            if response is None:
+                raise last_exc
         if logger_obj:
             choices = list(getattr(response, 'choices', None) or [])
             if not choices:
@@ -1249,7 +1302,7 @@ def generate_bilibili_title_description(
             system_prompt=BILIBILI_TITLE_DESCRIPTION_PROMPT,
             payload=payload,
             user_content=user_prompt_text,
-            max_tokens=1200,
+            max_tokens=4096,
             temperature=0.6,
             thinking_enabled=bool(config.get('OPENAI_THINKING_ENABLED', False)),
             logger_obj=logger,
@@ -1316,10 +1369,10 @@ def _estimate_metadata_max_tokens(field_names: Sequence[str]) -> int:
     total = 0
     field_set = set(field_names)
     if "title" in field_set:
-        total += 160
+        total += 500
     if "description" in field_set:
-        total += 900
-    return max(total, 160)
+        total += 3000
+    return max(total, 2048)
 
 
 def _collect_invalid_metadata_fields(
@@ -1841,7 +1894,7 @@ def generate_acfun_tags(title, description, openai_config=None, task_id=None):
                 "title": title,
                 "description": description[:200],
             },
-            max_tokens=600,
+            max_tokens=2048,
             temperature=0.2,
             thinking_enabled=openai_config.get('OPENAI_THINKING_ENABLED', False),
             logger_obj=logger,
@@ -2506,7 +2559,7 @@ def _request_partition_selection(
         model_name=model_name,
         system_prompt=system_prompt,
         payload=payload,
-        max_tokens=320,
+        max_tokens=2048,
         temperature=0.0,
         thinking_enabled=openai_config.get('OPENAI_THINKING_ENABLED', False),
         logger_obj=logger,

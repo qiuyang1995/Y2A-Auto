@@ -270,7 +270,10 @@ python app.py
 - `COOKIECLOUD_SERVER_URL`：CookieCloud 服务地址
 - `COOKIECLOUD_UUID`：CookieCloud UUID
 - `COOKIECLOUD_PASSWORD`：CookieCloud 加密密码
-- `COOKIECLOUD_ENCRYPT_MODE`：加密模式，支持 `auto` / `legacy` / `aes-128-cbc-fixed`
+- `COOKIECLOUD_CRYPTO_TYPE`：加密模式，支持 `auto` / `legacy` / `aes-128-cbc-fixed`
+- `COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT`：允许把解密后的 Cookies 明文写入本地文件，默认 `false`
+- `YOUTUBE_COOKIES_PATH`：CookieCloud 同步结果写入的 Netscape Cookies 文件路径，默认 `cookies/yt_cookies.txt`
+- `COOKIECLOUD_LAST_SYNC_AT` / `COOKIECLOUD_LAST_SYNC_STATUS` / `COOKIECLOUD_LAST_SYNC_MESSAGE`：最近一次测试/同步的时间、状态与消息（程序自行写入）
 
 ### 内容审核
 
