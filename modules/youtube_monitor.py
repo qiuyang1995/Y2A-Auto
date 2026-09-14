@@ -1885,7 +1885,11 @@ class YouTubeMonitor:
     def _add_video_to_tasks(self, video_info, auto_start=True, auto_pipeline=True):
         """将视频添加到任务队列"""
         try:
-            video_url = f"https://www.youtube.com/watch?v={video_info['id']}"
+            vid = str(video_info.get('id', '')).strip()
+            if not vid or not re.match(r'^[a-zA-Z0-9_-]{11}$', vid):
+                logger.warning(f"跳过添加无效的 YouTube 视频 ID 到任务队列: '{vid}'")
+                return None
+            video_url = f"https://www.youtube.com/watch?v={vid}"
             task_id = add_task(video_url, upload_target='bilibili', auto_pipeline=auto_pipeline)
             
             if task_id:

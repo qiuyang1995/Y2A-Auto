@@ -461,11 +461,17 @@ class VideoMeta:
             raise ValueError("tags 不能为空")
         elif isinstance(tags, str):
             if "," in tags:
-                self.tags = tags.split(",")
+                tags_list = [t.strip() for t in tags.split(",") if t.strip()]
             else:
-                self.tags = [tags]
-        elif isinstance(tags, list) and len(tags) <= 10:
-            self.tags = tags
+                tags_list = [tags.strip()] if tags.strip() else []
+            if not tags_list:
+                raise ValueError("tags 不能为空")
+            self.tags = tags_list[:10]
+        elif isinstance(tags, list):
+            tags_list = [str(t).strip() for t in tags if str(t).strip()]
+            if not tags_list:
+                raise ValueError("tags 不能为空")
+            self.tags = tags_list[:10]
         else:
             raise ValueError("tags 不合法或者多于 10 个")
 

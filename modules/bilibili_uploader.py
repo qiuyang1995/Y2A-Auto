@@ -19,6 +19,8 @@ from .utils import get_app_subdir
 
 BILIBILI_TITLE_LIMIT = 80
 BILIBILI_DESCRIPTION_LIMIT = 2000
+BILIBILI_TAG_LIMIT = 10
+BILIBILI_MAX_TAG_LENGTH = 20
 
 
 def setup_task_logger(task_id):
@@ -242,8 +244,18 @@ class BilibiliUploader:
                 _remove_redundant_original_url(description or "", youtube_url or ""),
                 safe_desc_limit,
             )
-            safe_tags = [str(t).strip()[:20] for t in (tags or []) if str(t).strip()]
-            safe_tags = safe_tags[:12]
+            # Bilibili 标签校验与清洗：最多 10 个，每个最多 20 字符，过滤分隔符与特殊符号并去重
+            safe_tags = []
+            seen_tags = set()
+            for t in (tags or []):
+                cleaned = re.sub(r'[\r\n\t,;/\\?*#]', ' ', str(t)).strip()
+                cleaned = cleaned[:BILIBILI_MAX_TAG_LENGTH].strip()
+                if cleaned and cleaned.lower() not in seen_tags:
+                    seen_tags.add(cleaned.lower())
+                    safe_tags.append(cleaned)
+            safe_tags = safe_tags[:BILIBILI_TAG_LIMIT]
+            if not safe_tags:
+                safe_tags = ["搬运"]
 
             if not safe_title:
                 return False, "标题为空，无法上传到bilibili"

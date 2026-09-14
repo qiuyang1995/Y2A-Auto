@@ -167,6 +167,15 @@ class TestYouTubeMonitorRuns(unittest.TestCase):
             self.assertEqual(json_data['data']['run']['id'], r_id)
             self.assertEqual(json_data['data']['run']['new_count'], 2)
 
+    def test_add_video_to_tasks_rejects_truncated_id(self):
+        """测试添加视频到任务队列时拒绝非法/截断的 YouTube ID"""
+        invalid_video = {
+            'id': 'v_kpi_1',  # 仅 7 位，非合法 11 位 YouTube ID
+            'title': 'Truncated ID Video',
+        }
+        res = self.monitor._add_video_to_tasks(invalid_video)
+        self.assertIsNone(res)
+
 
 if __name__ == '__main__':
     unittest.main()

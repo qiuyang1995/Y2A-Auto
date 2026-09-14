@@ -39,7 +39,7 @@ def _load_bilibili_helpers():
         "_remove_redundant_original_url",
         "format_bilibili_description",
     }
-    variable_names = {"BILIBILI_TITLE_LIMIT", "BILIBILI_DESCRIPTION_LIMIT"}
+    variable_names = {"BILIBILI_TITLE_LIMIT", "BILIBILI_DESCRIPTION_LIMIT", "BILIBILI_TAG_LIMIT", "BILIBILI_MAX_TAG_LENGTH"}
 
     for node in tree.body:
         if isinstance(node, ast.FunctionDef) and node.name in function_names:
@@ -117,6 +117,22 @@ class PlatformMetadataLimitTests(unittest.TestCase):
         shared_result = ns["format_bilibili_description"]("c" * 1300, max_len=1000)
         self.assertEqual(len(shared_result), 1000)
         self.assertTrue(shared_result.endswith("..."))
+
+    def test_bilibili_tag_limits(self):
+        ns = _load_bilibili_helpers()
+        self.assertEqual(ns["BILIBILI_TAG_LIMIT"], 10)
+        self.assertEqual(ns["BILIBILI_MAX_TAG_LENGTH"], 20)
+
+        from modules.bili_sdk.video_uploader import VideoMeta, Picture
+        meta = VideoMeta(
+            tid=1,
+            title="test",
+            desc="test",
+            cover=Picture(),
+            tags=["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12"]
+        )
+        self.assertEqual(len(meta.tags), 10)
+        self.assertEqual(meta.tags, ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10"])
 
     def test_ai_output_limits_accept_bilibili_sized_metadata(self):
         apply_output_limits = _load_ai_output_limits()

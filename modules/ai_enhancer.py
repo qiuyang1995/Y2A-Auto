@@ -125,7 +125,7 @@ UNIFIED_BILIBILI_METADATA_SYSTEM_PROMPT = """你现在是一位资深 Bilibili �
 - 仅填写具体分区名称或子分区名称。  
 
 **标签（Tags）**  
-- 输出 10-12 个标签。  
+- 输出 6-10 个标签（B站严格限制最多 10 个标签，严禁超过 10 个）。  
 - 使用空格分隔标签（不是逗号）。  
 - 关键词覆盖核心主题 + 平台相关词（如 B站/教程/干货/直拍等）+ 长尾词。  
 
@@ -3324,7 +3324,7 @@ def generate_bilibili_metadata_unified(
         fixed_pid=fixed_pid,
     )
 
-    tags = tags[:12]
+    tags = tags[:10]
 
     missing = []
     if not title:

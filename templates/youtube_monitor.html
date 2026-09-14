@@ -239,16 +239,16 @@
                     <i class="bi bi-journal-text me-1"></i> 全部记录与执行详情
                 </a>
                 <div class="btn-group btn-group-sm" role="group" aria-label="状态筛选">
-                    <a href="{{ url_for('youtube_monitor_index', status='all', per_page=pagination.per_page, _anchor='recent-history') }}" 
-                       class="btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-secondary' }}">
+                    <a href="{{ url_for('youtube_monitor_index', status='all', per_page=pagination.per_page) }}" 
+                       class="btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-secondary' }} recent-status-btn">
                         全部 ({{ history_stats.total_records }})
                     </a>
-                    <a href="{{ url_for('youtube_monitor_index', status='unadded', per_page=pagination.per_page, _anchor='recent-history') }}" 
-                       class="btn {{ 'btn-primary' if current_status == 'unadded' else 'btn-outline-secondary' }}">
+                    <a href="{{ url_for('youtube_monitor_index', status='unadded', per_page=pagination.per_page) }}" 
+                       class="btn {{ 'btn-primary' if current_status == 'unadded' else 'btn-outline-secondary' }} recent-status-btn">
                         未添加 ({{ history_stats.unadded_records }})
                     </a>
-                    <a href="{{ url_for('youtube_monitor_index', status='added', per_page=pagination.per_page, _anchor='recent-history') }}" 
-                       class="btn {{ 'btn-primary' if current_status == 'added' else 'btn-outline-secondary' }}">
+                    <a href="{{ url_for('youtube_monitor_index', status='added', per_page=pagination.per_page) }}" 
+                       class="btn {{ 'btn-primary' if current_status == 'added' else 'btn-outline-secondary' }} recent-status-btn">
                         已添加 ({{ history_stats.added_to_tasks }})
                     </a>
                 </div>
@@ -366,9 +366,9 @@
                     </span>
                     <div class="d-flex align-items-center gap-1">
                         <span class="text-muted small">每页：</span>
-                        <select class="form-select form-select-sm" style="width: auto;" onchange="location.href=this.value;">
+                        <select class="form-select form-select-sm recent-per-page-select" style="min-width: 96px; width: 96px;" onchange="location.href=this.value;">
                             {% for pp in [10, 20, 50, 100] %}
-                            <option value="{{ url_for('youtube_monitor_index', page=1, status=current_status, per_page=pp, _anchor='recent-history') }}" {{ 'selected' if pagination.per_page == pp else '' }}>
+                            <option value="{{ url_for('youtube_monitor_index', page=1, status=current_status, per_page=pp) }}" {{ 'selected' if pagination.per_page == pp else '' }}>
                                 {{ pp }} 条
                             </option>
                             {% endfor %}
@@ -380,7 +380,7 @@
                 <ul class="pagination pagination-sm mb-0">
                     {% if pagination.has_prev %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('youtube_monitor_index', page=pagination.prev_page, status=current_status, per_page=pagination.per_page, _anchor='recent-history') }}" aria-label="上一页">&laquo;</a>
+                        <a class="page-link" href="{{ url_for('youtube_monitor_index', page=pagination.prev_page, status=current_status, per_page=pagination.per_page) }}" aria-label="上一页">&laquo;</a>
                     </li>
                     {% else %}
                     <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
@@ -391,7 +391,7 @@
                             {% if page_num == pagination.page %}
                             <li class="page-item active" aria-current="page"><span class="page-link">{{ page_num }}</span></li>
                             {% else %}
-                            <li class="page-item"><a class="page-link" href="{{ url_for('youtube_monitor_index', page=page_num, status=current_status, per_page=pagination.per_page, _anchor='recent-history') }}">{{ page_num }}</a></li>
+                            <li class="page-item"><a class="page-link" href="{{ url_for('youtube_monitor_index', page=page_num, status=current_status, per_page=pagination.per_page) }}">{{ page_num }}</a></li>
                             {% endif %}
                         {% else %}
                             <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -400,7 +400,7 @@
 
                     {% if pagination.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('youtube_monitor_index', page=pagination.next_page, status=current_status, per_page=pagination.per_page, _anchor='recent-history') }}" aria-label="下一页">&raquo;</a>
+                        <a class="page-link" href="{{ url_for('youtube_monitor_index', page=pagination.next_page, status=current_status, per_page=pagination.per_page) }}" aria-label="下一页">&raquo;</a>
                     </li>
                     {% else %}
                     <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
@@ -414,7 +414,7 @@
         {% elif history_stats.total_records > 0 %}
         <div class="alert alert-warning">
             <i class="bi bi-info-circle"></i> 当前筛选状态（{% if current_status == 'unadded' %}未添加{% elif current_status == 'added' %}已添加{% else %}全部{% endif %}）下没有监控记录。
-            <a href="{{ url_for('youtube_monitor_index', status='all', per_page=pagination.per_page, _anchor='recent-history') }}" class="alert-link ms-2">查看全部记录</a>
+            <a href="{{ url_for('youtube_monitor_index', status='all', per_page=pagination.per_page) }}" class="alert-link ms-2">查看全部记录</a>
         </div>
         {% else %}
         <div class="alert alert-info">
@@ -935,7 +935,75 @@ function updateSelectedRecentCount() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+function loadRecentHistoryAjax(url) {
+    const container = document.getElementById('recent-history');
+    if (!container) {
+        window.location.href = url;
+        return;
+    }
+    container.style.transition = 'opacity 0.15s ease';
+    container.style.opacity = '0.4';
+    container.style.pointerEvents = 'none';
+
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+    })
+    .then(htmlText => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, 'text/html');
+        const newContainer = doc.getElementById('recent-history');
+        if (newContainer) {
+            container.innerHTML = newContainer.innerHTML;
+            window.history.pushState(null, '', url);
+            bindRecentHistoryEvents();
+            updateSelectedRecentCount();
+        } else {
+            window.location.href = url;
+        }
+    })
+    .catch(err => {
+        console.warn('AJAX 加载最近记录失败，回退常规跳转:', err);
+        window.location.href = url;
+    })
+    .finally(() => {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+    });
+}
+
+function bindRecentHistoryEvents() {
+    const container = document.getElementById('recent-history');
+    if (!container) return;
+
+    // 1. 状态筛选按钮无滚动切换
+    container.querySelectorAll('.recent-status-btn, .btn-group[aria-label="状态筛选"] a').forEach(a => {
+        a.addEventListener('click', function(e) {
+            e.preventDefault();
+            loadRecentHistoryAjax(this.href);
+        });
+    });
+
+    // 2. 分页链接无滚动切换
+    container.querySelectorAll('nav[aria-label="最近监控记录分页"] a.page-link, .alert a.alert-link').forEach(a => {
+        a.addEventListener('click', function(e) {
+            e.preventDefault();
+            loadRecentHistoryAjax(this.href);
+        });
+    });
+
+    // 3. 每页数量下拉切换无滚动
+    const perPageSelect = container.querySelector('.recent-per-page-select');
+    if (perPageSelect) {
+        perPageSelect.onchange = function() {
+            loadRecentHistoryAjax(this.value);
+        };
+    }
+
+    // 4. 全选复选框绑定
     const selectAll = document.getElementById('selectAllRecentHistory');
     if (selectAll) {
         selectAll.addEventListener('change', function() {
@@ -944,6 +1012,46 @@ document.addEventListener('DOMContentLoaded', function() {
             updateSelectedRecentCount();
         });
     }
+
+    // 5. 绑定封面点击预览
+    container.querySelectorAll('.monitor-cover-thumb').forEach(thumb => {
+        thumb.addEventListener('click', function() {
+            const coverModal = document.getElementById('coverPreviewModal');
+            if (!coverModal) return;
+            const modalInstance = bootstrap.Modal.getOrCreateInstance(coverModal);
+            const previewImg = document.getElementById('coverPreviewImg');
+            const modalTitle = document.getElementById('coverPreviewModalLabel');
+            const originalBtn = document.getElementById('coverPreviewOriginalBtn');
+            const youtubeBtn = document.getElementById('coverPreviewYoutubeBtn');
+
+            const fullUrl = this.dataset.fullUrl || this.src;
+            const title = this.dataset.title || '封面预览';
+            const youtubeUrl = this.dataset.youtubeUrl || '';
+
+            if (previewImg) previewImg.src = fullUrl;
+            if (modalTitle) modalTitle.textContent = title;
+            if (originalBtn) originalBtn.href = fullUrl;
+            if (youtubeBtn) {
+                if (youtubeUrl) {
+                    youtubeBtn.href = youtubeUrl;
+                    youtubeBtn.style.display = 'inline-block';
+                } else {
+                    youtubeBtn.style.display = 'none';
+                }
+            }
+            modalInstance.show();
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    bindRecentHistoryEvents();
+    window.addEventListener('popstate', function() {
+        const container = document.getElementById('recent-history');
+        if (container) {
+            loadRecentHistoryAjax(window.location.href);
+        }
+    });
 });
 
 function confirmSingleDeleteRecent(button, recordId, title) {

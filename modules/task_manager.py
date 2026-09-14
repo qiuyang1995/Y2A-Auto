@@ -8324,8 +8324,8 @@ class TaskProcessor:
                         continue
                     cleaned_tags.append(tag_value)
                 tags = [uploader_tag] + cleaned_tags
-                if len(tags) > 12:
-                    tags = tags[:12]
+                if len(tags) > 10:
+                    tags = tags[:10]
                 try:
                     update_task(task_id, tags_generated=json.dumps(tags, ensure_ascii=False))
                 except Exception:
