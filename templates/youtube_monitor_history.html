@@ -1,376 +1,566 @@
 {% extends "base.html" %}
 
-{% block title %}监控历史 - {{ config.name }} - Y2A-Auto{% endblock %}
+{% block title %}
+{% if current_config %}
+监控记录 - {{ current_config.name }} - Y2A-Auto
+{% else %}
+监控记录中心 - Y2A-Auto
+{% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>
-        <i class="bi bi-clock-history"></i> 监控历史
-        <small class="text-muted">- {{ config.name }}</small>
-    </h2>
-    <a href="{{ url_for('youtube_monitor_index') }}" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> 返回
-    </a>
-</div>
-
-<!-- 配置信息摘要 -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h6 class="mb-0"><i class="bi bi-info-circle"></i> 配置信息</h6>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-2">
-                <strong>状态：</strong>
-                {% if config.enabled %}
-                <span class="badge bg-success">启用</span>
-                {% else %}
-                <span class="badge bg-secondary">禁用</span>
-                {% endif %}
-            </div>
-            <div class="col-md-2">
-                <strong>地区：</strong> {{ config.region_code }}
-            </div>
-            <div class="col-md-2">
-                <strong>时间段：</strong>
-                {% if config.monitor_type == 'channel_monitor' and config.channel_mode == 'historical' %}
-                    {% if config.start_date and config.end_date %}
-                        {{ config.start_date }} 至 {{ config.end_date }}
-                    {% elif config.start_date %}
-                        从 {{ config.start_date }} 开始
-                    {% else %}
-                        历史搬运模式
-                    {% endif %}
-                {% elif config.monitor_type == 'channel_monitor' and config.channel_mode == 'latest' %}
-                    最新 {{ config.latest_days or 7 }} 天
-                {% else %}
-                    {{ config.time_period or 7 }} 天
-                {% endif %}
-            </div>
-            <div class="col-md-2">
-                <strong>最大结果：</strong> {{ config.max_results }}
-            </div>
-            <div class="col-md-2">
-                <strong>最小观看数：</strong> {{ config.min_view_count|int }}
-            </div>
-            <div class="col-md-2">
-                <strong>调度：</strong>
-                {% if config.schedule_type == 'auto' %}
-                <span class="badge bg-info">自动({{ config.schedule_interval }}分钟)</span>
-                {% else %}
-                <span class="badge bg-warning">手动</span>
-                {% endif %}
-            </div>
-        </div>
-        
-        {% if config.keywords %}
-        <div class="row mt-2">
-            <div class="col-12">
-                <strong>关键词：</strong> {{ config.keywords }}
-            </div>
-        </div>
-        {% endif %}
-        
-        {% if config.exclude_keywords %}
-        <div class="row mt-2">
-            <div class="col-12">
-                <strong>排除关键词：</strong> {{ config.exclude_keywords }}
-            </div>
-        </div>
-        {% endif %}
-        
-        {% if config.last_run_time %}
-        <div class="row mt-2">
-            <div class="col-12">
-                <strong>最后运行：</strong> {{ config.last_run_time }}
-            </div>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- 统计信息 -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md">
-        <div class="card text-center shadow-sm h-100">
-            <div class="card-body py-2">
-                <h5 class="card-title mb-1 text-primary">{{ stats.total_records }}</h5>
-                <p class="card-text text-muted small mb-0">总记录数</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md">
-        <div class="card text-center shadow-sm h-100">
-            <div class="card-body py-2">
-                <h5 class="card-title mb-1 text-secondary">{{ stats.unadded_records }}</h5>
-                <p class="card-text text-muted small mb-0">未添加到任务</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md">
-        <div class="card text-center shadow-sm h-100">
-            <div class="card-body py-2">
-                <h5 class="card-title mb-1 text-success">{{ stats.added_to_tasks }}</h5>
-                <p class="card-text text-muted small mb-0">已添加到任务</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md">
-        <div class="card text-center shadow-sm h-100">
-            <div class="card-body py-2">
-                <h5 class="card-title mb-1 text-info">{{ stats.avg_views }}</h5>
-                <p class="card-text text-muted small mb-0">平均观看数</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md">
-        <div class="card text-center shadow-sm h-100">
-            <div class="card-body py-2">
-                <h5 class="card-title mb-1 text-warning">{{ stats.avg_likes }}</h5>
-                <p class="card-text text-muted small mb-0">平均点赞数</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 操作与筛选栏 -->
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div class="d-flex flex-wrap align-items-center gap-2">
-        <h4 class="mb-0 me-2"><i class="bi bi-list"></i> 监控记录</h4>
-        <div class="btn-group btn-group-sm" role="group" aria-label="状态筛选">
-            <a href="{{ url_for('youtube_monitor_history', config_id=config.id, status='all', per_page=pagination.per_page) }}" 
-               class="btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-secondary' }}">
-                全部 ({{ stats.total_records }})
-            </a>
-            <a href="{{ url_for('youtube_monitor_history', config_id=config.id, status='unadded', per_page=pagination.per_page) }}" 
-               class="btn {{ 'btn-primary' if current_status == 'unadded' else 'btn-outline-secondary' }}">
-                未添加 ({{ stats.unadded_records }})
-            </a>
-            <a href="{{ url_for('youtube_monitor_history', config_id=config.id, status='added', per_page=pagination.per_page) }}" 
-               class="btn {{ 'btn-primary' if current_status == 'added' else 'btn-outline-secondary' }}">
-                已添加 ({{ stats.added_to_tasks }})
-            </a>
-        </div>
+<!-- 顶部标题与操作栏 -->
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="bi bi-journal-text text-primary"></i> 监控记录中心
+            {% if current_config %}
+            <span class="badge bg-secondary fs-6 align-middle ms-2">{{ current_config.name }}</span>
+            {% else %}
+            <span class="badge bg-primary fs-6 align-middle ms-2">全站总览</span>
+            {% endif %}
+        </h2>
+        <p class="text-muted small mb-0">全面掌握每一次监控执行状态、漏斗成果与视频素材资产</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
-        <form method="POST" action="{{ url_for('youtube_monitor_run', config_id=config.id) }}" class="d-inline monitor-run-form">
+        {% if current_config %}
+        <form method="POST" action="{{ url_for('youtube_monitor_run', config_id=current_config.id) }}" class="d-inline monitor-run-form">
             <button type="submit" class="btn btn-sm btn-success">
                 <i class="bi bi-play-fill"></i> 立即运行
             </button>
         </form>
-        <a href="{{ url_for('youtube_monitor_config_edit', config_id=config.id) }}" class="btn btn-sm btn-warning">
+        <a href="{{ url_for('youtube_monitor_config_edit', config_id=current_config.id) }}" class="btn btn-sm btn-warning">
             <i class="bi bi-pencil"></i> 编辑配置
         </a>
-        {% if history %}
-        <button type="button" class="btn btn-sm btn-outline-success" id="batchAddBtn" onclick="confirmBatchAdd(this)" disabled>
-            <i class="bi bi-plus-circle"></i> 批量添加到队列 (<span id="selectedAddCount">0</span>)
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-danger" id="batchDeleteBtn" onclick="confirmBatchDelete(this)" disabled>
-            <i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">0</span>)
-        </button>
         {% endif %}
-        {% if stats.total_records > 0 %}
-        <form method="POST" action="{{ url_for('youtube_monitor_clear_history', config_id=config.id) }}" class="d-inline" onsubmit="return confirm('确定要清除该配置的所有历史记录吗？此操作不可恢复！')">
-            <button type="submit" class="btn btn-sm btn-danger">
-                <i class="bi bi-trash"></i> 清除全部历史
-            </button>
-        </form>
-        {% endif %}
+        <a href="{{ url_for('youtube_monitor_index') }}" class="btn btn-sm btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回监控中心
+        </a>
     </div>
 </div>
 
-<!-- 监控历史列表 -->
-{% if history %}
-<div class="table-responsive">
-    <table class="table table-striped align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th style="width: 40px;" class="text-center">
-                    <input type="checkbox" class="form-check-input" id="selectAllHistory" title="全选/取消全选">
-                </th>
-                <th>时间</th>
-                <th>封面</th>
-                <th>视频标题</th>
-                <th>频道</th>
-                <th>观看数</th>
-                <th>点赞数</th>
-                <th>评论数</th>
-                <th>时长</th>
-                <th>发布时间</th>
-                <th>状态</th>
-                <th>操作</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for record in history %}
-            <tr id="history-row-{{ record.id }}">
-                <td class="text-center align-middle">
-                    <input type="checkbox" class="form-check-input record-checkbox" value="{{ record.id }}" data-added="{{ '1' if record.added_to_tasks else '0' }}" onchange="updateSelectedCount()">
-                </td>
-                <td>
-                    <small>{{ record.run_time }}</small>
-                </td>
-                <td class="text-center align-middle" style="width: 85px;">
-                    <img src="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}" 
-                         alt="封面" 
-                         class="monitor-cover-thumb rounded shadow-sm"
-                         loading="lazy"
-                         data-cover-url="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}"
-                         data-video-title="{{ record.video_title }}"
-                         data-youtube-url="https://www.youtube.com/watch?v={{ record.video_id }}"
-                         title="点击放大查看封面">
-                </td>
-                <td>
-                    <div class="text-truncate-300" title="{{ record.video_title }}">
-                        {% if record.video_type %}
-                            {% if record.video_type == 'short' %}
-                                <span class="badge bg-info text-dark" title="短视频">短</span>
-                            {% elif record.video_type == 'live' %}
-                                <span class="badge bg-danger" title="直播">直播</span>
-                            {% endif %}
-                        {% endif %}
-                        {{ record.video_title }}
-                    </div>
-                </td>
-                <td>
-                    <div class="text-truncate-150" title="{{ record.channel_title }}">
-                        {{ record.channel_title }}
-                    </div>
-                </td>
-                <td>{{ record.view_count|int }}</td>
-                <td>{{ record.like_count|int }}</td>
-                <td>{{ record.comment_count|int }}</td>
-                <td>
-                    {% set duration_seconds = record.duration|parse_youtube_duration %}
-                    {% if duration_seconds %}
-                        {% set hours = duration_seconds // 3600 %}
-                        {% set minutes = (duration_seconds % 3600) // 60 %}
-                        {% set seconds = duration_seconds % 60 %}
-                        {% if hours > 0 %}
-                            {{ hours }}:{{ "%02d"|format(minutes) }}:{{ "%02d"|format(seconds) }}
-                        {% else %}
-                            {{ minutes }}:{{ "%02d"|format(seconds) }}
-                        {% endif %}
-                    {% else %}
-                        {{ record.duration }}
-                    {% endif %}
-                </td>
-                <td>
-                    <small>{{ record.published_at[:10] }}</small>
-                </td>
-                <td>
-                    {% if record.added_to_tasks %}
-                    <span class="badge bg-success">已添加</span>
-                    {% else %}
-                    <span class="badge bg-secondary">未添加</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <div class="btn-group" role="group">
-                        <a href="https://www.youtube.com/watch?v={{ record.video_id }}" 
-                           target="_blank" rel="noopener" class="btn btn-outline-danger btn-sm" title="在YouTube中查看">
-                            <i class="bi bi-youtube"></i>
-                        </a>
-                        {% if not record.added_to_tasks %}
-                        <button type="button" class="btn btn-outline-success btn-sm btn-add-task" 
-                                onclick="confirmSingleAdd(this, '{{ record.video_id }}', '{{ config.id }}')" 
-                                title="添加到任务队列">
-                            <i class="bi bi-plus-circle"></i>
-                        </button>
-                        {% endif %}
-                        <button type="button" class="btn btn-outline-danger btn-sm"
-                                onclick="confirmSingleDelete(this, '{{ record.id }}', {{ record.video_title|tojson }})"
-                                title="删除记录">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<!-- 分页导航 -->
-{% if pagination and pagination.total > 0 %}
-<nav aria-label="监控记录分页" class="mt-3">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-muted small">
-                显示第 {{ (pagination.page - 1) * pagination.per_page + 1 }} - {{ [pagination.page * pagination.per_page, pagination.total]|min }} 条，共 {{ pagination.total }} 条记录
-            </span>
-            <div class="d-flex align-items-center gap-1">
-                <span class="text-muted small">每页：</span>
-                <select class="form-select form-select-sm" style="width: auto;" onchange="location.href=this.value;">
-                    {% for pp in [10, 20, 50, 100] %}
-                    <option value="{{ url_for('youtube_monitor_history', config_id=config.id, page=1, status=current_status, per_page=pp) }}" {{ 'selected' if pagination.per_page == pp else '' }}>
-                        {{ pp }} 条
+<!-- 筛选配置与 KPI 看板 -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body p-3">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label mb-0 fw-bold small text-muted text-nowrap"><i class="bi bi-funnel"></i> 监控配置：</label>
+                <select class="form-select form-select-sm" style="min-width: 240px;" onchange="switchConfig(this.value)">
+                    <option value="0" {{ 'selected' if selected_config_id == 0 else '' }}>全部监控配置 (全量总览)</option>
+                    {% for cfg in configs %}
+                    <option value="{{ cfg.id }}" {{ 'selected' if selected_config_id == cfg.id else '' }}>
+                        {{ cfg.name }} ({{ '已启用' if cfg.enabled else '已禁用' }})
                     </option>
                     {% endfor %}
                 </select>
             </div>
+            <div>
+                {% if selected_config_id > 0 %}
+                <form method="POST" action="{{ url_for('youtube_monitor_clear_history', config_id=selected_config_id) }}" class="d-inline" onsubmit="return confirm('确定要清除该配置的所有监控历史记录与执行批次吗？此操作不可恢复！')">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i> 清除此配置记录
+                    </button>
+                </form>
+                {% else %}
+                <form method="POST" action="{{ url_for('youtube_monitor_clear_all_history') }}" class="d-inline" onsubmit="return confirm('确定要清除所有监控历史记录与执行批次吗？此操作不可恢复！')">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i> 清除所有监控记录
+                    </button>
+                </form>
+                {% endif %}
+            </div>
         </div>
 
-        {% if pagination.total_pages > 1 %}
-        <ul class="pagination pagination-sm mb-0">
-            {% if pagination.has_prev %}
-            <li class="page-item">
-                <a class="page-link" href="{{ url_for('youtube_monitor_history', config_id=config.id, page=pagination.prev_page, status=current_status, per_page=pagination.per_page) }}" aria-label="上一页">
-                    <span aria-hidden="true">&laquo;</span>
-                </a>
-            </li>
-            {% else %}
-            <li class="page-item disabled">
-                <span class="page-link" aria-label="上一页"><span aria-hidden="true">&laquo;</span></span>
-            </li>
-            {% endif %}
+        <!-- 4 维 KPI 统计指标卡片 -->
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <div class="border rounded p-2 text-center bg-light">
+                    <div class="text-muted small">今日执行 / 成功率</div>
+                    <div class="fs-5 fw-bold text-primary mt-1">{{ kpi_stats.today_runs }} <small class="fs-6 text-muted">次</small> <span class="badge bg-success-subtle text-success fs-7 ms-1">{{ kpi_stats.success_rate }}%</span></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="border rounded p-2 text-center bg-light">
+                    <div class="text-muted small">累计执行批次</div>
+                    <div class="fs-5 fw-bold text-dark mt-1">{{ kpi_stats.total_runs }} <small class="fs-6 text-muted">次</small> <span class="badge bg-info-subtle text-info fs-7 ms-1">失败 {{ kpi_stats.failed_runs }}</span></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="border rounded p-2 text-center bg-light">
+                    <div class="text-muted small">待入队视频素材</div>
+                    <div class="fs-5 fw-bold text-warning mt-1">{{ kpi_stats.unadded_videos }} <small class="fs-6 text-muted">个</small></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="border rounded p-2 text-center bg-light">
+                    <div class="text-muted small">累计捕获 / 已入队</div>
+                    <div class="fs-5 fw-bold text-success mt-1">{{ kpi_stats.added_videos }} <small class="fs-6 text-muted">/ {{ kpi_stats.total_videos }}</small></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-            {% for page_num in pagination.iter_pages %}
-                {% if page_num %}
-                    {% if page_num == pagination.page %}
-                    <li class="page-item active" aria-current="page">
-                        <span class="page-link">{{ page_num }}</span>
+<!-- 双 Tab 切换导航 -->
+<ul class="nav nav-tabs mb-3 fw-bold" id="recordsTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link {{ 'active' if active_tab == 'runs' else '' }}" 
+           href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id) }}">
+            <i class="bi bi-clock-history me-1"></i> 监控执行历史 (Runs)
+            <span class="badge {{ 'bg-primary' if active_tab == 'runs' else 'bg-secondary' }} ms-1">{{ kpi_stats.total_runs }}</span>
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link {{ 'active' if active_tab == 'videos' else '' }}" 
+           href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id) }}">
+            <i class="bi bi-collection-play me-1"></i> 视频素材总池 (Videos)
+            <span class="badge {{ 'bg-primary' if active_tab == 'videos' else 'bg-secondary' }} ms-1">{{ kpi_stats.total_videos }}</span>
+        </a>
+    </li>
+</ul>
+
+<!-- Tab 1 内容：监控执行历史 (Runs) -->
+{% if active_tab == 'runs' %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-3">
+        <!-- 执行记录筛选栏 -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small fw-bold">状态筛选：</span>
+                <div class="btn-group btn-group-sm" role="group" aria-label="状态筛选">
+                    <a href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, run_status='all', per_page=runs_pagination.per_page) }}" 
+                       class="btn {{ 'btn-primary' if run_status == 'all' else 'btn-outline-secondary' }}">
+                        全部 (总记录数: {{ runs_pagination.total }})
+                    </a>
+                    <a href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, run_status='has_new', per_page=runs_pagination.per_page) }}" 
+                       class="btn {{ 'btn-primary' if run_status == 'has_new' else 'btn-outline-secondary' }}">
+                        <i class="bi bi-sparkles text-warning"></i> 有新视频
+                    </a>
+                    <a href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, run_status='no_new', per_page=runs_pagination.per_page) }}" 
+                       class="btn {{ 'btn-primary' if run_status == 'no_new' else 'btn-outline-secondary' }}">
+                        无新视频
+                    </a>
+                    <a href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, run_status='failed', per_page=runs_pagination.per_page) }}" 
+                       class="btn {{ 'btn-primary' if run_status == 'failed' else 'btn-outline-secondary' }}">
+                        <i class="bi bi-exclamation-triangle-fill text-danger"></i> 失败
+                    </a>
+                </div>
+            </div>
+            <div>
+                <span class="text-muted small">共 {{ runs_pagination.total }} 次执行记录</span>
+            </div>
+        </div>
+
+        {% if runs_pagination.runs %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 65px;">ID</th>
+                        <th>执行时间</th>
+                        <th>监控配置</th>
+                        <th>触发方式</th>
+                        <th>耗时</th>
+                        <th>抓取与漏斗结果</th>
+                        <th>状态</th>
+                        <th class="text-end" style="min-width: 120px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in runs_pagination.runs %}
+                    <tr>
+                        <td><span class="text-muted small">#{{ run.id }}</span></td>
+                        <td>
+                            <div class="fw-bold">{{ run.start_time }}</div>
+                            {% if run.end_time %}
+                            <small class="text-muted">结束: {{ run.end_time[11:] }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ run.config_name or '已删除配置' }}</div>
+                        </td>
+                        <td>
+                            {% if run.trigger_type == 'manual' %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-hand-index-thumb"></i> 手动</span>
+                            {% else %}
+                            <span class="badge bg-info"><i class="bi bi-clock"></i> 定时</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="text-muted">{{ run.duration_seconds }}s</span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-1 flex-wrap">
+                                <span class="badge bg-light text-dark border" title="API抓取总数">抓取: {{ run.fetched_count }}</span>
+                                <span class="text-muted small">&rarr;</span>
+                                <span class="badge bg-light text-dark border" title="规则筛选通过">筛选: {{ run.filtered_count }}</span>
+                                <span class="text-muted small">&rarr;</span>
+                                {% if run.new_count > 0 %}
+                                <span class="badge bg-success" title="本次新发现视频">新增: {{ run.new_count }}</span>
+                                {% else %}
+                                <span class="badge bg-light text-muted border" title="无新增">新增: 0</span>
+                                {% endif %}
+                                <span class="text-muted small">&rarr;</span>
+                                <span class="badge {{ 'bg-primary' if run.added_count > 0 else 'bg-light text-muted border' }}" title="自动推送到任务队列">入队: {{ run.added_count }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if run.status == 'success' %}
+                                {% if run.new_count > 0 %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> 成功 (+{{ run.new_count }})</span>
+                                {% else %}
+                                <span class="badge bg-secondary"><i class="bi bi-check2"></i> 正常 (无新视频)</span>
+                                {% endif %}
+                            {% elif run.status == 'failed' %}
+                                <span class="badge bg-danger" title="{{ run.error_message }}"><i class="bi bi-exclamation-triangle-fill"></i> 失败</span>
+                                {% if run.error_message %}
+                                <div class="text-danger small text-truncate" style="max-width: 180px;" title="{{ run.error_message }}">{{ run.error_message }}</div>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-info"><i class="bi bi-hourglass-split"></i> 运行中</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openRunDetails({{ run.id }})">
+                                <i class="bi bi-eye"></i> 查看详情
+                                {% if run.new_count > 0 %}
+                                <span class="badge bg-success ms-1">{{ run.new_count }}</span>
+                                {% endif %}
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 执行记录分页导航 -->
+        {% if runs_pagination and runs_pagination.total > 0 %}
+        <nav aria-label="执行记录分页" class="mt-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-muted small">
+                        显示第 {{ (runs_pagination.page - 1) * runs_pagination.per_page + 1 }} - {{ [runs_pagination.page * runs_pagination.per_page, runs_pagination.total]|min }} 条，共 {{ runs_pagination.total }} 次执行
+                    </span>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="text-muted small">每页：</span>
+                        <select class="form-select form-select-sm" style="width: auto;" onchange="location.href=this.value;">
+                            {% for pp in [10, 20, 50, 100] %}
+                            <option value="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, page=1, run_status=run_status, per_page=pp) }}" {{ 'selected' if runs_pagination.per_page == pp else '' }}>
+                                {{ pp }} 条
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                {% if runs_pagination.total_pages > 1 %}
+                <ul class="pagination pagination-sm mb-0">
+                    {% if runs_pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, page=runs_pagination.prev_page, run_status=run_status, per_page=runs_pagination.per_page) }}" aria-label="上一页">&laquo;</a>
                     </li>
                     {% else %}
-                    <li class="page-item">
-                        <a class="page-link" href="{{ url_for('youtube_monitor_history', config_id=config.id, page=page_num, status=current_status, per_page=pagination.per_page) }}">{{ page_num }}</a>
-                    </li>
+                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
                     {% endif %}
-                {% else %}
-                    <li class="page-item disabled"><span class="page-link">...</span></li>
-                {% endif %}
-            {% endfor %}
 
-            {% if pagination.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="{{ url_for('youtube_monitor_history', config_id=config.id, page=pagination.next_page, status=current_status, per_page=pagination.per_page) }}" aria-label="下一页">
-                    <span aria-hidden="true">&raquo;</span>
-                </a>
-            </li>
+                    {% for page_num in runs_pagination.iter_pages %}
+                        {% if page_num %}
+                            {% if page_num == runs_pagination.page %}
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ page_num }}</span></li>
+                            {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, page=page_num, run_status=run_status, per_page=runs_pagination.per_page) }}">{{ page_num }}</a></li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if runs_pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, page=runs_pagination.next_page, run_status=run_status, per_page=runs_pagination.per_page) }}" aria-label="下一页">&raquo;</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                    {% endif %}
+                </ul>
+                {% endif %}
+            </div>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            {% if run_status != 'all' %}
+            <p>当前状态（{{ run_status }}）下暂无监控执行记录。</p>
+            <a href="{{ url_for('youtube_monitor_history', tab='runs', config_id=selected_config_id, run_status='all') }}" class="btn btn-sm btn-outline-primary">查看全部执行</a>
             {% else %}
-            <li class="page-item disabled">
-                <span class="page-link" aria-label="下一页"><span aria-hidden="true">&raquo;</span></span>
-            </li>
+            <p>暂无监控执行记录。可通过配置卡片的“立即运行”手动启动一次监控。</p>
             {% endif %}
-        </ul>
+        </div>
         {% endif %}
     </div>
-</nav>
+</div>
+
+<!-- Tab 2 内容：视频素材总池 (Videos) -->
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-3">
+        <!-- 视频素材筛选与操作栏 -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted small fw-bold">状态筛选：</span>
+                <div class="btn-group btn-group-sm" role="group">
+                    <a href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, video_status='all', per_page=videos_pagination.per_page, order_by=order_by, run_id=selected_run_id) }}" 
+                       class="btn {{ 'btn-primary' if video_status == 'all' else 'btn-outline-secondary' }}">
+                        全部 (总记录数: {{ kpi_stats.total_videos }})
+                    </a>
+                    <a href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, video_status='unadded', per_page=videos_pagination.per_page, order_by=order_by, run_id=selected_run_id) }}" 
+                       class="btn {{ 'btn-primary' if video_status == 'unadded' else 'btn-outline-secondary' }}">
+                        未添加 ({{ kpi_stats.unadded_videos }})
+                    </a>
+                    <a href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, video_status='added', per_page=videos_pagination.per_page, order_by=order_by, run_id=selected_run_id) }}" 
+                       class="btn {{ 'btn-primary' if video_status == 'added' else 'btn-outline-secondary' }}">
+                        已添加 ({{ kpi_stats.added_videos }})
+                    </a>
+                </div>
+
+                {% if selected_run_id %}
+                <span class="badge bg-info text-dark ms-2">
+                    仅展示运行批次 #{{ selected_run_id }}
+                    <a href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, video_status=video_status) }}" class="text-dark text-decoration-none ms-1">&times;</a>
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-1">
+                    <span class="text-muted small">排序：</span>
+                    <select class="form-select form-select-sm" style="width: auto;" onchange="location.href=this.value;">
+                        <option value="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, video_status=video_status, per_page=videos_pagination.per_page, order_by='run_time_desc', run_id=selected_run_id) }}" {{ 'selected' if order_by == 'run_time_desc' else '' }}>按发现时间倒序</option>
+                        <option value="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, video_status=video_status, per_page=videos_pagination.per_page, order_by='view_count', run_id=selected_run_id) }}" {{ 'selected' if order_by == 'view_count' else '' }}>按播放量倒序</option>
+                        <option value="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, video_status=video_status, per_page=videos_pagination.per_page, order_by='published_at', run_id=selected_run_id) }}" {{ 'selected' if order_by == 'published_at' else '' }}>按发布时间倒序</option>
+                    </select>
+                </div>
+                {% if videos_pagination.records %}
+                <button type="button" class="btn btn-sm btn-outline-success" id="batchAddBtn" onclick="confirmBatchAdd(this)" disabled>
+                    <i class="bi bi-plus-circle"></i> 批量添加到队列 (<span id="selectedAddCount">0</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="batchDeleteBtn" onclick="confirmBatchDelete(this)" disabled>
+                    <i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">0</span>)
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if videos_pagination.records %}
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 40px;" class="text-center">
+                            <input type="checkbox" class="form-check-input" id="selectAllHistory" title="全选/取消全选">
+                        </th>
+                        <th>发现时间</th>
+                        <th>封面</th>
+                        <th>配置名称</th>
+                        <th>视频标题</th>
+                        <th>频道</th>
+                        <th>观看数</th>
+                        <th>点赞数</th>
+                        <th>时长</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in videos_pagination.records %}
+                    <tr id="history-row-{{ record.id }}">
+                        <td class="text-center align-middle">
+                            <input type="checkbox" class="form-check-input record-checkbox" value="{{ record.id }}" data-added="{{ '1' if record.added_to_tasks else '0' }}" onchange="updateSelectedCount()">
+                        </td>
+                        <td>
+                            <small>{{ record.run_time }}</small>
+                            {% if record.run_id %}
+                            <div><a href="javascript:void(0)" onclick="openRunDetails({{ record.run_id }})" class="badge bg-light text-primary text-decoration-none border">批次 #{{ record.run_id }}</a></div>
+                            {% endif %}
+                        </td>
+                        <td class="text-center align-middle" style="width: 85px;">
+                            <img src="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}" 
+                                 alt="封面" 
+                                 class="monitor-cover-thumb rounded shadow-sm"
+                                 loading="lazy"
+                                 data-cover-url="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}"
+                                 data-video-title="{{ record.video_title }}"
+                                 data-youtube-url="https://www.youtube.com/watch?v={{ record.video_id }}"
+                                 title="点击放大查看封面">
+                        </td>
+                        <td>
+                            <div class="fw-semibold small">{{ record.config_name or '默认' }}</div>
+                        </td>
+                        <td>
+                            <div class="text-truncate-300" title="{{ record.video_title }}">
+                                {% if record.video_type %}
+                                    {% if record.video_type == 'short' %}
+                                        <span class="badge bg-info text-dark" title="短视频">短</span>
+                                    {% elif record.video_type == 'live' %}
+                                        <span class="badge bg-danger" title="直播">直播</span>
+                                    {% endif %}
+                                {% endif %}
+                                {{ record.video_title }}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="text-truncate-150" title="{{ record.channel_title }}">
+                                {{ record.channel_title }}
+                            </div>
+                        </td>
+                        <td>{{ record.view_count|int }}</td>
+                        <td>{{ record.like_count|int }}</td>
+                        <td>
+                            {% set duration_seconds = record.duration|parse_youtube_duration %}
+                            {% if duration_seconds %}
+                                {% set hours = duration_seconds // 3600 %}
+                                {% set minutes = (duration_seconds % 3600) // 60 %}
+                                {% set seconds = duration_seconds % 60 %}
+                                {% if hours > 0 %}
+                                    {{ hours }}:{{ "%02d"|format(minutes) }}:{{ "%02d"|format(seconds) }}
+                                {% else %}
+                                    {{ minutes }}:{{ "%02d"|format(seconds) }}
+                                {% endif %}
+                            {% else %}
+                                {{ record.duration }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.added_to_tasks %}
+                            <span class="badge bg-success">已添加</span>
+                            {% else %}
+                            <span class="badge bg-secondary">未添加</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="https://www.youtube.com/watch?v={{ record.video_id }}" 
+                                   target="_blank" rel="noopener" class="btn btn-outline-danger btn-sm" title="在YouTube中查看">
+                                    <i class="bi bi-youtube"></i>
+                                </a>
+                                {% if not record.added_to_tasks %}
+                                <button type="button" class="btn btn-outline-success btn-sm btn-add-task" 
+                                        onclick="confirmSingleAdd(this, '{{ record.video_id }}', '{{ record.config_id }}')" 
+                                        title="添加到任务队列">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                                {% endif %}
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                        onclick="confirmSingleDelete(this, '{{ record.id }}', {{ record.video_title|tojson }})"
+                                        title="删除记录">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 视频素材分页导航 -->
+        {% if videos_pagination and videos_pagination.total > 0 %}
+        <nav aria-label="监控记录分页" class="mt-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-muted small">
+                        显示第 {{ (videos_pagination.page - 1) * videos_pagination.per_page + 1 }} - {{ [videos_pagination.page * videos_pagination.per_page, videos_pagination.total]|min }} 条，共 {{ videos_pagination.total }} 条记录
+                    </span>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="text-muted small">每页：</span>
+                        <select class="form-select form-select-sm" style="width: auto;" onchange="location.href=this.value;">
+                            {% for pp in [10, 20, 50, 100] %}
+                            <option value="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, page=1, video_status=video_status, per_page=pp, order_by=order_by, run_id=selected_run_id) }}" {{ 'selected' if videos_pagination.per_page == pp else '' }}>
+                                {{ pp }} 条
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                {% if videos_pagination.total_pages > 1 %}
+                <ul class="pagination pagination-sm mb-0">
+                    {% if videos_pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, page=videos_pagination.prev_page, video_status=video_status, per_page=videos_pagination.per_page, order_by=order_by, run_id=selected_run_id) }}" aria-label="上一页">&laquo;</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                    {% endif %}
+
+                    {% for page_num in videos_pagination.iter_pages %}
+                        {% if page_num %}
+                            {% if page_num == videos_pagination.page %}
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ page_num }}</span></li>
+                            {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, page=page_num, video_status=video_status, per_page=videos_pagination.per_page, order_by=order_by, run_id=selected_run_id) }}">{{ page_num }}</a></li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if videos_pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, page=videos_pagination.next_page, video_status=video_status, per_page=videos_pagination.per_page, order_by=order_by, run_id=selected_run_id) }}" aria-label="下一页">&raquo;</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                    {% endif %}
+                </ul>
+                {% endif %}
+            </div>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            {% if video_status != 'all' or selected_run_id %}
+            <p>当前筛选条件下未找到监控记录。</p>
+            <a href="{{ url_for('youtube_monitor_history', tab='videos', config_id=selected_config_id, video_status='all') }}" class="btn btn-sm btn-outline-primary">查看全部素材</a>
+            {% else %}
+            <p>暂无监控视频记录。</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
 {% endif %}
 
-{% elif stats.total_records > 0 %}
-<div class="alert alert-warning">
-    <i class="bi bi-info-circle"></i> 当前筛选状态（{% if current_status == 'unadded' %}未添加{% elif current_status == 'added' %}已添加{% else %}全部{% endif %}）下没有找到监控记录。
-    <a href="{{ url_for('youtube_monitor_history', config_id=config.id, status='all', per_page=pagination.per_page) }}" class="alert-link ms-2">查看全部记录</a>
+<!-- 运行详情模态框 (Run Details Modal) -->
+<div class="modal fade" id="runDetailsModal" tabindex="-1" aria-labelledby="runDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="runDetailsModalLabel">
+                    <i class="bi bi-info-circle me-1"></i> 监控执行详情 <span id="modalRunId" class="badge bg-secondary ms-1"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body p-4" id="runDetailsModalBody">
+                <div class="text-center py-4 text-muted">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2">正在加载执行详情...</div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <div>
+                    <span class="text-muted small" id="modalVideosCountText"></span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
 </div>
-{% else %}
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i> 此配置还没有监控记录。
-    <form method="POST" action="{{ url_for('youtube_monitor_run', config_id=config.id) }}" class="d-inline monitor-run-form">
-        <button type="submit" class="btn btn-link p-0">点击这里立即运行一次监控</button>
-    </form>
-</div>
-{% endif %}
 
 <!-- 封面大图预览模态框 -->
 <div class="modal fade" id="coverPreviewModal" tabindex="-1" aria-labelledby="coverPreviewModalLabel" aria-hidden="true">
@@ -397,12 +587,183 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
 const monitorRunStatusEndpointTemplate = '{{ url_for("youtube_monitor_run_status", operation_id="__operation_id__") }}';
+
+function switchConfig(configId) {
+    const url = new URL(window.location.href);
+    if (parseInt(configId) > 0) {
+        url.searchParams.set('config_id', configId);
+    } else {
+        url.searchParams.delete('config_id');
+    }
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function openRunDetails(runId) {
+    const modalEl = document.getElementById('runDetailsModal');
+    const modal = new bootstrap.Modal(modalEl);
+    const modalTitle = document.getElementById('modalRunId');
+    const modalBody = document.getElementById('runDetailsModalBody');
+    const countText = document.getElementById('modalVideosCountText');
+    
+    modalTitle.textContent = `#${runId}`;
+    modalBody.innerHTML = `
+        <div class="text-center py-4 text-muted">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div class="mt-2">正在加载执行详情...</div>
+        </div>
+    `;
+    countText.textContent = '';
+    modal.show();
+    
+    fetch(`/youtube_monitor/run/${runId}/details`)
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data) {
+                modalBody.innerHTML = `<div class="alert alert-danger">${res.message || '获取执行详情失败'}</div>`;
+                return;
+            }
+            const run = res.data.run;
+            const videos = res.data.videos || [];
+            
+            let statusBadge = '';
+            if (run.status === 'success') {
+                statusBadge = run.new_count > 0 
+                    ? `<span class="badge bg-success fs-6"><i class="bi bi-check-circle-fill"></i> 成功 (+${run.new_count}个新视频)</span>`
+                    : `<span class="badge bg-secondary fs-6"><i class="bi bi-check2"></i> 正常 (扫描无新视频)</span>`;
+            } else if (run.status === 'failed') {
+                statusBadge = `<span class="badge bg-danger fs-6"><i class="bi bi-exclamation-triangle-fill"></i> 执行失败</span>`;
+            } else {
+                statusBadge = `<span class="badge bg-info fs-6"><i class="bi bi-hourglass-split"></i> 运行中</span>`;
+            }
+            
+            let triggerBadge = run.trigger_type === 'manual'
+                ? `<span class="badge bg-warning text-dark"><i class="bi bi-hand-index-thumb"></i> 手动触发</span>`
+                : `<span class="badge bg-info"><i class="bi bi-clock"></i> 定时调度</span>`;
+                
+            let errorHtml = '';
+            if (run.status === 'failed' && run.error_message) {
+                errorHtml = `
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <div class="fw-bold"><i class="bi bi-bug-fill me-1"></i> 失败原因：</div>
+                        <div class="small mt-1 text-break">${run.error_message}</div>
+                    </div>
+                `;
+            }
+            
+            let videosHtml = '';
+            if (videos.length > 0) {
+                videosHtml = `
+                    <h6 class="fw-bold mt-4 mb-3"><i class="bi bi-collection-play me-1"></i> 本次捕获的视频 (${videos.length})</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>封面</th>
+                                    <th>标题</th>
+                                    <th>频道</th>
+                                    <th>观看数</th>
+                                    <th>点赞数</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${videos.map(v => `
+                                    <tr id="modal-video-row-${v.id}">
+                                        <td style="width: 60px;">
+                                            <img src="/youtube_monitor/cover/${v.video_id}" class="rounded" style="width: 54px; height: 32px; object-fit: cover;">
+                                        </td>
+                                        <td>
+                                            <div class="text-truncate-300 fw-semibold small" title="${v.video_title}">${v.video_title}</div>
+                                        </td>
+                                        <td><small class="text-muted">${v.channel_title}</small></td>
+                                        <td><small>${Number(v.view_count || 0).toLocaleString()}</small></td>
+                                        <td><small>${Number(v.like_count || 0).toLocaleString()}</small></td>
+                                        <td>
+                                            ${v.added_to_tasks ? '<span class="badge bg-success">已添加</span>' : '<span class="badge bg-secondary">未添加</span>'}
+                                        </td>
+                                        <td>
+                                            <a href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" rel="noopener" class="btn btn-xs btn-outline-danger btn-sm p-1" title="打开YouTube">
+                                                <i class="bi bi-youtube"></i>
+                                            </a>
+                                            ${!v.added_to_tasks ? `
+                                                <button type="button" class="btn btn-xs btn-outline-success btn-sm p-1 ms-1" onclick="confirmSingleAdd(this, '${v.video_id}', '${run.config_id}')" title="加入队列">
+                                                    <i class="bi bi-plus-circle"></i>
+                                                </button>
+                                            ` : ''}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                videosHtml = `
+                    <div class="text-center py-4 text-muted bg-light rounded mt-3">
+                        <i class="bi bi-inbox fs-3 d-block mb-1"></i>
+                        ${run.status === 'success' ? '本次执行扫描完成，未发现符合规则的新视频' : '本次执行未能获取到视频'}
+                    </div>
+                `;
+            }
+            
+            modalBody.innerHTML = `
+                <!-- 基础指标与漏斗 -->
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <div class="p-3 bg-light rounded h-100">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-sliders me-1"></i> ${run.config_name || '监控任务'}</h6>
+                                <div>${statusBadge}</div>
+                            </div>
+                            <div class="small text-muted mb-1"><strong>触发源：</strong> ${triggerBadge}</div>
+                            <div class="small text-muted mb-1"><strong>开始时间：</strong> ${run.start_time}</div>
+                            <div class="small text-muted mb-1"><strong>结束时间：</strong> ${run.end_time || '-'}</div>
+                            <div class="small text-muted"><strong>总耗时：</strong> ${run.duration_seconds} 秒</div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="p-3 bg-light rounded h-100 text-center">
+                            <div class="text-muted small mb-2 fw-bold">数据漏斗指标</div>
+                            <div class="d-flex justify-content-around">
+                                <div>
+                                    <div class="fs-5 fw-bold text-dark">${run.fetched_count}</div>
+                                    <small class="text-muted">API抓取</small>
+                                </div>
+                                <div class="text-muted align-self-center">&rarr;</div>
+                                <div>
+                                    <div class="fs-5 fw-bold text-primary">${run.filtered_count}</div>
+                                    <small class="text-muted">匹配规则</small>
+                                </div>
+                                <div class="text-muted align-self-center">&rarr;</div>
+                                <div>
+                                    <div class="fs-5 fw-bold text-success">${run.new_count}</div>
+                                    <small class="text-muted">新发现</small>
+                                </div>
+                                <div class="text-muted align-self-center">&rarr;</div>
+                                <div>
+                                    <div class="fs-5 fw-bold text-info">${run.added_count}</div>
+                                    <small class="text-muted">已入队</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${errorHtml}
+                ${videosHtml}
+            `;
+            countText.textContent = `本次共捕获 ${videos.length} 个视频`;
+        })
+        .catch(err => {
+            modalBody.innerHTML = `<div class="alert alert-danger">网络请求异常：${err.message}</div>`;
+        });
+}
 
 function bindMonitorRunForms() {
     document.querySelectorAll('.monitor-run-form').forEach((form) => {
@@ -540,13 +901,6 @@ function confirmSingleAdd(button, videoId, configId) {
     });
 }
 
-function addToTasks(videoId, configId) {
-    const btn = event ? event.target.closest('button') : null;
-    if (btn) {
-        confirmSingleAdd(btn, videoId, configId);
-    }
-}
-
 function confirmBatchAdd(triggerBtn) {
     const checked = Array.from(document.querySelectorAll('.record-checkbox:checked'));
     const unadded = checked.filter(cb => cb.dataset.added !== '1');
@@ -631,17 +985,6 @@ function updateSelectedCount() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    const selectAll = document.getElementById('selectAllHistory');
-    if (selectAll) {
-        selectAll.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.record-checkbox');
-            checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
-            updateSelectedCount();
-        });
-    }
-});
-
 function confirmSingleDelete(button, recordId, title) {
     const displayName = title ? `"${title}"` : '该记录';
     window.showPopconfirm(button, {
@@ -683,13 +1026,6 @@ function confirmSingleDelete(button, recordId, title) {
             });
         }
     });
-}
-
-function deleteSingleRecord(recordId, title) {
-    const btn = event ? event.target.closest('button') : null;
-    if (btn) {
-        confirmSingleDelete(btn, recordId, title);
-    }
 }
 
 function confirmBatchDelete(triggerBtn) {
@@ -737,103 +1073,93 @@ function confirmBatchDelete(triggerBtn) {
     });
 }
 
-function batchDeleteRecords() {
-    const btn = document.getElementById('batchDeleteBtn');
-    if (btn) confirmBatchDelete(btn);
-}
-
 function showAlert(type, message) {
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show border-0 shadow-sm`;
     alertDiv.innerHTML = `
         ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
-    
-    const container = document.querySelector('.container-fluid');
+    const container = document.querySelector('main.container') || document.body;
     container.insertBefore(alertDiv, container.firstChild);
-    
-    // 3秒后自动消失
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => {
         if (alertDiv.parentNode) {
             alertDiv.remove();
         }
-    }, 3000);
+    }, 5000);
 }
 
-function showCoverModal(imgUrl, title, youtubeUrl) {
-    const modalEl = document.getElementById('coverPreviewModal');
-    const imgEl = document.getElementById('coverPreviewImg');
-    const titleEl = document.getElementById('coverPreviewModalLabel');
-    const originalBtn = document.getElementById('coverPreviewOriginalBtn');
-    const youtubeBtn = document.getElementById('coverPreviewYoutubeBtn');
+document.addEventListener('DOMContentLoaded', function() {
+    bindMonitorRunForms();
     
-    if (imgEl) imgEl.src = imgUrl;
-    if (titleEl) titleEl.textContent = title || '封面预览';
-    if (originalBtn) originalBtn.href = imgUrl;
-    if (youtubeBtn) {
-        if (youtubeUrl) {
-            youtubeBtn.href = youtubeUrl;
-            youtubeBtn.style.display = 'inline-block';
-        } else {
-            youtubeBtn.style.display = 'none';
-        }
+    const selectAll = document.getElementById('selectAllHistory');
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.record-checkbox');
+            checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+            updateSelectedCount();
+        });
     }
-    
-    if (modalEl && window.bootstrap) {
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.show();
-    }
-}
 
-document.addEventListener('click', function(e) {
-    const thumb = e.target.closest('.monitor-cover-thumb');
-    if (!thumb) return;
-    showCoverModal(
-        thumb.dataset.coverUrl || thumb.src,
-        thumb.dataset.videoTitle || '封面预览',
-        thumb.dataset.youtubeUrl || ''
-    );
+    // 绑定封面大图点击预览
+    const coverModal = document.getElementById('coverPreviewModal');
+    if (coverModal) {
+        const modalInstance = new bootstrap.Modal(coverModal);
+        const previewImg = document.getElementById('coverPreviewImg');
+        const modalTitle = document.getElementById('coverPreviewModalLabel');
+        const originalBtn = document.getElementById('coverPreviewOriginalBtn');
+        const youtubeBtn = document.getElementById('coverPreviewYoutubeBtn');
+
+        document.querySelectorAll('.monitor-cover-thumb').forEach(thumb => {
+            thumb.style.cursor = 'zoom-in';
+            thumb.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const coverUrl = this.getAttribute('data-cover-url') || this.src;
+                const videoTitle = this.getAttribute('data-video-title') || '封面预览';
+                const youtubeUrl = this.getAttribute('data-youtube-url') || '';
+
+                modalTitle.textContent = videoTitle;
+                modalTitle.title = videoTitle;
+                previewImg.src = coverUrl;
+                originalBtn.href = coverUrl;
+                if (youtubeUrl) {
+                    youtubeBtn.href = youtubeUrl;
+                    youtubeBtn.style.display = 'inline-block';
+                } else {
+                    youtubeBtn.style.display = 'none';
+                }
+                modalInstance.show();
+            });
+        });
+    }
 });
-
-document.addEventListener('DOMContentLoaded', bindMonitorRunForms);
 </script>
-{% endblock %}
-
-{% block extra_css %}
 <style>
-.table th {
-    border-top: none;
+.monitor-cover-thumb {
+    width: 72px;
+    height: 42px;
+    object-fit: cover;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.badge {
-    font-size: 0.75em;
-}
-.card-title {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
+.monitor-cover-thumb:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
 }
 .text-truncate-300 {
     max-width: 300px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 .text-truncate-150 {
     max-width: 150px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
-.monitor-cover-thumb {
-    width: 76px;
-    height: 43px;
-    object-fit: cover;
-    cursor: pointer;
-    transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-.monitor-cover-thumb:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.35) !important;
+.fs-7 {
+    font-size: 0.75rem;
 }
 </style>
-{% endblock %} 
+{% endblock %}

@@ -531,7 +531,7 @@ def _finalize_monitor_run_operation(operation_id: str, config_id: int, success: 
 
 def _run_monitor_operation(operation_id: str, config_id: int):
     try:
-        success, message = youtube_monitor.run_monitor(config_id)
+        success, message = youtube_monitor.run_monitor(config_id, trigger_type='manual')
     except Exception as exc:
         logger.exception("后台执行 YouTube 监控失败，配置ID: %s", config_id)
         success = False
@@ -4153,35 +4153,98 @@ def youtube_monitor_run_status(operation_id):
         'success': progress.get('success'),
     })
 
+@app.route('/youtube_monitor/records')
+@login_required
+def youtube_monitor_records():
+    """监控记录中心直达入口"""
+    return youtube_monitor_history(config_id=None)
+
+
+@app.route('/youtube_monitor/history', defaults={'config_id': None})
 @app.route('/youtube_monitor/history/<int:config_id>')
 @login_required
-def youtube_monitor_history(config_id):
-    """查看指定监控配置的发现历史"""
-    config = youtube_monitor.get_monitor_config(config_id)
-    if not config:
-        flash('监控配置不存在', 'danger')
-        return redirect(url_for('youtube_monitor_index'))
+def youtube_monitor_history(config_id=None):
+    """监控记录中心（支持查看所有监控结果、每一次执行结果、以及指定配置过滤）"""
+    configs = youtube_monitor.get_monitor_configs()
     
-    status = request.args.get('status', 'all')
+    # 筛选配置 ID
+    req_config_id = request.args.get('config_id', type=int)
+    if req_config_id is not None:
+        selected_config_id = req_config_id
+    elif config_id is not None:
+        selected_config_id = config_id
+    else:
+        selected_config_id = 0  # 0 表示全部配置
+        
+    current_config = None
+    if selected_config_id > 0:
+        current_config = youtube_monitor.get_monitor_config(selected_config_id)
+        
+    req_status = request.args.get('status')
+    active_tab = request.args.get('tab')
+    if not active_tab:
+        if req_status in ('all', 'unadded', 'added') or request.args.get('video_status') or request.args.get('order_by'):
+            active_tab = 'videos'
+        else:
+            active_tab = 'runs'
+    elif active_tab not in ('runs', 'videos'):
+        active_tab = 'runs'
+        
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
+    run_status = request.args.get('run_status', 'all')
+    video_status = req_status or request.args.get('video_status', 'all')
+    order_by = request.args.get('order_by', 'run_time_desc')
+    selected_run_id = request.args.get('run_id', type=int)
+
+    # 1. 顶部宏观 KPI 统计
+    kpi_stats = youtube_monitor.get_monitor_kpi_stats(selected_config_id if selected_config_id > 0 else None)
     
-    pagination = youtube_monitor.get_monitor_history_paginated(
-        config_id=config_id,
-        status=status,
+    # 2. 分页数据查询
+    if active_tab == 'runs':
+        runs_pagination = youtube_monitor.get_monitor_runs_paginated(
+            config_id=selected_config_id if selected_config_id > 0 else None,
+            status=run_status,
+            page=page,
+            per_page=per_page
+        )
+        videos_pagination = None
+    else:
+        videos_pagination = youtube_monitor.get_monitor_history_paginated(
+            config_id=selected_config_id if selected_config_id > 0 else None,
+            status=video_status,
+            page=page,
+            per_page=per_page,
+            run_id=selected_run_id,
+            order_by=order_by
+        )
+        runs_pagination = None
+        
+    return render_template(
+        'youtube_monitor_history.html',
+        configs=configs,
+        current_config=current_config,
+        selected_config_id=selected_config_id,
+        active_tab=active_tab,
+        kpi_stats=kpi_stats,
+        runs_pagination=runs_pagination,
+        videos_pagination=videos_pagination,
+        run_status=run_status,
+        video_status=video_status,
+        order_by=order_by,
+        selected_run_id=selected_run_id,
         page=page,
         per_page=per_page
     )
-    stats = youtube_monitor.get_monitor_history_stats(config_id=config_id)
-    
-    return render_template(
-        'youtube_monitor_history.html',
-        history=pagination['records'],
-        pagination=pagination,
-        config=config,
-        stats=stats,
-        current_status=status
-    )
+
+@app.route('/youtube_monitor/run/<int:run_id>/details', methods=['GET'])
+@login_required
+def youtube_monitor_run_details(run_id):
+    """获取单次监控执行的详情及发现的视频"""
+    details = youtube_monitor.get_monitor_run_details(run_id)
+    if not details:
+        return jsonify({'success': False, 'message': '未找到该次监控执行记录'}), 404
+    return jsonify({'success': True, 'data': details})
 
 @app.route('/youtube_monitor/add_to_tasks', methods=['POST'])
 @login_required

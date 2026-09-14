@@ -368,6 +368,31 @@ class YouTubeMonitor:
             except sqlite3.OperationalError:
                 pass
 
+            # 为历史表新增 run_id 字段关联监控执行批次（向后兼容）
+            try:
+                cursor.execute("ALTER TABLE monitor_history ADD COLUMN run_id INTEGER")
+            except sqlite3.OperationalError:
+                pass
+
+            # 监控执行历史表 (记录每一次监控运行的元数据、漏斗数据与状态)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS monitor_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    config_id INTEGER,
+                    trigger_type TEXT DEFAULT 'scheduled',
+                    status TEXT DEFAULT 'running',
+                    start_time TEXT DEFAULT (datetime('now', 'localtime')),
+                    end_time TEXT,
+                    duration_seconds REAL DEFAULT 0,
+                    fetched_count INTEGER DEFAULT 0,
+                    filtered_count INTEGER DEFAULT 0,
+                    new_count INTEGER DEFAULT 0,
+                    added_count INTEGER DEFAULT 0,
+                    error_message TEXT DEFAULT '',
+                    FOREIGN KEY (config_id) REFERENCES monitor_configs (id)
+                )
+            ''')
+
             # 定时入队任务配置表 (单例记录 id=1)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS monitor_auto_enqueue_config (
@@ -952,10 +977,62 @@ class YouTubeMonitor:
             logger.error(f"删除监控配置失败，ID: {config_id}, 错误: {str(e)}")
             raise
     
-    def run_monitor(self, config_id: int) -> Tuple[bool, str]:
+    def _start_monitor_run(self, config_id: int, trigger_type: str = 'scheduled') -> Optional[int]:
+        """创建监控运行记录并返回 run_id"""
+        start_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO monitor_runs (
+                        config_id, trigger_type, status, start_time,
+                        fetched_count, filtered_count, new_count, added_count, error_message
+                    ) VALUES (?, ?, 'running', ?, 0, 0, 0, 0, '')
+                ''', (config_id, trigger_type, start_time_str))
+                conn.commit()
+                return cursor.lastrowid
+        except Exception as e:
+            logger.error(f"创建监控运行记录失败: {e}")
+            return None
+
+    def _finalize_monitor_run(self, run_id: Optional[int], status: str, start_timestamp: float = 0.0,
+                              fetched_count: int = 0, filtered_count: int = 0,
+                              new_count: int = 0, added_count: int = 0,
+                              error_message: str = ''):
+        """更新监控运行批次状态与漏斗数据"""
+        if not run_id:
+            return
+        duration_seconds = round(max(0.0, time.time() - start_timestamp), 2) if start_timestamp > 0 else 0.0
+        end_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE monitor_runs
+                    SET status = ?,
+                        end_time = ?,
+                        duration_seconds = ?,
+                        fetched_count = ?,
+                        filtered_count = ?,
+                        new_count = ?,
+                        added_count = ?,
+                        error_message = ?
+                    WHERE id = ?
+                ''', (
+                    status, end_time_str, duration_seconds,
+                    fetched_count, filtered_count, new_count, added_count,
+                    error_message, run_id
+                ))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"更新监控运行记录(ID: {run_id})失败: {e}")
+
+    def run_monitor(self, config_id: int, trigger_type: str = 'scheduled') -> Tuple[bool, str]:
         """执行监控任务"""
-        logger.info(f"开始执行监控任务，配置ID: {config_id}")
-        
+        logger.info(f"开始执行监控任务，配置ID: {config_id}, 触发方式: {trigger_type}")
+        start_ts = time.time()
+        run_id = self._start_monitor_run(config_id, trigger_type=trigger_type)
+
         # 添加调试日志 - 检查 YouTube API 对象状态
         logger.debug(f"YouTube API 对象状态: {type(self.youtube)}, 值: {self.youtube}")
         if not self.youtube:
@@ -967,17 +1044,23 @@ class YouTubeMonitor:
             else:
                 init_message = 'YouTube API 未初始化，请检查设置。'
             logger.error("YouTube API未初始化: %s", init_message)
+            self._finalize_monitor_run(run_id, 'failed', start_ts, error_message=init_message)
             return False, f"监控失败：{init_message}"
         
         config = self.get_monitor_config(config_id)
         if not config:
             logger.error(f"监控配置不存在: {config_id}")
+            self._finalize_monitor_run(run_id, 'failed', start_ts, error_message='监控配置不存在')
             return False, "监控配置不存在"
         
         logger.info(f"执行监控配置: {config['name']} (ID: {config_id})")
         logger.info(f"监控类型: {config.get('monitor_type', 'youtube_search')}, "
                    f"频道模式: {config.get('channel_mode', 'latest')}")
         
+        videos = []
+        filtered_videos = []
+        processed_count = 0
+        added_count = 0
         try:
             # 获取视频
             logger.info("开始获取视频数据...")
@@ -1000,8 +1083,6 @@ class YouTubeMonitor:
                     logger.info(f"应用偏移量后剩余 {len(filtered_videos)} 个视频")
             
             # 保存到历史记录
-            added_count = 0
-            processed_count = 0
             auto_add_enabled = config.get('auto_add_to_tasks', False)
             
             # 获取添加到任务队列的数量限制
@@ -1019,8 +1100,8 @@ class YouTubeMonitor:
                     # 检查是否还能添加到任务队列
                     should_add_to_tasks = auto_add_enabled and added_count < max_add_to_tasks
                     
-                    # 始终保存到历史记录，但是否添加到任务队列由auto_add_enabled控制
-                    self._save_video_history(video, config_id, auto_add_to_tasks=should_add_to_tasks)
+                    # 始终保存到历史记录，传递 run_id
+                    self._save_video_history(video, config_id, auto_add_to_tasks=should_add_to_tasks, run_id=run_id)
                     processed_count += 1
                     
                     if should_add_to_tasks:
@@ -1054,11 +1135,32 @@ class YouTubeMonitor:
                 original_filtered = self._filter_videos(videos, config)
                 self._update_historical_progress(config_id, original_filtered, added_count)
             
+            self._finalize_monitor_run(
+                run_id=run_id,
+                status='success',
+                start_timestamp=start_ts,
+                fetched_count=len(videos),
+                filtered_count=len(filtered_videos),
+                new_count=processed_count,
+                added_count=added_count,
+                error_message=''
+            )
             return True, f"监控完成，处理了 {processed_count} 个新视频，添加了 {added_count} 个到任务队列"
             
         except Exception as e:
             logger.error(f"监控任务执行失败 - 配置: {config['name']} (ID: {config_id}), 错误: {str(e)}")
-            return False, self._format_run_error_message(e)
+            err_msg = self._format_run_error_message(e)
+            self._finalize_monitor_run(
+                run_id=run_id,
+                status='failed',
+                start_timestamp=start_ts,
+                fetched_count=len(videos),
+                filtered_count=len(filtered_videos),
+                new_count=processed_count,
+                added_count=added_count,
+                error_message=err_msg
+            )
+            return False, err_msg
     
     def _fetch_trending_videos(self, config: Dict[str, Any]) -> List[Dict[str, Any]]:
         """获取视频"""
@@ -1740,7 +1842,7 @@ class YouTubeMonitor:
             )
             return cursor.fetchone() is not None
     
-    def _save_video_history(self, video_info, config_id, auto_add_to_tasks=False):
+    def _save_video_history(self, video_info, config_id, auto_add_to_tasks=False, run_id=None):
         """保存视频到历史记录"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -1749,8 +1851,8 @@ class YouTubeMonitor:
                 INSERT INTO monitor_history (
                     config_id, video_id, video_type, video_title, channel_title,
                     view_count, like_count, comment_count, duration,
-                    published_at, added_to_tasks, thumbnail_url, run_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                    published_at, added_to_tasks, thumbnail_url, run_time, run_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?)
             ''', (
                 config_id,
                 video_info['id'],
@@ -1759,11 +1861,12 @@ class YouTubeMonitor:
                 video_info['channel_title'],
                 video_info['view_count'],
                 video_info['like_count'],
-                video_info['comment_count'],
-                video_info['duration'],
-                video_info['published_at'],
+                video_info.get('comment_count', 0),
+                video_info.get('duration', ''),
+                video_info.get('published_at', ''),
                 1 if auto_add_to_tasks else 0,
-                video_info.get('thumbnail_url') or f"https://i.ytimg.com/vi/{video_info['id']}/hqdefault.jpg"
+                video_info.get('thumbnail_url') or f"https://i.ytimg.com/vi/{video_info['id']}/hqdefault.jpg",
+                run_id
             ))
             
             conn.commit()
@@ -2160,6 +2263,211 @@ class YouTubeMonitor:
             
             return history
 
+    def get_monitor_kpi_stats(self, config_id=None) -> Dict[str, Any]:
+        """获取监控记录中心的全局或分配置 KPI 统计"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                run_where = 'WHERE config_id = ?' if config_id and int(config_id) > 0 else ''
+                hist_where = 'WHERE config_id = ?' if config_id and int(config_id) > 0 else ''
+                params = (int(config_id),) if config_id and int(config_id) > 0 else ()
+
+                # 1. 运行统计
+                cursor.execute(f'''
+                    SELECT
+                        COUNT(*) as total_runs,
+                        SUM(CASE WHEN date(start_time) = date('now', 'localtime') THEN 1 ELSE 0 END) as today_runs,
+                        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success_runs,
+                        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_runs
+                    FROM monitor_runs
+                    {run_where}
+                ''', params)
+                r_row = cursor.fetchone()
+                total_runs = r_row[0] or 0
+                today_runs = r_row[1] or 0
+                success_runs = r_row[2] or 0
+                failed_runs = r_row[3] or 0
+                success_rate = round(success_runs / total_runs * 100, 1) if total_runs > 0 else 100.0
+
+                # 2. 视频统计
+                cursor.execute(f'''
+                    SELECT
+                        COUNT(*) as total_videos,
+                        SUM(CASE WHEN added_to_tasks = 1 THEN 1 ELSE 0 END) as added_videos,
+                        AVG(view_count) as avg_views,
+                        AVG(like_count) as avg_likes
+                    FROM monitor_history
+                    {hist_where}
+                ''', params)
+                h_row = cursor.fetchone()
+                total_videos = h_row[0] or 0
+                added_videos = h_row[1] or 0
+                unadded_videos = total_videos - added_videos
+                avg_views = int(h_row[2] or 0)
+                avg_likes = int(h_row[3] or 0)
+
+                return {
+                    'total_runs': total_runs,
+                    'today_runs': today_runs,
+                    'success_runs': success_runs,
+                    'failed_runs': failed_runs,
+                    'success_rate': success_rate,
+                    'total_videos': total_videos,
+                    'unadded_videos': unadded_videos,
+                    'added_videos': added_videos,
+                    'avg_views': avg_views,
+                    'avg_likes': avg_likes
+                }
+        except Exception as e:
+            logger.error(f"获取监控 KPI 统计失败: {e}")
+            return {
+                'total_runs': 0,
+                'today_runs': 0,
+                'success_runs': 0,
+                'failed_runs': 0,
+                'success_rate': 100.0,
+                'total_videos': 0,
+                'unadded_videos': 0,
+                'added_videos': 0,
+                'avg_views': 0,
+                'avg_likes': 0
+            }
+
+    def get_monitor_runs_paginated(self, config_id=None, status=None, page=1, per_page=20) -> Dict[str, Any]:
+        """
+        获取分页的监控执行记录 (Run History)
+        
+        Args:
+            config_id: 监控配置ID（None 或 <=0 表示全部）
+            status: 状态筛选，'all'(全部), 'success'(成功), 'has_new'(有新视频), 'no_new'(无新视频), 'failed'(失败)
+            page: 当前页码
+            per_page: 每页条数
+        """
+        try:
+            page = max(1, int(page))
+        except (ValueError, TypeError):
+            page = 1
+
+        try:
+            per_page = max(1, min(100, int(per_page)))
+        except (ValueError, TypeError):
+            per_page = 20
+
+        status = str(status or 'all').strip().lower()
+        if status not in ('all', 'success', 'has_new', 'no_new', 'failed'):
+            status = 'all'
+
+        where_clauses = []
+        params = []
+
+        if config_id and int(config_id) > 0:
+            where_clauses.append('r.config_id = ?')
+            params.append(int(config_id))
+
+        if status == 'success':
+            where_clauses.append("r.status = 'success'")
+        elif status == 'has_new':
+            where_clauses.append("r.status = 'success' AND r.new_count > 0")
+        elif status == 'no_new':
+            where_clauses.append("r.status = 'success' AND r.new_count = 0")
+        elif status == 'failed':
+            where_clauses.append("r.status = 'failed'")
+
+        where_sql = ('WHERE ' + ' AND '.join(where_clauses)) if where_clauses else ''
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(f'SELECT COUNT(*) FROM monitor_runs r {where_sql}', params)
+                total = cursor.fetchone()[0] or 0
+
+                total_pages = max(1, (total + per_page - 1) // per_page)
+                if page > total_pages:
+                    page = total_pages
+                offset = (page - 1) * per_page
+
+                query_params = list(params) + [per_page, offset]
+                cursor.execute(f'''
+                    SELECT r.*, c.name as config_name
+                    FROM monitor_runs r
+                    LEFT JOIN monitor_configs c ON r.config_id = c.id
+                    {where_sql}
+                    ORDER BY r.id DESC
+                    LIMIT ? OFFSET ?
+                ''', query_params)
+
+                columns = [col[0] for col in cursor.description]
+                runs = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+                has_prev = page > 1
+                has_next = page < total_pages
+
+                return {
+                    'runs': runs,
+                    'total': total,
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': total_pages,
+                    'has_prev': has_prev,
+                    'has_next': has_next,
+                    'prev_page': page - 1 if has_prev else None,
+                    'next_page': page + 1 if has_next else None,
+                    'iter_pages': _generate_iter_pages(page, total_pages),
+                    'status': status
+                }
+        except Exception as e:
+            logger.error(f"获取分页监控运行记录失败: {e}")
+            return {
+                'runs': [],
+                'total': 0,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': 1,
+                'has_prev': False,
+                'has_next': False,
+                'prev_page': None,
+                'next_page': None,
+                'iter_pages': [1],
+                'status': status
+            }
+
+    def get_monitor_run_details(self, run_id: int) -> Optional[Dict[str, Any]]:
+        """获取指定监控运行的详情与本次发现的视频"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT r.*, c.name as config_name
+                    FROM monitor_runs r
+                    LEFT JOIN monitor_configs c ON r.config_id = c.id
+                    WHERE r.id = ?
+                ''', (int(run_id),))
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                columns = [col[0] for col in cursor.description]
+                run_data = dict(zip(columns, row))
+
+                cursor.execute('''
+                    SELECT * FROM monitor_history
+                    WHERE run_id = ?
+                    ORDER BY id ASC
+                ''', (int(run_id),))
+                v_cols = [col[0] for col in cursor.description]
+                videos = [dict(zip(v_cols, r)) for r in cursor.fetchall()]
+                for v in videos:
+                    if not v.get('thumbnail_url'):
+                        vid = v.get('video_id', '')
+                        v['thumbnail_url'] = f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg" if vid else ''
+
+                return {
+                    'run': run_data,
+                    'videos': videos
+                }
+        except Exception as e:
+            logger.error(f"获取监控运行详情(ID: {run_id})失败: {e}")
+            return None
+
     def get_monitor_history_stats(self, config_id=None) -> Dict[str, Any]:
         """获取监控历史记录的全局统计数据（总数、已添加数、未添加数、平均播放量、平均点赞量）"""
         try:
@@ -2197,15 +2505,17 @@ class YouTubeMonitor:
                 'avg_likes': 0
             }
 
-    def get_monitor_history_paginated(self, config_id=None, status=None, page=1, per_page=20) -> Dict[str, Any]:
+    def get_monitor_history_paginated(self, config_id=None, status=None, page=1, per_page=20, run_id=None, order_by='run_time_desc') -> Dict[str, Any]:
         """
-        获取分页的监控历史记录，支持状态筛选 (全部 / 未添加 / 已添加)
+        获取分页的监控历史记录，支持状态筛选 (全部 / 未添加 / 已添加) 及按运行批次筛选
         
         Args:
             config_id: 监控配置ID（为 None 或 <=0 表示全部）
             status: 状态筛选，'all'(全部), 'unadded'(未添加), 'added'(已添加)
             page: 页码，从 1 开始
             per_page: 每页显示条数，默认 20
+            run_id: 指定监控运行批次ID（可选）
+            order_by: 排序方式 ('run_time_desc', 'view_count', 'published_at')
             
         Returns:
             dict: 包含 records, total, page, per_page, total_pages, has_prev, has_next, prev_page, next_page, iter_pages, status 等
@@ -2231,12 +2541,22 @@ class YouTubeMonitor:
             where_clauses.append('h.config_id = ?')
             params.append(int(config_id))
 
+        if run_id and int(run_id) > 0:
+            where_clauses.append('h.run_id = ?')
+            params.append(int(run_id))
+
         if status == 'unadded':
             where_clauses.append('h.added_to_tasks = 0')
         elif status == 'added':
             where_clauses.append('h.added_to_tasks = 1')
 
         where_sql = ('WHERE ' + ' AND '.join(where_clauses)) if where_clauses else ''
+
+        order_sql = 'h.run_time DESC, h.id DESC'
+        if order_by == 'view_count':
+            order_sql = 'h.view_count DESC, h.id DESC'
+        elif order_by == 'published_at':
+            order_sql = 'h.published_at DESC, h.id DESC'
 
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -2258,7 +2578,7 @@ class YouTubeMonitor:
                     FROM monitor_history h
                     LEFT JOIN monitor_configs c ON h.config_id = c.id
                     {where_sql}
-                    ORDER BY h.run_time DESC, h.id DESC
+                    ORDER BY {order_sql}
                     LIMIT ? OFFSET ?
                 ''', query_params)
                 
@@ -2285,7 +2605,9 @@ class YouTubeMonitor:
                     'prev_page': page - 1 if has_prev else None,
                     'next_page': page + 1 if has_next else None,
                     'iter_pages': _generate_iter_pages(page, total_pages),
-                    'status': status
+                    'status': status,
+                    'run_id': run_id,
+                    'order_by': order_by
                 }
         except Exception as e:
             logger.error(f"获取分页监控历史失败: {e}")
@@ -2300,7 +2622,9 @@ class YouTubeMonitor:
                 'prev_page': None,
                 'next_page': None,
                 'iter_pages': [1],
-                'status': status
+                'status': status,
+                'run_id': run_id,
+                'order_by': order_by
             }
     
     def clear_monitor_history(self, config_id):
@@ -2331,13 +2655,15 @@ class YouTubeMonitor:
                 ''', (config_id,))
                 
                 if count > 0:
-                    # 删除历史记录
+                    # 删除历史记录与运行记录
                     cursor.execute('DELETE FROM monitor_history WHERE config_id = ?', (config_id,))
+                    cursor.execute('DELETE FROM monitor_runs WHERE config_id = ?', (config_id,))
                     conn.commit()
                     self._clear_cover_cache(video_ids)
                     logger.info(f"已清除配置 {config_name} (ID: {config_id}) 的 {count} 条监控历史记录并重置历史状态")
                     return True, f"成功清除 {count} 条历史记录并重置状态"
                 else:
+                    cursor.execute('DELETE FROM monitor_runs WHERE config_id = ?', (config_id,))
                     conn.commit()
                     logger.info(f"配置 {config_name} (ID: {config_id}) 没有历史记录需要清除（已重置运行状态）")
                     return True, "没有历史记录需要清除（已重置运行状态）"
@@ -2382,18 +2708,13 @@ class YouTubeMonitor:
                     SET historical_offset = 0, historical_progress_date = '', last_run_time = NULL
                 ''')
                 
-                if count > 0:
-                    # 删除所有历史记录
-                    cursor.execute('DELETE FROM monitor_history')
-                    conn.commit()
-                    self._clear_cover_cache()
-                    logger.info(f"已清除所有 {count} 条监控历史记录，并重置所有配置状态与封面缓存")
-                    return True, f"成功清除所有 {count} 条历史记录并重置运行状态"
-                else:
-                    conn.commit()
-                    self._clear_cover_cache()
-                    logger.info("没有历史记录需要清除，已重置所有配置状态")
-                    return True, "没有历史记录需要清除（已重置所有配置状态）"
+                # 删除所有历史记录与运行记录
+                cursor.execute('DELETE FROM monitor_history')
+                cursor.execute('DELETE FROM monitor_runs')
+                conn.commit()
+                self._clear_cover_cache()
+                logger.info(f"已清除所有监控历史记录与执行记录，并重置所有配置状态与封面缓存")
+                return True, "成功清除所有监控历史与执行记录并重置运行状态"
                     
         except Exception as e:
             logger.error(f"清除所有监控历史记录失败: {str(e)}")
