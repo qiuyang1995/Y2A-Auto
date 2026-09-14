@@ -227,12 +227,28 @@
 </div>
 
 <!-- 最近的监控历史 -->
-<div class="row">
+<div class="row" id="recent-history">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4><i class="bi bi-clock-history"></i> 最近的监控记录</h4>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <h4 class="mb-0 me-2"><i class="bi bi-clock-history"></i> 最近的监控记录</h4>
+                <div class="btn-group btn-group-sm" role="group" aria-label="状态筛选">
+                    <a href="{{ url_for('youtube_monitor_index', status='all', per_page=pagination.per_page, _anchor='recent-history') }}" 
+                       class="btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-secondary' }}">
+                        全部 ({{ history_stats.total_records }})
+                    </a>
+                    <a href="{{ url_for('youtube_monitor_index', status='unadded', per_page=pagination.per_page, _anchor='recent-history') }}" 
+                       class="btn {{ 'btn-primary' if current_status == 'unadded' else 'btn-outline-secondary' }}">
+                        未添加 ({{ history_stats.unadded_records }})
+                    </a>
+                    <a href="{{ url_for('youtube_monitor_index', status='added', per_page=pagination.per_page, _anchor='recent-history') }}" 
+                       class="btn {{ 'btn-primary' if current_status == 'added' else 'btn-outline-secondary' }}">
+                        已添加 ({{ history_stats.added_to_tasks }})
+                    </a>
+                </div>
+            </div>
             {% if history %}
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-success btn-sm" id="batchAddRecentBtn" onclick="confirmBatchAddRecent(this)" disabled>
                     <i class="bi bi-plus-circle"></i> 批量添加到队列 (<span id="selectedRecentAddCount">0</span>)
                 </button>
@@ -332,6 +348,67 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+
+        <!-- 分页导航 -->
+        {% if pagination and pagination.total > 0 %}
+        <nav aria-label="最近监控记录分页" class="mt-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-muted small">
+                        显示第 {{ (pagination.page - 1) * pagination.per_page + 1 }} - {{ [pagination.page * pagination.per_page, pagination.total]|min }} 条，共 {{ pagination.total }} 条记录
+                    </span>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="text-muted small">每页：</span>
+                        <select class="form-select form-select-sm" style="width: auto;" onchange="location.href=this.value;">
+                            {% for pp in [10, 20, 50, 100] %}
+                            <option value="{{ url_for('youtube_monitor_index', page=1, status=current_status, per_page=pp, _anchor='recent-history') }}" {{ 'selected' if pagination.per_page == pp else '' }}>
+                                {{ pp }} 条
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                {% if pagination.total_pages > 1 %}
+                <ul class="pagination pagination-sm mb-0">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('youtube_monitor_index', page=pagination.prev_page, status=current_status, per_page=pagination.per_page, _anchor='recent-history') }}" aria-label="上一页">&laquo;</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                    {% endif %}
+
+                    {% for page_num in pagination.iter_pages %}
+                        {% if page_num %}
+                            {% if page_num == pagination.page %}
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ page_num }}</span></li>
+                            {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('youtube_monitor_index', page=page_num, status=current_status, per_page=pagination.per_page, _anchor='recent-history') }}">{{ page_num }}</a></li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('youtube_monitor_index', page=pagination.next_page, status=current_status, per_page=pagination.per_page, _anchor='recent-history') }}" aria-label="下一页">&raquo;</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                    {% endif %}
+                </ul>
+                {% endif %}
+            </div>
+        </nav>
+        {% endif %}
+
+        {% elif history_stats.total_records > 0 %}
+        <div class="alert alert-warning">
+            <i class="bi bi-info-circle"></i> 当前筛选状态（{% if current_status == 'unadded' %}未添加{% elif current_status == 'added' %}已添加{% else %}全部{% endif %}）下没有监控记录。
+            <a href="{{ url_for('youtube_monitor_index', status='all', per_page=pagination.per_page, _anchor='recent-history') }}" class="alert-link ms-2">查看全部记录</a>
         </div>
         {% else %}
         <div class="alert alert-info">

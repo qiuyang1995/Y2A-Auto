@@ -3918,13 +3918,27 @@ def schedule_cookiecloud_health_check():
 def youtube_monitor_index():
     """YouTube监控主页"""
     configs = youtube_monitor.get_monitor_configs()
-    history = youtube_monitor.get_monitor_history(limit=50)
+    
+    status = request.args.get('status', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    
+    pagination = youtube_monitor.get_monitor_history_paginated(
+        config_id=None,
+        status=status,
+        page=page,
+        per_page=per_page
+    )
+    history_stats = youtube_monitor.get_monitor_history_stats()
     auto_enqueue_config = youtube_monitor.get_auto_enqueue_config()
     unadded_count = youtube_monitor.get_unadded_history_count()
     return render_template(
         'youtube_monitor.html',
         configs=configs,
-        history=history,
+        history=pagination['records'],
+        pagination=pagination,
+        history_stats=history_stats,
+        current_status=status,
         auto_enqueue_config=auto_enqueue_config,
         unadded_count=unadded_count
     )
@@ -4148,30 +4162,26 @@ def youtube_monitor_history(config_id):
         flash('监控配置不存在', 'danger')
         return redirect(url_for('youtube_monitor_index'))
     
-    history = youtube_monitor.get_monitor_history(config_id, limit=200)
+    status = request.args.get('status', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
     
-    # 计算统计数据
-    stats = {
-        'total_records': len(history),
-        'added_to_tasks': 0,
-        'avg_views': 0,
-        'avg_likes': 0
-    }
+    pagination = youtube_monitor.get_monitor_history_paginated(
+        config_id=config_id,
+        status=status,
+        page=page,
+        per_page=per_page
+    )
+    stats = youtube_monitor.get_monitor_history_stats(config_id=config_id)
     
-    if history:
-        total_views = 0
-        total_likes = 0
-        
-        for record in history:
-            if record.get('added_to_tasks'):
-                stats['added_to_tasks'] += 1
-            total_views += record.get('view_count', 0)
-            total_likes += record.get('like_count', 0)
-        
-        stats['avg_views'] = int(total_views / len(history))
-        stats['avg_likes'] = int(total_likes / len(history))
-    
-    return render_template('youtube_monitor_history.html', history=history, config=config, stats=stats)
+    return render_template(
+        'youtube_monitor_history.html',
+        history=pagination['records'],
+        pagination=pagination,
+        config=config,
+        stats=stats,
+        current_status=status
+    )
 
 @app.route('/youtube_monitor/add_to_tasks', methods=['POST'])
 @login_required

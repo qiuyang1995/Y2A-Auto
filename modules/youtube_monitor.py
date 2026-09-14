@@ -46,6 +46,21 @@ def parse_daily_time_points(time_points_str):
     return result
 
 
+def _generate_iter_pages(page, total_pages, left_edge=2, left_current=2, right_current=2, right_edge=2):
+    """生成带省略号的分页页码列表，例如 [1, 2, None, 5, 6, 7, 8, None, 19, 20]"""
+    pages = []
+    last = 0
+    for num in range(1, total_pages + 1):
+        if num <= left_edge or \
+           (page - left_current <= num <= page + right_current) or \
+           num > total_pages - right_edge:
+            if last + 1 != num:
+                pages.append(None)
+            pages.append(num)
+            last = num
+    return pages
+
+
 def normalize_search_keywords(keywords: str) -> str:
     """规整 YouTube 搜索关键词。
     YouTube Search API 中空格优先级高于竖线 |（空格为隐式 AND），
@@ -2144,6 +2159,149 @@ class YouTubeMonitor:
                 history.append(record)
             
             return history
+
+    def get_monitor_history_stats(self, config_id=None) -> Dict[str, Any]:
+        """获取监控历史记录的全局统计数据（总数、已添加数、未添加数、平均播放量、平均点赞量）"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                where_clause = 'WHERE config_id = ?' if config_id and int(config_id) > 0 else ''
+                params = (int(config_id),) if config_id and int(config_id) > 0 else ()
+                cursor.execute(f'''
+                    SELECT 
+                        COUNT(*) as total_records,
+                        SUM(CASE WHEN added_to_tasks = 1 THEN 1 ELSE 0 END) as added_to_tasks,
+                        AVG(view_count) as avg_views,
+                        AVG(like_count) as avg_likes
+                    FROM monitor_history
+                    {where_clause}
+                ''', params)
+                row = cursor.fetchone()
+                total = row[0] or 0
+                added = row[1] or 0
+                unadded = total - added
+                return {
+                    'total_records': total,
+                    'added_to_tasks': added,
+                    'unadded_records': unadded,
+                    'avg_views': int(row[2] or 0),
+                    'avg_likes': int(row[3] or 0)
+                }
+        except Exception as e:
+            logger.error(f"获取监控历史统计数据失败: {e}")
+            return {
+                'total_records': 0,
+                'added_to_tasks': 0,
+                'unadded_records': 0,
+                'avg_views': 0,
+                'avg_likes': 0
+            }
+
+    def get_monitor_history_paginated(self, config_id=None, status=None, page=1, per_page=20) -> Dict[str, Any]:
+        """
+        获取分页的监控历史记录，支持状态筛选 (全部 / 未添加 / 已添加)
+        
+        Args:
+            config_id: 监控配置ID（为 None 或 <=0 表示全部）
+            status: 状态筛选，'all'(全部), 'unadded'(未添加), 'added'(已添加)
+            page: 页码，从 1 开始
+            per_page: 每页显示条数，默认 20
+            
+        Returns:
+            dict: 包含 records, total, page, per_page, total_pages, has_prev, has_next, prev_page, next_page, iter_pages, status 等
+        """
+        try:
+            page = max(1, int(page))
+        except (ValueError, TypeError):
+            page = 1
+            
+        try:
+            per_page = max(1, min(100, int(per_page)))
+        except (ValueError, TypeError):
+            per_page = 20
+
+        status = str(status or 'all').strip().lower()
+        if status not in ('all', 'unadded', 'added'):
+            status = 'all'
+
+        where_clauses = []
+        params = []
+
+        if config_id and int(config_id) > 0:
+            where_clauses.append('h.config_id = ?')
+            params.append(int(config_id))
+
+        if status == 'unadded':
+            where_clauses.append('h.added_to_tasks = 0')
+        elif status == 'added':
+            where_clauses.append('h.added_to_tasks = 1')
+
+        where_sql = ('WHERE ' + ' AND '.join(where_clauses)) if where_clauses else ''
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # 1. 查询总数
+                cursor.execute(f'SELECT COUNT(*) FROM monitor_history h {where_sql}', params)
+                total = cursor.fetchone()[0] or 0
+                
+                total_pages = max(1, (total + per_page - 1) // per_page)
+                if page > total_pages:
+                    page = total_pages
+                offset = (page - 1) * per_page
+                
+                # 2. 查询当前页记录
+                query_params = list(params) + [per_page, offset]
+                cursor.execute(f'''
+                    SELECT h.*, c.name as config_name 
+                    FROM monitor_history h
+                    LEFT JOIN monitor_configs c ON h.config_id = c.id
+                    {where_sql}
+                    ORDER BY h.run_time DESC, h.id DESC
+                    LIMIT ? OFFSET ?
+                ''', query_params)
+                
+                columns = [description[0] for description in cursor.description]
+                records = []
+                for row in cursor.fetchall():
+                    record = dict(zip(columns, row))
+                    if not record.get('thumbnail_url'):
+                        vid = record.get('video_id', '')
+                        record['thumbnail_url'] = f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg" if vid else ''
+                    records.append(record)
+                    
+                has_prev = page > 1
+                has_next = page < total_pages
+                
+                return {
+                    'records': records,
+                    'total': total,
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': total_pages,
+                    'has_prev': has_prev,
+                    'has_next': has_next,
+                    'prev_page': page - 1 if has_prev else None,
+                    'next_page': page + 1 if has_next else None,
+                    'iter_pages': _generate_iter_pages(page, total_pages),
+                    'status': status
+                }
+        except Exception as e:
+            logger.error(f"获取分页监控历史失败: {e}")
+            return {
+                'records': [],
+                'total': 0,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': 1,
+                'has_prev': False,
+                'has_next': False,
+                'prev_page': None,
+                'next_page': None,
+                'iter_pages': [1],
+                'status': status
+            }
     
     def clear_monitor_history(self, config_id):
         """清除指定配置的监控历史记录"""

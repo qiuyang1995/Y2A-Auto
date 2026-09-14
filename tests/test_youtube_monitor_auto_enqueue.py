@@ -20,7 +20,8 @@ class TestYouTubeMonitorAutoEnqueue(unittest.TestCase):
         self.monitor._api_proxy_enabled = False
         self.monitor._last_api_init_error = None
         self.monitor._last_fetch_had_errors = False
-        self.monitor._init_database()
+        with patch.object(self.monitor, '_restore_configs_from_files'), patch.object(self.monitor, '_restore_auto_enqueue_config_from_file'):
+            self.monitor._init_database()
 
     def tearDown(self):
         import shutil

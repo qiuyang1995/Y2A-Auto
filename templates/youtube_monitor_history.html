@@ -89,27 +89,89 @@
     </div>
 </div>
 
-<!-- 操作按钮 -->
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4><i class="bi bi-list"></i> 监控记录</h4>
-    <div>
+<!-- 统计信息 -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body py-2">
+                <h5 class="card-title mb-1 text-primary">{{ stats.total_records }}</h5>
+                <p class="card-text text-muted small mb-0">总记录数</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body py-2">
+                <h5 class="card-title mb-1 text-secondary">{{ stats.unadded_records }}</h5>
+                <p class="card-text text-muted small mb-0">未添加到任务</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body py-2">
+                <h5 class="card-title mb-1 text-success">{{ stats.added_to_tasks }}</h5>
+                <p class="card-text text-muted small mb-0">已添加到任务</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body py-2">
+                <h5 class="card-title mb-1 text-info">{{ stats.avg_views }}</h5>
+                <p class="card-text text-muted small mb-0">平均观看数</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body py-2">
+                <h5 class="card-title mb-1 text-warning">{{ stats.avg_likes }}</h5>
+                <p class="card-text text-muted small mb-0">平均点赞数</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 操作与筛选栏 -->
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <h4 class="mb-0 me-2"><i class="bi bi-list"></i> 监控记录</h4>
+        <div class="btn-group btn-group-sm" role="group" aria-label="状态筛选">
+            <a href="{{ url_for('youtube_monitor_history', config_id=config.id, status='all', per_page=pagination.per_page) }}" 
+               class="btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-secondary' }}">
+                全部 ({{ stats.total_records }})
+            </a>
+            <a href="{{ url_for('youtube_monitor_history', config_id=config.id, status='unadded', per_page=pagination.per_page) }}" 
+               class="btn {{ 'btn-primary' if current_status == 'unadded' else 'btn-outline-secondary' }}">
+                未添加 ({{ stats.unadded_records }})
+            </a>
+            <a href="{{ url_for('youtube_monitor_history', config_id=config.id, status='added', per_page=pagination.per_page) }}" 
+               class="btn {{ 'btn-primary' if current_status == 'added' else 'btn-outline-secondary' }}">
+                已添加 ({{ stats.added_to_tasks }})
+            </a>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
         <form method="POST" action="{{ url_for('youtube_monitor_run', config_id=config.id) }}" class="d-inline monitor-run-form">
-            <button type="submit" class="btn btn-success">
+            <button type="submit" class="btn btn-sm btn-success">
                 <i class="bi bi-play-fill"></i> 立即运行
             </button>
         </form>
-        <a href="{{ url_for('youtube_monitor_config_edit', config_id=config.id) }}" class="btn btn-warning">
+        <a href="{{ url_for('youtube_monitor_config_edit', config_id=config.id) }}" class="btn btn-sm btn-warning">
             <i class="bi bi-pencil"></i> 编辑配置
         </a>
         {% if history %}
-        <button type="button" class="btn btn-outline-success" id="batchAddBtn" onclick="confirmBatchAdd(this)" disabled>
+        <button type="button" class="btn btn-sm btn-outline-success" id="batchAddBtn" onclick="confirmBatchAdd(this)" disabled>
             <i class="bi bi-plus-circle"></i> 批量添加到队列 (<span id="selectedAddCount">0</span>)
         </button>
-        <button type="button" class="btn btn-outline-danger" id="batchDeleteBtn" onclick="confirmBatchDelete(this)" disabled>
+        <button type="button" class="btn btn-sm btn-outline-danger" id="batchDeleteBtn" onclick="confirmBatchDelete(this)" disabled>
             <i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">0</span>)
         </button>
+        {% endif %}
+        {% if stats.total_records > 0 %}
         <form method="POST" action="{{ url_for('youtube_monitor_clear_history', config_id=config.id) }}" class="d-inline" onsubmit="return confirm('确定要清除该配置的所有历史记录吗？此操作不可恢复！')">
-            <button type="submit" class="btn btn-danger">
+            <button type="submit" class="btn btn-sm btn-danger">
                 <i class="bi bi-trash"></i> 清除全部历史
             </button>
         </form>
@@ -229,42 +291,78 @@
     </table>
 </div>
 
-<!-- 统计信息 -->
-<div class="row mt-4">
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title">{{ stats.total_records }}</h5>
-                <p class="card-text">总记录数</p>
+<!-- 分页导航 -->
+{% if pagination and pagination.total > 0 %}
+<nav aria-label="监控记录分页" class="mt-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-muted small">
+                显示第 {{ (pagination.page - 1) * pagination.per_page + 1 }} - {{ [pagination.page * pagination.per_page, pagination.total]|min }} 条，共 {{ pagination.total }} 条记录
+            </span>
+            <div class="d-flex align-items-center gap-1">
+                <span class="text-muted small">每页：</span>
+                <select class="form-select form-select-sm" style="width: auto;" onchange="location.href=this.value;">
+                    {% for pp in [10, 20, 50, 100] %}
+                    <option value="{{ url_for('youtube_monitor_history', config_id=config.id, page=1, status=current_status, per_page=pp) }}" {{ 'selected' if pagination.per_page == pp else '' }}>
+                        {{ pp }} 条
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title">{{ stats.added_to_tasks }}</h5>
-                <p class="card-text">已添加到任务</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title">{{ stats.avg_views }}</h5>
-                <p class="card-text">平均观看数</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title">{{ stats.avg_likes }}</h5>
-                <p class="card-text">平均点赞数</p>
-            </div>
-        </div>
-    </div>
-</div>
 
+        {% if pagination.total_pages > 1 %}
+        <ul class="pagination pagination-sm mb-0">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('youtube_monitor_history', config_id=config.id, page=pagination.prev_page, status=current_status, per_page=pagination.per_page) }}" aria-label="上一页">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link" aria-label="上一页"><span aria-hidden="true">&laquo;</span></span>
+            </li>
+            {% endif %}
+
+            {% for page_num in pagination.iter_pages %}
+                {% if page_num %}
+                    {% if page_num == pagination.page %}
+                    <li class="page-item active" aria-current="page">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('youtube_monitor_history', config_id=config.id, page=page_num, status=current_status, per_page=pagination.per_page) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('youtube_monitor_history', config_id=config.id, page=pagination.next_page, status=current_status, per_page=pagination.per_page) }}" aria-label="下一页">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link" aria-label="下一页"><span aria-hidden="true">&raquo;</span></span>
+            </li>
+            {% endif %}
+        </ul>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+
+{% elif stats.total_records > 0 %}
+<div class="alert alert-warning">
+    <i class="bi bi-info-circle"></i> 当前筛选状态（{% if current_status == 'unadded' %}未添加{% elif current_status == 'added' %}已添加{% else %}全部{% endif %}）下没有找到监控记录。
+    <a href="{{ url_for('youtube_monitor_history', config_id=config.id, status='all', per_page=pagination.per_page) }}" class="alert-link ms-2">查看全部记录</a>
+</div>
 {% else %}
 <div class="alert alert-info">
     <i class="bi bi-info-circle"></i> 此配置还没有监控记录。
