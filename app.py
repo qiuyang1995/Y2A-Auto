@@ -3919,7 +3919,15 @@ def youtube_monitor_index():
     """YouTube监控主页"""
     configs = youtube_monitor.get_monitor_configs()
     history = youtube_monitor.get_monitor_history(limit=50)
-    return render_template('youtube_monitor.html', configs=configs, history=history)
+    auto_enqueue_config = youtube_monitor.get_auto_enqueue_config()
+    unadded_count = youtube_monitor.get_unadded_history_count()
+    return render_template(
+        'youtube_monitor.html',
+        configs=configs,
+        history=history,
+        auto_enqueue_config=auto_enqueue_config,
+        unadded_count=unadded_count
+    )
 
 @app.route('/youtube_monitor/config', methods=['GET', 'POST'])
 @login_required
@@ -4213,6 +4221,37 @@ def youtube_monitor_batch_add_to_tasks():
         })
     else:
         return jsonify({'success': False, 'message': message}), 400
+
+@app.route('/youtube_monitor/auto_enqueue/config', methods=['POST'])
+@login_required
+def youtube_monitor_auto_enqueue_config():
+    """更新自动入队调度设置"""
+    data = request.get_json(silent=True) or request.form.to_dict()
+    if not data:
+        return jsonify({'success': False, 'message': '请求数据为空'}), 400
+
+    success, message = youtube_monitor.update_auto_enqueue_config(data)
+    if success:
+        return jsonify({
+            'success': True,
+            'message': message,
+            'config': youtube_monitor.get_auto_enqueue_config()
+        })
+    else:
+        return jsonify({'success': False, 'message': message}), 400
+
+@app.route('/youtube_monitor/auto_enqueue/run_now', methods=['POST'])
+@login_required
+def youtube_monitor_auto_enqueue_run_now():
+    """立即手动触发一次自动入队"""
+    success, message, added_count = youtube_monitor.execute_auto_enqueue(trigger_type='manual')
+    return jsonify({
+        'success': success,
+        'message': message,
+        'added_count': added_count,
+        'unadded_count': youtube_monitor.get_unadded_history_count(),
+        'config': youtube_monitor.get_auto_enqueue_config()
+    })
 
 @app.route('/youtube_monitor/history/delete', methods=['POST'])
 @login_required

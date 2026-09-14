@@ -170,6 +170,21 @@ MONITOR_CONFIG_FIELD_DEFAULTS: Dict[str, Any] = {
 
 MONITOR_CONFIG_DB_FIELDS: Tuple[str, ...] = tuple(MONITOR_CONFIG_FIELD_DEFAULTS.keys())
 
+DEFAULT_AUTO_ENQUEUE_TIME_POINTS = '13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00, 23:00'
+
+AUTO_ENQUEUE_FIELD_DEFAULTS: Dict[str, Any] = {
+    'enabled': False,
+    'schedule_type': 'daily_times',
+    'schedule_time_points': DEFAULT_AUTO_ENQUEUE_TIME_POINTS,
+    'schedule_interval': 60,
+    'batch_count': 2,
+    'order_by': 'view_count',
+    'filter_config_id': 0,
+    'last_run_time': '',
+    'last_run_status': '',
+    'updated_time': '',
+}
+
 
 class YouTubeMonitor:
     def __init__(self, api_key: Optional[str] = None):
@@ -337,11 +352,37 @@ class YouTubeMonitor:
                 cursor.execute("ALTER TABLE monitor_history ADD COLUMN thumbnail_url TEXT")
             except sqlite3.OperationalError:
                 pass
+
+            # 定时入队任务配置表 (单例记录 id=1)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS monitor_auto_enqueue_config (
+                    id INTEGER PRIMARY KEY,
+                    enabled BOOLEAN DEFAULT 0,
+                    schedule_type TEXT DEFAULT 'daily_times',
+                    schedule_time_points TEXT DEFAULT '13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00, 23:00',
+                    schedule_interval INTEGER DEFAULT 60,
+                    batch_count INTEGER DEFAULT 2,
+                    order_by TEXT DEFAULT 'view_count',
+                    filter_config_id INTEGER DEFAULT 0,
+                    last_run_time TEXT DEFAULT '',
+                    last_run_status TEXT DEFAULT '',
+                    updated_time TEXT DEFAULT (datetime('now', 'localtime'))
+                )
+            ''')
+            cursor.execute("SELECT id FROM monitor_auto_enqueue_config WHERE id = 1")
+            if not cursor.fetchone():
+                cursor.execute('''
+                    INSERT INTO monitor_auto_enqueue_config (
+                        id, enabled, schedule_type, schedule_time_points, schedule_interval,
+                        batch_count, order_by, filter_config_id, last_run_time, last_run_status, updated_time
+                    ) VALUES (1, 0, 'daily_times', ?, 60, 2, 'view_count', 0, '', '', datetime('now', 'localtime'))
+                ''', (DEFAULT_AUTO_ENQUEUE_TIME_POINTS,))
             
             conn.commit()
         
         # 如果是新数据库或表为空，尝试从配置文件恢复
         self._restore_configs_from_files()
+        self._restore_auto_enqueue_config_from_file()
     
     def _restore_configs_from_files(self):
         """从配置文件恢复监控配置到数据库"""
@@ -956,6 +997,7 @@ class YouTubeMonitor:
             if auto_add_enabled:
                 logger.info(f"本次最大添加到任务队列数量: {max_add_to_tasks}")
             
+            max_reached_logged = False
             for video in filtered_videos:
                 # 检查是否已经处理过
                 if not self._is_video_processed(video['id'], config_id):
@@ -975,10 +1017,10 @@ class YouTubeMonitor:
                         else:
                             logger.info(f"视频已保存到历史记录（未添加到任务队列）: {video['title']}")
                     
-                    # 如果启用了自动添加且达到上限，跳出循环
-                    if auto_add_enabled and added_count >= max_add_to_tasks:
-                        logger.info(f"已达到本次添加上限 {max_add_to_tasks}，剩余视频将在下次运行时处理")
-                        break
+                    # 如果启用了自动添加且达到上限，后续视频继续保存到历史记录（未添加到任务队列），不再跳出循环丢弃
+                    if auto_add_enabled and added_count >= max_add_to_tasks and not max_reached_logged:
+                        logger.info(f"已达到本次添加到任务队列上限 {max_add_to_tasks}，后续视频仅保存至监控记录供后续定时入队使用")
+                        max_reached_logged = True
                 else:
                     logger.debug(f"视频已处理过，跳过: {video['title']}")
             
@@ -1902,8 +1944,8 @@ class YouTubeMonitor:
             conn.commit()
     
     def start_all_schedules(self):
-        """启动所有自动调度的监控任务"""
-        logger.info("开始启动所有自动调度的监控任务")
+        """启动所有自动调度的监控任务及定时入队任务"""
+        logger.info("开始启动所有自动调度的监控任务及定时入队任务")
         
         configs = self.get_monitor_configs()
         auto_configs = [config for config in configs if config.get('enabled') and config.get('schedule_type') in ('auto', 'daily_times')]
@@ -1914,11 +1956,14 @@ class YouTubeMonitor:
             logger.info(f"启动调度: {config['name']} (ID: {config['id']}), 类型: {config.get('schedule_type')}")
             self._schedule_monitor(config['id'])
         
+        # 启动定时入队调度任务
+        self._schedule_auto_enqueue()
+        
         if not self.scheduler.running:
             self.scheduler.start()
             logger.info("调度器已启动")
         
-        logger.info(f"所有自动调度任务启动完成，共 {len(auto_configs)} 个配置")
+        logger.info(f"所有自动调度任务启动完成，共 {len(auto_configs)} 个监控配置，并已载入定时入队调度")
     
     def _get_historical_time_range(self, config):
         """获取历史搬运模式的智能时间范围"""
@@ -2239,24 +2284,257 @@ class YouTubeMonitor:
             logger.error(f"删除监控历史记录失败: {str(e)}")
             return False, f"删除失败: {str(e)}"
 
-    def start_all_schedules(self):
-        """启动所有自动调度的监控任务"""
-        logger.info("开始启动所有自动调度的监控任务")
-        
-        configs = self.get_monitor_configs()
-        auto_configs = [config for config in configs if config['enabled'] and config['schedule_type'] == 'auto']
-        
-        logger.info(f"找到 {len(auto_configs)} 个启用的自动调度配置")
-        
-        for config in auto_configs:
-            logger.info(f"启动调度: {config['name']} (ID: {config['id']}), 间隔: {config['schedule_interval']}分钟")
-            self._schedule_monitor(config['id'], config['schedule_interval'])
-        
-        if not self.scheduler.running:
-            self.scheduler.start()
-            logger.info("调度器已启动")
-        
-        logger.info(f"所有自动调度任务启动完成，共 {len(auto_configs)} 个任务")
+    def get_auto_enqueue_config(self) -> Dict[str, Any]:
+        """获取定时入队配置（单例记录）"""
+        default_cfg = dict(AUTO_ENQUEUE_FIELD_DEFAULTS)
+        default_cfg['id'] = 1
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM monitor_auto_enqueue_config WHERE id = 1')
+                row = cursor.fetchone()
+                if row:
+                    cfg = dict(row)
+                    cfg['enabled'] = bool(cfg.get('enabled'))
+                    return cfg
+        except Exception as e:
+            logger.error(f"获取定时入队配置失败: {e}")
+        return default_cfg
+
+    def update_auto_enqueue_config(self, config_data: Dict[str, Any]) -> Tuple[bool, str]:
+        """更新定时入队配置并同步备份及重载调度"""
+        try:
+            enabled = 1 if config_data.get('enabled') in (True, 1, '1', 'true', 'on') else 0
+            schedule_type = str(config_data.get('schedule_type', 'daily_times')).strip()
+            if schedule_type not in ('daily_times', 'auto'):
+                schedule_type = 'daily_times'
+            
+            schedule_time_points = str(config_data.get('schedule_time_points', '')).strip()
+            try:
+                schedule_interval = max(5, min(1440, int(config_data.get('schedule_interval', 60))))
+            except (ValueError, TypeError):
+                schedule_interval = 60
+                
+            try:
+                batch_count = max(1, min(50, int(config_data.get('batch_count', 2))))
+            except (ValueError, TypeError):
+                batch_count = 2
+                
+            order_by = str(config_data.get('order_by', 'view_count')).strip()
+            if order_by not in ('view_count', 'published_at', 'run_time_desc', 'run_time_asc'):
+                order_by = 'view_count'
+                
+            try:
+                filter_config_id = int(config_data.get('filter_config_id', 0))
+            except (ValueError, TypeError):
+                filter_config_id = 0
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO monitor_auto_enqueue_config (
+                        id, enabled, schedule_type, schedule_time_points, schedule_interval,
+                        batch_count, order_by, filter_config_id, updated_time
+                    ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                    ON CONFLICT(id) DO UPDATE SET
+                        enabled = excluded.enabled,
+                        schedule_type = excluded.schedule_type,
+                        schedule_time_points = excluded.schedule_time_points,
+                        schedule_interval = excluded.schedule_interval,
+                        batch_count = excluded.batch_count,
+                        order_by = excluded.order_by,
+                        filter_config_id = excluded.filter_config_id,
+                        updated_time = excluded.updated_time
+                ''', (
+                    enabled, schedule_type, schedule_time_points, schedule_interval,
+                    batch_count, order_by, filter_config_id
+                ))
+                conn.commit()
+
+            self._backup_auto_enqueue_config()
+            self.reload_auto_enqueue_schedule()
+            logger.info(f"定时入队配置已更新: enabled={enabled}, type={schedule_type}, points={schedule_time_points}, batch={batch_count}")
+            return True, "定时入队配置已更新并生效"
+        except Exception as e:
+            logger.error(f"更新定时入队配置失败: {e}")
+            return False, f"更新配置失败: {str(e)}"
+
+    def _backup_auto_enqueue_config(self):
+        """备份定时入队配置到 JSON 文件"""
+        try:
+            config_dir = os.path.join(get_app_subdir('config'), 'youtube_monitor')
+            os.makedirs(config_dir, exist_ok=True)
+            cfg_path = os.path.join(config_dir, 'auto_enqueue_config.json')
+            cfg = self.get_auto_enqueue_config()
+            with open(cfg_path, 'w', encoding='utf-8') as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+            logger.info("定时入队配置已备份到 JSON 文件")
+        except Exception as e:
+            logger.error(f"备份定时入队配置失败: {e}")
+
+    def _restore_auto_enqueue_config_from_file(self):
+        """从 JSON 文件恢复定时入队配置到数据库"""
+        try:
+            config_dir = os.path.join(get_app_subdir('config'), 'youtube_monitor')
+            cfg_path = os.path.join(config_dir, 'auto_enqueue_config.json')
+            if not os.path.exists(cfg_path):
+                return
+            with open(cfg_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if data and isinstance(data, dict):
+                logger.info("从配置文件中恢复定时入队配置")
+                self.update_auto_enqueue_config(data)
+        except Exception as e:
+            logger.error(f"从配置文件恢复定时入队配置失败: {e}")
+
+    def _update_auto_enqueue_run_status(self, status_msg: str):
+        """更新定时入队最后运行时间和状态"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE monitor_auto_enqueue_config
+                    SET last_run_time = datetime('now', 'localtime'),
+                        last_run_status = ?
+                    WHERE id = 1
+                ''', (status_msg,))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"更新定时入队运行状态失败: {e}")
+
+    def get_unadded_history_count(self, config_id: Optional[int] = None) -> int:
+        """获取当前待入队的监控记录数量（素材池）"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                if config_id and config_id > 0:
+                    cursor.execute('SELECT COUNT(*) FROM monitor_history WHERE added_to_tasks = 0 AND config_id = ?', (config_id,))
+                else:
+                    cursor.execute('SELECT COUNT(*) FROM monitor_history WHERE added_to_tasks = 0')
+                row = cursor.fetchone()
+                return row[0] if row else 0
+        except Exception as e:
+            logger.error(f"获取待入队记录数失败: {e}")
+            return 0
+
+    def execute_auto_enqueue(self, trigger_type='scheduled') -> Tuple[bool, str, int]:
+        """执行自动入队任务：从监控历史中检索未添加的视频，按设定规则批量推送到任务队列"""
+        logger.info(f"开始执行自动入队任务, 触发源: {trigger_type}")
+        cfg = self.get_auto_enqueue_config()
+        if trigger_type == 'scheduled' and not cfg.get('enabled'):
+            logger.info("定时入队任务未启用，跳过调度执行")
+            return False, "定时入队任务已禁用", 0
+
+        batch_count = cfg.get('batch_count', 2)
+        order_by = cfg.get('order_by', 'view_count')
+        filter_config_id = cfg.get('filter_config_id', 0)
+
+        order_clause_map = {
+            'view_count': 'h.view_count DESC, h.id DESC',
+            'published_at': 'h.published_at DESC, h.id DESC',
+            'run_time_desc': 'h.run_time DESC, h.id DESC',
+            'run_time_asc': 'h.id ASC'
+        }
+        order_clause = order_clause_map.get(order_by, 'h.view_count DESC, h.id DESC')
+
+        where_clauses = ['h.added_to_tasks = 0']
+        params = []
+        if filter_config_id and filter_config_id > 0:
+            where_clauses.append('h.config_id = ?')
+            params.append(filter_config_id)
+
+        where_sql = ' AND '.join(where_clauses)
+        query = f'''
+            SELECT h.id, h.video_id, h.video_title, h.channel_title, h.view_count, h.published_at
+            FROM monitor_history h
+            WHERE {where_sql}
+            ORDER BY {order_clause}
+            LIMIT ?
+        '''
+        params.append(batch_count)
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+        if not rows:
+            status_msg = "待入队池为空（无未添加的视频记录）"
+            logger.info(f"自动入队: {status_msg}")
+            self._update_auto_enqueue_run_status(status_msg)
+            return True, status_msg, 0
+
+        record_ids = [row[0] for row in rows]
+        logger.info(f"自动入队选中 {len(record_ids)} 条待添加记录: {record_ids}")
+
+        success, msg, added_ids = self.batch_add_to_tasks(record_ids)
+        added_count = len(added_ids)
+        run_status = f"成功添加 {added_count} 个视频到队列" if success else f"添加失败: {msg}"
+        self._update_auto_enqueue_run_status(run_status)
+        logger.info(f"自动入队执行完成: {run_status}")
+        return success, run_status, added_count
+
+    def _remove_auto_enqueue_schedule(self):
+        """移除现有的自动入队调度任务"""
+        try:
+            if not self.scheduler:
+                return
+            for job in list(self.scheduler.get_jobs()):
+                if job.id.startswith("auto_enqueue_"):
+                    self.scheduler.remove_job(job.id)
+                    logger.info(f"已移除自动入队任务: {job.id}")
+        except Exception as e:
+            logger.error(f"移除自动入队调度任务失败: {e}")
+
+    def _schedule_auto_enqueue(self):
+        """添加自动入队调度任务到 APScheduler"""
+        try:
+            self._remove_auto_enqueue_schedule()
+            if not self.scheduler:
+                return
+            cfg = self.get_auto_enqueue_config()
+            if not cfg or not cfg.get('enabled'):
+                logger.info("定时入队任务未启用，不注册调度")
+                return
+
+            schedule_type = cfg.get('schedule_type', 'daily_times')
+            if schedule_type == 'daily_times':
+                time_points = parse_daily_time_points(cfg.get('schedule_time_points', ''))
+                if not time_points:
+                    logger.warning("定时入队启用了每日定点，但未设置任何有效时间点")
+                    return
+                for h, m in time_points:
+                    job_id = f"auto_enqueue_cron_{h:02d}_{m:02d}"
+                    self.scheduler.add_job(
+                        func=self.execute_auto_enqueue,
+                        trigger=CronTrigger(hour=h, minute=m),
+                        id=job_id,
+                        args=['scheduled'],
+                        replace_existing=True
+                    )
+                    logger.info(f"已注册每日定点入队任务: {job_id}, 触发时间: {h:02d}:{m:02d}")
+            elif schedule_type == 'auto':
+                interval = cfg.get('schedule_interval', 60)
+                job_id = "auto_enqueue_interval"
+                self.scheduler.add_job(
+                    func=self.execute_auto_enqueue,
+                    trigger='interval',
+                    minutes=interval,
+                    id=job_id,
+                    args=['scheduled'],
+                    replace_existing=True
+                )
+                logger.info(f"已注册固定间隔入队任务: {job_id}, 间隔: {interval} 分钟")
+
+            if not self.scheduler.running:
+                self.scheduler.start()
+        except Exception as e:
+            logger.error(f"注册自动入队任务失败: {e}")
+
+    def reload_auto_enqueue_schedule(self):
+        """重新加载并生效自动入队任务调度"""
+        self._schedule_auto_enqueue()
     
     def stop_all_schedules(self):
         """停止所有调度任务"""

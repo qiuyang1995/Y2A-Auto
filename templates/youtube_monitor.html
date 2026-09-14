@@ -5,7 +5,15 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 p-3 bg-white rounded-3 shadow-sm border">
     <h2 class="h3 mb-0 fw-bold"><i class="bi bi-broadcast-pin text-danger me-2"></i>YouTube 监控中心</h2>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 align-items-center">
+        <button type="button" class="btn btn-outline-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#autoEnqueueModal">
+            <i class="bi bi-clock-history me-1"></i> 定时入队设置
+            {% if auto_enqueue_config and auto_enqueue_config.enabled %}
+                <span class="badge bg-success ms-1" id="topAutoEnqueueBadge"><i class="bi bi-check-circle-fill me-1"></i>运行中</span>
+            {% else %}
+                <span class="badge bg-secondary ms-1" id="topAutoEnqueueBadge"><i class="bi bi-pause-circle me-1"></i>已禁用</span>
+            {% endif %}
+        </button>
         <form method="POST" action="{{ url_for('youtube_monitor_restore_configs') }}" class="d-inline" onsubmit="return confirm('确定要从配置文件恢复监控配置吗？这将从 config/youtube_monitor/ 目录中读取配置文件并恢复到数据库中。')">
             <button type="submit" class="btn btn-outline-info shadow-sm">
                 <i class="bi bi-arrow-clockwise me-1"></i> 恢复配置
@@ -151,6 +159,73 @@
     </div>
 </div>
 
+<!-- 定时入队任务策略与运行状态栏 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border border-primary border-opacity-25 shadow-sm bg-light-subtle">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div class="d-flex align-items-center flex-wrap gap-3">
+                        <div class="d-flex align-items-center">
+                            <span class="fs-4 text-primary me-3"><i class="bi bi-robot"></i></span>
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h5 class="mb-0 fw-bold fs-6">定时入队任务</h5>
+                                    <span id="bannerEnqueueStatusBadge">
+                                        {% if auto_enqueue_config and auto_enqueue_config.enabled %}
+                                            <span class="badge bg-success"><i class="bi bi-play-fill me-1"></i>已启用</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary"><i class="bi bi-pause-fill me-1"></i>已禁用</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="text-muted small" id="bannerEnqueueDesc">
+                                    {% if auto_enqueue_config and auto_enqueue_config.enabled %}
+                                        {% if auto_enqueue_config.schedule_type == 'daily_times' %}
+                                            <i class="bi bi-clock-history text-primary me-1"></i>每日定点 ({{ auto_enqueue_config.schedule_time_points }}) · 每次入队 <strong>{{ auto_enqueue_config.batch_count }}</strong> 个视频
+                                        {% else %}
+                                            <i class="bi bi-arrow-repeat text-info me-1"></i>每 {{ auto_enqueue_config.schedule_interval }} 分钟执行一次 · 每次入队 <strong>{{ auto_enqueue_config.batch_count }}</strong> 个视频
+                                        {% endif %}
+                                        · 规则：
+                                        {% if auto_enqueue_config.order_by == 'view_count' %}播放量最高优先
+                                        {% elif auto_enqueue_config.order_by == 'published_at' %}最新发布优先
+                                        {% elif auto_enqueue_config.order_by == 'run_time_desc' %}最新入库优先
+                                        {% else %}最早入库优先 (FIFO){% endif %}
+                                    {% else %}
+                                        未启用自动定时入队，监控获取到的视频需手动批量推送到上传队列。点击右侧按钮开启。
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border-start ps-3 d-none d-md-block">
+                            <small class="text-muted d-block">待入队素材池</small>
+                            <span class="fw-bold text-primary fs-6" id="bannerUnaddedCount">{{ unadded_count or 0 }}</span> <small class="text-muted">个视频未添加</small>
+                        </div>
+                        <div class="border-start ps-3 d-none d-lg-block">
+                            <small class="text-muted d-block">上次执行状态</small>
+                            <small class="text-secondary" id="bannerLastRunStatus">
+                                {% if auto_enqueue_config and auto_enqueue_config.last_run_time %}
+                                    {{ auto_enqueue_config.last_run_time }} ({{ auto_enqueue_config.last_run_status or '正常' }})
+                                {% else %}
+                                    从未执行
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-success btn-sm" id="btnRunEnqueueNow" onclick="runEnqueueNow(this)">
+                            <i class="bi bi-lightning-charge-fill me-1"></i>立即执行一次
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#autoEnqueueModal">
+                            <i class="bi bi-sliders me-1"></i>配置调度
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 最近的监控历史 -->
 <div class="row">
     <div class="col-12">
@@ -292,6 +367,141 @@
     </div>
 </div>
 
+<!-- 定时入队调度设置模态框 -->
+<div class="modal fade" id="autoEnqueueModal" tabindex="-1" aria-labelledby="autoEnqueueModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="autoEnqueueModalLabel">
+                    <i class="bi bi-clock-history me-2"></i>定时入队调度设置
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="autoEnqueueForm">
+                    <!-- 开启状态 -->
+                    <div class="card mb-3 border-0 bg-light">
+                        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0 fw-bold">启用定时入队任务</h6>
+                                <small class="text-muted">开启后将按设定的时间点，自动从监控历史中拉取未添加的视频推送到待上传队列</small>
+                            </div>
+                            <div class="form-check form-switch fs-4 mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="enqueue_enabled" name="enabled"
+                                       {% if auto_enqueue_config and auto_enqueue_config.enabled %}checked{% endif %}>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <!-- 调度类型 -->
+                        <div class="col-md-6">
+                            <label for="enqueue_schedule_type" class="form-label fw-bold">调度类型</label>
+                            <select class="form-select" id="enqueue_schedule_type" name="schedule_type" onchange="toggleEnqueueScheduleType()">
+                                <option value="daily_times" {% if not auto_enqueue_config or auto_enqueue_config.schedule_type == 'daily_times' %}selected{% endif %}>每日定点执行 (多时间点)</option>
+                                <option value="auto" {% if auto_enqueue_config and auto_enqueue_config.schedule_type == 'auto' %}selected{% endif %}>固定间隔调度</option>
+                            </select>
+                        </div>
+
+                        <!-- 每次上传数量 -->
+                        <div class="col-md-6">
+                            <label for="enqueue_batch_count" class="form-label fw-bold">每次入队视频数量</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="enqueue_batch_count" name="batch_count"
+                                       value="{{ auto_enqueue_config.batch_count if auto_enqueue_config else 2 }}" min="1" max="50">
+                                <span class="input-group-text">个视频</span>
+                            </div>
+                            <div class="form-text">到达指定时刻时，最多将几个未添加的视频推送到上传队列</div>
+                        </div>
+
+                        <!-- 每日定点设置 -->
+                        <div class="col-12" id="enqueue_time_points_group">
+                            <label class="form-label fw-bold"><i class="bi bi-clock-history text-primary me-1"></i>每日定点时间列表</label>
+                            <input type="hidden" id="enqueue_schedule_time_points" name="schedule_time_points"
+                                   value="{{ auto_enqueue_config.schedule_time_points if auto_enqueue_config and auto_enqueue_config.schedule_time_points else '13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00, 23:00' }}">
+                            
+                            <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+                                <input type="time" class="form-control" id="enqueue_time_picker" value="13:00" style="max-width: 140px;">
+                                <button type="button" class="btn btn-outline-primary btn-sm text-nowrap" onclick="enqueueAddTimePoint()">
+                                    <i class="bi bi-plus-circle me-1"></i>添加
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm text-nowrap" onclick="enqueuePresetPeakHours()">
+                                    <i class="bi bi-stars me-1"></i>快捷填入 13:00-23:00 (每小时)
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" onclick="enqueueClearTimePoints()">
+                                    <i class="bi bi-eraser me-1"></i>清空
+                                </button>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-1 p-2 border rounded bg-light" id="enqueue_time_points_container" style="min-height: 48px;">
+                                <span class="text-muted small align-self-center px-1" id="enqueue_empty_hint">未设定时间点</span>
+                            </div>
+                            <div class="form-text">系统将在每天这些指定时刻准时触发入队任务。</div>
+                        </div>
+
+                        <!-- 固定间隔设置 -->
+                        <div class="col-12 d-none" id="enqueue_interval_group">
+                            <label for="enqueue_schedule_interval" class="form-label fw-bold">调度间隔（分钟）</label>
+                            <input type="number" class="form-control" id="enqueue_schedule_interval" name="schedule_interval"
+                                   value="{{ auto_enqueue_config.schedule_interval if auto_enqueue_config else 60 }}" min="5" max="1440">
+                            <div class="form-text">每隔指定分钟数执行一次入队。推荐 60 分钟以上。</div>
+                        </div>
+
+                        <!-- 选片排序规则 -->
+                        <div class="col-md-6">
+                            <label for="enqueue_order_by" class="form-label fw-bold">视频选取规则</label>
+                            <select class="form-select" id="enqueue_order_by" name="order_by">
+                                <option value="view_count" {% if not auto_enqueue_config or auto_enqueue_config.order_by == 'view_count' %}selected{% endif %}>
+                                    播放量最高优先 (最热视频优先发布)
+                                </option>
+                                <option value="published_at" {% if auto_enqueue_config and auto_enqueue_config.order_by == 'published_at' %}selected{% endif %}>
+                                    发布日期最新优先 (YouTube最新发布)
+                                </option>
+                                <option value="run_time_desc" {% if auto_enqueue_config and auto_enqueue_config.order_by == 'run_time_desc' %}selected{% endif %}>
+                                    监控发现最新优先 (最新入库)
+                                </option>
+                                <option value="run_time_asc" {% if auto_enqueue_config and auto_enqueue_config.order_by == 'run_time_asc' %}selected{% endif %}>
+                                    先进先出 (FIFO 优先发布最早入库的老视频)
+                                </option>
+                            </select>
+                            <div class="form-text">从“未添加”的视频记录中挑出要上传的视频的排序方式</div>
+                        </div>
+
+                        <!-- 监控配置来源 -->
+                        <div class="col-md-6">
+                            <label for="enqueue_filter_config_id" class="form-label fw-bold">监控来源范围</label>
+                            <select class="form-select" id="enqueue_filter_config_id" name="filter_config_id">
+                                <option value="0" {% if not auto_enqueue_config or auto_enqueue_config.filter_config_id == 0 %}selected{% endif %}>
+                                    全部监控配置（统一素材池）
+                                </option>
+                                {% if configs %}
+                                    {% for cfg in configs %}
+                                        <option value="{{ cfg.id }}" {% if auto_enqueue_config and auto_enqueue_config.filter_config_id == cfg.id %}selected{% endif %}>
+                                            仅限监控: {{ cfg.name }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            <div class="form-text">限制仅从某个特定监控任务的结果中提取，或从全部监控中提取</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light justify-content-between">
+                <button type="button" class="btn btn-outline-success" id="btnModalRunEnqueueNow" onclick="runEnqueueNow(this)">
+                    <i class="bi bi-lightning-charge-fill me-1"></i>立即执行一次
+                </button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveAutoEnqueue" onclick="saveAutoEnqueueConfig(this)">
+                        <i class="bi bi-check-lg me-1"></i>保存设置
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_css %}
@@ -328,6 +538,29 @@
     align-items: center;
     justify-content: center;
     padding: 0;
+}
+
+.enqueue-time-chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: #e7f1ff;
+    color: #0d6efd;
+    border: 1px solid #b6d4fe;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.enqueue-time-chip .btn-close-chip {
+    cursor: pointer;
+    margin-left: 6px;
+    font-size: 0.8rem;
+    opacity: 0.6;
+    transition: opacity 0.15s, color 0.15s;
+}
+.enqueue-time-chip .btn-close-chip:hover {
+    opacity: 1;
+    color: #dc3545;
 }
 
 /* Responsive: convert table to stacked card/list on small screens */
@@ -786,6 +1019,212 @@ document.addEventListener('click', function(e) {
     );
 });
 
-document.addEventListener('DOMContentLoaded', bindMonitorRunForms);
+// 定时入队调度相关逻辑
+function toggleEnqueueScheduleType() {
+    const typeEl = document.getElementById('enqueue_schedule_type');
+    if (!typeEl) return;
+    const type = typeEl.value;
+    const timePointsGroup = document.getElementById('enqueue_time_points_group');
+    const intervalGroup = document.getElementById('enqueue_interval_group');
+    if (type === 'daily_times') {
+        if (timePointsGroup) timePointsGroup.classList.remove('d-none');
+        if (intervalGroup) intervalGroup.classList.add('d-none');
+        enqueueRenderBadges();
+    } else {
+        if (timePointsGroup) timePointsGroup.classList.add('d-none');
+        if (intervalGroup) intervalGroup.classList.remove('d-none');
+    }
+}
+
+function enqueueParseTimePoints(str) {
+    if (!str) return [];
+    return str.split(/[,;\s]+/).map(s => s.trim()).filter(s => /^\d{2}:\d{2}$/.test(s));
+}
+
+function enqueueGetTimePoints() {
+    const hidden = document.getElementById('enqueue_schedule_time_points');
+    return hidden ? enqueueParseTimePoints(hidden.value) : [];
+}
+
+function enqueueSetTimePoints(points) {
+    const uniqueSorted = Array.from(new Set(points)).sort();
+    const hidden = document.getElementById('enqueue_schedule_time_points');
+    if (hidden) {
+        hidden.value = uniqueSorted.join(', ');
+    }
+    enqueueRenderBadges();
+}
+
+function enqueueAddTimePoint() {
+    const picker = document.getElementById('enqueue_time_picker');
+    if (!picker || !picker.value) return;
+    const val = picker.value.trim();
+    if (!/^\d{2}:\d{2}$/.test(val)) return;
+    const points = enqueueGetTimePoints();
+    if (!points.includes(val)) {
+        points.push(val);
+        enqueueSetTimePoints(points);
+    }
+}
+
+function enqueueAddQuickTimePoint(val) {
+    const points = enqueueGetTimePoints();
+    if (!points.includes(val)) {
+        points.push(val);
+        enqueueSetTimePoints(points);
+    }
+}
+
+function enqueueRemoveTimePoint(val) {
+    const points = enqueueGetTimePoints().filter(p => p !== val);
+    enqueueSetTimePoints(points);
+}
+
+function enqueuePresetPeakHours() {
+    const peakHours = ['13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
+    enqueueSetTimePoints(peakHours);
+}
+
+function enqueueClearTimePoints() {
+    enqueueSetTimePoints([]);
+}
+
+function enqueueRenderBadges() {
+    const container = document.getElementById('enqueue_time_points_container');
+    if (!container) return;
+    const points = enqueueGetTimePoints();
+    container.innerHTML = '';
+    if (points.length === 0) {
+        const hint = document.createElement('span');
+        hint.className = 'text-muted small align-self-center px-1';
+        hint.id = 'enqueue_empty_hint';
+        hint.textContent = '未设定时间点（请在上方选择或点击快捷填入）';
+        container.appendChild(hint);
+        return;
+    }
+    points.forEach(pt => {
+        const badge = document.createElement('span');
+        badge.className = 'enqueue-time-chip';
+        badge.innerHTML = `<i class="bi bi-clock me-1"></i>${pt}<span class="btn-close-chip" onclick="enqueueRemoveTimePoint('${pt}')" title="移除">&times;</span>`;
+        container.appendChild(badge);
+    });
+}
+
+function saveAutoEnqueueConfig(btn) {
+    const form = document.getElementById('autoEnqueueForm');
+    if (!form) return;
+    
+    const enabled = document.getElementById('enqueue_enabled').checked;
+    const scheduleType = document.getElementById('enqueue_schedule_type').value;
+    const scheduleTimePoints = document.getElementById('enqueue_schedule_time_points').value;
+    const scheduleInterval = parseInt(document.getElementById('enqueue_schedule_interval').value, 10) || 60;
+    const batchCount = parseInt(document.getElementById('enqueue_batch_count').value, 10) || 2;
+    const orderBy = document.getElementById('enqueue_order_by').value;
+    const filterConfigId = parseInt(document.getElementById('enqueue_filter_config_id').value, 10) || 0;
+
+    if (enabled && scheduleType === 'daily_times') {
+        const pts = enqueueParseTimePoints(scheduleTimePoints);
+        if (pts.length === 0) {
+            alert('启用了每日定点执行，但未设置任何时间点！请至少添加一个时间点或点击“快捷填入 13:00-23:00”。');
+            return;
+        }
+    }
+
+    const payload = {
+        enabled: enabled,
+        schedule_type: scheduleType,
+        schedule_time_points: scheduleTimePoints,
+        schedule_interval: scheduleInterval,
+        batch_count: batchCount,
+        order_by: orderBy,
+        filter_config_id: filterConfigId
+    };
+
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
+    }
+
+    fetch('/youtube_monitor/auto_enqueue/config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || '定时入队设置已保存成功！');
+            const modalEl = document.getElementById('autoEnqueueModal');
+            if (modalEl && window.bootstrap) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+            window.location.reload();
+        } else {
+            alert('保存失败: ' + (data.message || '未知错误'));
+        }
+    })
+    .catch(err => {
+        console.error('保存配置异常:', err);
+        alert('网络请求失败: ' + err.message);
+    })
+    .finally(() => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    });
+}
+
+function runEnqueueNow(btn) {
+    if (!confirm('确定要立即执行一次自动入队吗？\n将按当前设置从素材池中挑选未添加视频推送到上传队列。')) {
+        return;
+    }
+
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>入队处理中...';
+    }
+
+    fetch('/youtube_monitor/auto_enqueue/run_now', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('执行成功！' + (data.message || ''));
+            const unaddedEl = document.getElementById('bannerUnaddedCount');
+            if (unaddedEl && data.unadded_count !== undefined) {
+                unaddedEl.textContent = data.unadded_count;
+            }
+            window.location.reload();
+        } else {
+            alert('执行完成: ' + (data.message || '未知状态'));
+        }
+    })
+    .catch(err => {
+        console.error('执行入队异常:', err);
+        alert('网络请求失败: ' + err.message);
+    })
+    .finally(() => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    bindMonitorRunForms();
+    toggleEnqueueScheduleType();
+    enqueueRenderBadges();
+});
 </script>
 {% endblock %}
