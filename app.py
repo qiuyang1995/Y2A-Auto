@@ -23,7 +23,12 @@ from PIL import Image, UnidentifiedImageError
 from werkzeug.security import safe_join
 from modules.youtube_handler import extract_video_urls_from_playlist
 from modules.utils import get_app_subdir
-from modules.config_manager import load_config, update_config, reset_specific_config
+from modules.config_manager import (
+    load_config,
+    normalize_cookiecloud_healthcheck_interval_hours,
+    reset_specific_config,
+    update_config,
+)
 from modules.whisper_languages import WHISPER_LANGUAGE_LIST
 from modules.task_manager import add_task, start_task, get_task, get_tasks_paginated, get_tasks_by_status, update_task, delete_task, force_upload_task, TASK_STATES, clear_all_tasks, retry_failed_tasks, register_task_updates_listener, unregister_task_updates_listener, resolve_cookie_file_path
 from modules.acfun_auth import AcfunQrLoginSession
@@ -37,8 +42,16 @@ from modules.speech_pipeline_settings import (
 )
 from modules.cookiecloud import (
     CookieCloudError,
-    sync_cookiecloud_to_youtube_file,
-    test_cookiecloud_youtube_sync,
+    DEFAULT_PLATFORM,
+    get_platform_spec,
+    iter_platform_specs,
+    sync_cookiecloud_to_platform_file,
+    test_cookiecloud_platform_sync,
+)
+from modules.cookiecloud_health import (
+    STATES_NEEDING_UPDATE as COOKIECLOUD_STATES_NEEDING_UPDATE,
+    describe_platform_states as describe_cookiecloud_platform_states,
+    run_health_check as run_cookiecloud_health_check,
 )
 from modules.notifications import (
     CHANNEL_LABELS,
@@ -195,13 +208,21 @@ def _merge_cookiecloud_runtime_settings(payload: dict | None, base_config: dict 
     effective_config = dict(base_config or load_config())
     incoming = dict(payload) if isinstance(payload, dict) else {}
 
-    bool_fields = {'COOKIECLOUD_ENABLED', 'COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT'}
+    bool_fields = {
+        'COOKIECLOUD_ENABLED',
+        'COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT',
+        'COOKIECLOUD_YOUTUBE_ENABLED',
+        'COOKIECLOUD_BILIBILI_ENABLED',
+        'COOKIECLOUD_HEALTHCHECK_ENABLED',
+    }
     text_fields = {
         'COOKIECLOUD_SERVER_URL',
         'COOKIECLOUD_UUID',
         'COOKIECLOUD_PASSWORD',
         'COOKIECLOUD_CRYPTO_TYPE',
+        'COOKIECLOUD_YOUTUBE_PROBE_URL',
         'YOUTUBE_COOKIES_PATH',
+        'BILIBILI_COOKIES_PATH',
     }
 
     for key in bool_fields:
@@ -215,6 +236,13 @@ def _merge_cookiecloud_runtime_settings(payload: dict | None, base_config: dict 
                 continue
             effective_config[key] = value
 
+    if 'COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS' in incoming:
+        effective_config['COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS'] = (
+            normalize_cookiecloud_healthcheck_interval_hours(
+                incoming.get('COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS')
+            )
+        )
+
     return effective_config
 
 
@@ -224,20 +252,44 @@ def _cookiecloud_operation_error_message(action: str, retry_later: bool = False)
         return 'CookieCloud 连接测试失败，请稍后重试。' if retry_later else 'CookieCloud 连接测试失败，请检查配置后重试。'
     if action_key == 'sync':
         return 'CookieCloud 立即拉取失败，请稍后重试。' if retry_later else 'CookieCloud 立即拉取失败，请检查配置后重试。'
+    if action_key == 'healthcheck':
+        return 'CookieCloud 失效检测失败，请稍后重试。' if retry_later else 'CookieCloud 失效检测失败，请检查配置后重试。'
     return 'CookieCloud 操作失败，请稍后重试。' if retry_later else 'CookieCloud 操作失败，请检查配置后重试。'
 
 
-def _remember_cookiecloud_sync_result(success: bool, message: str):
+def _resolve_cookiecloud_platform(payload: dict | None) -> str:
+    """从请求体里取平台标识，缺省为 YouTube（保持旧前端不变）。"""
+    raw = (payload or {}).get('platform') or (payload or {}).get('COOKIECLOUD_PLATFORM')
+    return get_platform_spec(raw or DEFAULT_PLATFORM).key
+
+
+def _remember_cookiecloud_sync_result(success: bool, message: str, platform: str = DEFAULT_PLATFORM):
+    spec = get_platform_spec(platform)
+    at_key, status_key, message_key = spec.status_config_keys
     status = 'success' if success else 'error'
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     try:
         update_config({
-            'COOKIECLOUD_LAST_SYNC_AT': timestamp,
-            'COOKIECLOUD_LAST_SYNC_STATUS': status,
-            'COOKIECLOUD_LAST_SYNC_MESSAGE': str(message or '').strip(),
+            at_key: timestamp,
+            status_key: status,
+            message_key: str(message or '').strip(),
         })
     except Exception as e:
         logger.warning(f'记录 CookieCloud 最近同步状态失败: {e}')
+    return timestamp
+
+
+def _remember_cookiecloud_healthcheck_result(success: bool, message: str):
+    status = 'success' if success else 'error'
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    try:
+        update_config({
+            'COOKIECLOUD_HEALTHCHECK_LAST_AT': timestamp,
+            'COOKIECLOUD_HEALTHCHECK_LAST_STATUS': status,
+            'COOKIECLOUD_HEALTHCHECK_LAST_MESSAGE': str(message or '').strip(),
+        })
+    except Exception as e:
+        logger.warning(f'记录 CookieCloud 失效检测状态失败: {e}')
     return timestamp
 
 
@@ -788,6 +840,9 @@ def _perform_settings_save(form_data: dict, uploads: dict, operation_id: str | N
             'NOTIFY_MESSAGE_PUSHER_ENABLED',
             'COOKIECLOUD_ENABLED',
             'COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT',
+            'COOKIECLOUD_YOUTUBE_ENABLED',
+            'COOKIECLOUD_BILIBILI_ENABLED',
+            'COOKIECLOUD_HEALTHCHECK_ENABLED',
         ]
         for checkbox in SPEECH_PIPELINE_CHECKBOXES:
             if checkbox not in checkboxes:
@@ -802,6 +857,7 @@ def _perform_settings_save(form_data: dict, uploads: dict, operation_id: str | N
             'SUBTITLE_RETRY_DELAY', 'SUBTITLE_MAX_WORKERS', 'YOUTUBE_DOWNLOAD_THREADS',
             'YOUTUBE_DOWNLOAD_MAX_HEIGHT',
             'LOGIN_MAX_FAILED_ATTEMPTS', 'LOGIN_LOCKOUT_MINUTES', 'LOGIN_SESSION_TIMEOUT_MINUTES',
+            'COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS',
             'VAD_SILERO_MIN_SPEECH_MS',
             'VAD_SILERO_MIN_SILENCE_MS', 'VAD_SILERO_MAX_SPEECH_S',
             'VAD_SILERO_SPEECH_PAD_MS', 'VAD_MAX_SEGMENT_S',
@@ -836,6 +892,7 @@ def _perform_settings_save(form_data: dict, uploads: dict, operation_id: str | N
                         'LOGIN_MAX_FAILED_ATTEMPTS': 5,
                         'LOGIN_LOCKOUT_MINUTES': 15,
                         'LOGIN_SESSION_TIMEOUT_MINUTES': 30,
+                        'COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS': 6,
                         'VAD_SILERO_MIN_SPEECH_MS': 300,
                         'VAD_SILERO_MIN_SILENCE_MS': 320,
                         'VAD_SILERO_MAX_SPEECH_S': 120,
@@ -2864,9 +2921,24 @@ def settings():
     except Exception as exc:
         logger.debug("获取内置 Prompt 预览失败，将不显示预览: %s", exc)
         builtin_prompts = {}
+    # CookieCloud 按平台渲染所需的最小信息（键名/标签/状态键），模板保持通用
+    cookiecloud_platforms = [
+        {
+            'key': spec.key,
+            'label': spec.label,
+            'enabled_config_key': spec.enabled_config_key,
+            'output_config_key': spec.output_config_key,
+            'default_output_path': spec.default_output_path,
+            'status_at_key': spec.status_config_keys[0],
+            'status_key': spec.status_config_keys[1],
+            'status_message_key': spec.status_config_keys[2],
+        }
+        for spec in iter_platform_specs()
+    ]
     return render_template(
         'settings.html',
         config=config,
+        cookiecloud_platforms=cookiecloud_platforms,
         tgbot_token_state=_tgbot_api_token_state(config),
         tgbot_token_csrf_token=_ensure_tgbot_token_csrf_token(),
         whisper_languages=WHISPER_LANGUAGE_LIST,
@@ -3150,17 +3222,21 @@ def settings_test_notification():
 def settings_test_cookiecloud():
     payload = request.get_json(silent=True) or {}
     effective_config = _merge_cookiecloud_runtime_settings(payload)
+    platform_key = _resolve_cookiecloud_platform(payload)
+    spec = get_platform_spec(platform_key)
 
     try:
-        result = test_cookiecloud_youtube_sync(effective_config)
+        result = test_cookiecloud_platform_sync(effective_config, spec.key)
         message = (
-            f"CookieCloud 连接成功，已解析 {result['cookie_count']} 条 YouTube/Google Cookies，"
+            f"CookieCloud 连接成功，已解析 {result['cookie_count']} 条 {spec.label} Cookies，"
             f"当前使用 {result['crypto_type_used']} 算法。"
         )
-        updated_at = _remember_cookiecloud_sync_result(True, message)
+        updated_at = _remember_cookiecloud_sync_result(True, message, spec.key)
         return jsonify({
             'success': True,
             'message': message,
+            'platform': spec.key,
+            'platform_label': spec.label,
             'cookie_count': result['cookie_count'],
             'crypto_type_used': result['crypto_type_used'],
             'updated_at': updated_at,
@@ -3168,21 +3244,25 @@ def settings_test_cookiecloud():
         })
     except CookieCloudError:
         message = _cookiecloud_operation_error_message('test')
-        updated_at = _remember_cookiecloud_sync_result(False, message)
-        logger.warning('CookieCloud 连接测试失败')
+        updated_at = _remember_cookiecloud_sync_result(False, message, spec.key)
+        logger.warning('CookieCloud 连接测试失败，平台=%s', spec.key)
         return jsonify({
             'success': False,
             'message': message,
+            'platform': spec.key,
+            'platform_label': spec.label,
             'updated_at': updated_at,
             'status': 'error',
         }), 400
     except Exception:
         message = _cookiecloud_operation_error_message('test', retry_later=True)
-        updated_at = _remember_cookiecloud_sync_result(False, message)
-        logger.exception('CookieCloud 连接测试失败')
+        updated_at = _remember_cookiecloud_sync_result(False, message, spec.key)
+        logger.exception('CookieCloud 连接测试失败，平台=%s', spec.key)
         return jsonify({
             'success': False,
             'message': message,
+            'platform': spec.key,
+            'platform_label': spec.label,
             'updated_at': updated_at,
             'status': 'error',
         }), 500
@@ -3193,43 +3273,148 @@ def settings_test_cookiecloud():
 def settings_sync_cookiecloud():
     payload = request.get_json(silent=True) or {}
     effective_config = _merge_cookiecloud_runtime_settings(payload)
+    platform_key = _resolve_cookiecloud_platform(payload)
+    spec = get_platform_spec(platform_key)
 
     try:
-        result = sync_cookiecloud_to_youtube_file(effective_config)
+        result = sync_cookiecloud_to_platform_file(effective_config, spec.key)
+        action_text = "写入" if result.get('changed') else "校验后保持"
         message = (
-            f"CookieCloud 已成功写入 {result['cookie_count']} 条 YouTube/Google Cookies 到 "
+            f"CookieCloud 已成功将 {result['cookie_count']} 条 {spec.label} Cookies {action_text}到 "
             f"{result['output_path_display']}。"
         )
-        updated_at = _remember_cookiecloud_sync_result(True, message)
+        updated_at = _remember_cookiecloud_sync_result(True, message, spec.key)
         return jsonify({
             'success': True,
             'message': message,
+            'platform': spec.key,
+            'platform_label': spec.label,
             'cookie_count': result['cookie_count'],
             'crypto_type_used': result['crypto_type_used'],
             'output_path_display': result['output_path_display'],
+            'changed': bool(result.get('changed')),
             'updated_at': updated_at,
             'status': 'success',
         })
     except CookieCloudError:
         message = _cookiecloud_operation_error_message('sync')
-        updated_at = _remember_cookiecloud_sync_result(False, message)
-        logger.warning('CookieCloud 立即拉取失败')
+        updated_at = _remember_cookiecloud_sync_result(False, message, spec.key)
+        logger.warning('CookieCloud 立即拉取失败，平台=%s', spec.key)
         return jsonify({
             'success': False,
             'message': message,
+            'platform': spec.key,
+            'platform_label': spec.label,
             'updated_at': updated_at,
             'status': 'error',
         }), 400
     except Exception:
         message = _cookiecloud_operation_error_message('sync', retry_later=True)
-        updated_at = _remember_cookiecloud_sync_result(False, message)
-        logger.exception('CookieCloud 立即拉取失败')
+        updated_at = _remember_cookiecloud_sync_result(False, message, spec.key)
+        logger.exception('CookieCloud 立即拉取失败，平台=%s', spec.key)
         return jsonify({
             'success': False,
             'message': message,
+            'platform': spec.key,
+            'platform_label': spec.label,
             'updated_at': updated_at,
             'status': 'error',
         }), 500
+
+
+def _apply_cookiecloud_health_check_results(result: dict) -> None:
+    """把一轮检测结果写回配置：健康检测状态 + 各平台同步状态。"""
+    platforms = result.get('platforms') or {}
+    updates: dict = {}
+    for platform_key, entry in platforms.items():
+        try:
+            at_key, status_key, message_key = get_platform_spec(platform_key).status_config_keys
+        except CookieCloudError:
+            continue
+        if entry.get('updated'):
+            updates[at_key] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            updates[status_key] = 'success'
+            updates[message_key] = str(entry.get('update_message') or '')
+        elif entry.get('state') in COOKIECLOUD_STATES_NEEDING_UPDATE:
+            updates[at_key] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            updates[status_key] = 'error'
+            updates[message_key] = str(entry.get('update_message') or entry.get('message') or '')
+
+    if updates:
+        try:
+            update_config(updates)
+        except Exception as exc:
+            logger.warning('记录 CookieCloud 各平台同步状态失败: %s', exc)
+
+
+def _run_cookiecloud_health_check(settings: dict, source: str = 'scheduled') -> dict:
+    """跑一轮「检测失效才更新」的 CookieCloud 巡检，并把状态写回配置。
+
+    source='scheduled' 时要求允许明文导出（否则检测出来也修不了）；
+    source='manual' 时只要求 CookieCloud 已启用，方便先看体检结论。
+    """
+    require_writable = source == 'scheduled'
+    try:
+        result = run_cookiecloud_health_check(settings, require_writable=require_writable)
+    except Exception:
+        logger.exception('CookieCloud 失效检测执行失败')
+        message = _cookiecloud_operation_error_message('healthcheck', retry_later=True)
+        _remember_cookiecloud_healthcheck_result(False, message)
+        return {
+            'checked': False,
+            'reason': message,
+            'platforms': {},
+            'updated': [],
+            'summary': message,
+            'error': True,
+        }
+
+    summary = describe_cookiecloud_platform_states(result)
+    _apply_cookiecloud_health_check_results(result)
+    _remember_cookiecloud_healthcheck_result(not result.get('failed_updates'), summary)
+    if source == 'scheduled':
+        logger.info('定时 CookieCloud 失效检测：%s', summary)
+    return result
+
+
+@app.route('/settings/cookiecloud/healthcheck', methods=['POST'])
+@login_required
+def settings_cookiecloud_healthcheck():
+    """手动执行一次「检测失效才更新」巡检。"""
+    payload = request.get_json(silent=True) or {}
+    effective_config = _merge_cookiecloud_runtime_settings(payload)
+
+    try:
+        result = _run_cookiecloud_health_check(effective_config, source='manual')
+    except Exception:
+        message = _cookiecloud_operation_error_message('healthcheck', retry_later=True)
+        logger.exception('CookieCloud 失效检测失败')
+        return jsonify({'success': False, 'message': message, 'status': 'error'}), 500
+
+    summary = result.get('summary') or describe_cookiecloud_platform_states(result)
+    updated = result.get('updated') or []
+    failed_updates = result.get('failed_updates') or []
+
+    if not result.get('checked'):
+        # 未满足执行前提（未启用 / 未允许明文导出），按提示处理，不算服务端错误
+        return jsonify({
+            'success': True,
+            'checked': False,
+            'message': summary,
+            'platforms': result.get('platforms') or {},
+            'updated': [],
+            'status': 'skipped',
+        })
+
+    return jsonify({
+        'success': not failed_updates,
+        'checked': True,
+        'message': summary,
+        'platforms': result.get('platforms') or {},
+        'updated': updated,
+        'failed_updates': failed_updates,
+        'status': 'error' if failed_updates else 'success',
+    }), (400 if failed_updates else 200)
 
 
 @app.route('/settings/acfun/qrcode/start', methods=['POST'])
@@ -3652,6 +3837,54 @@ def schedule_download_cleanup():
         return scheduler
     except Exception as e:
         logger.warning(f"启动下载内容清理定时任务失败: {e}")
+        return None
+
+
+def run_cookiecloud_health_check_job():
+    """定时任务体：检测各平台 cookie，仅在检测到失效时才从 CookieCloud 更新。"""
+    try:
+        config = load_config()
+        if not config.get('COOKIECLOUD_ENABLED', False):
+            return
+        if not config.get('COOKIECLOUD_HEALTHCHECK_ENABLED', False):
+            return
+        _run_cookiecloud_health_check(config, source='scheduled')
+    except Exception:
+        logger.exception('CookieCloud 定时失效检测执行异常')
+
+
+def schedule_cookiecloud_health_check():
+    """为 CookieCloud 失效检测创建并启动一个 BackgroundScheduler, 返回调度器对象。
+
+    注意这里只做「检测」，实际更新由检测结论驱动（见 modules/cookiecloud_health.py）。
+    interval 任务的首次触发在 now+interval，若容器频繁重启可能永远不触发，
+    因此额外指定一个延迟 5 分钟的首次运行时间。
+    """
+    try:
+        config = load_config()
+        if not config.get('COOKIECLOUD_ENABLED', False):
+            return None
+        if not config.get('COOKIECLOUD_HEALTHCHECK_ENABLED', False):
+            return None
+
+        interval_hours = normalize_cookiecloud_healthcheck_interval_hours(
+            config.get('COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS', 6)
+        )
+
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(
+            run_cookiecloud_health_check_job,
+            'interval',
+            hours=interval_hours,
+            id='cookiecloud_health_check',
+            replace_existing=True,
+            next_run_time=datetime.now() + timedelta(minutes=5),
+        )
+        scheduler.start()
+        logger.info("CookieCloud 失效检测定时任务已启动，间隔 %s 小时", interval_hours)
+        return scheduler
+    except Exception as e:
+        logger.warning(f"启动 CookieCloud 失效检测定时任务失败: {e}")
         return None
 
 
@@ -4197,6 +4430,9 @@ if __name__ == '__main__':
     # 设置下载内容清理定时任务
     download_cleanup_scheduler = schedule_download_cleanup()
 
+    # 设置 CookieCloud 失效检测定时任务（仅在检测到失效时才拉取更新）
+    cookiecloud_healthcheck_scheduler = schedule_cookiecloud_health_check()
+
     try:
         port = int(os.environ.get('PORT', 5000))
         logger.info(f"服务启动，监听地址: http://127.0.0.1:{port}")
@@ -4214,4 +4450,6 @@ if __name__ == '__main__':
             log_cleanup_scheduler.shutdown()
         if download_cleanup_scheduler:
             download_cleanup_scheduler.shutdown()
+        if cookiecloud_healthcheck_scheduler:
+            cookiecloud_healthcheck_scheduler.shutdown()
         logger.info("服务已关闭")

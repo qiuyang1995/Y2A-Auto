@@ -53,7 +53,7 @@
 | 灵活部署 | Docker / 本地双模式，支持 CPU 与多种 GPU 编码 |
 | 监控拉取 | 支持 YouTube 频道 / 关键词定时抓取与历史记录 |
 | 消息推送 | 企业微信、Server酱、message-pusher 多渠道异步通知 |
-| CookieCloud | 从 CookieCloud 服务自动同步 YouTube Cookies |
+| CookieCloud | 从 CookieCloud 服务按平台同步 YouTube / Bilibili Cookies，支持定时失效检测 |
 | 安全防护 | 密码保护、暴力破解锁定、会话超时、路径遍历防护 |
 | 维护完善 | 支持日志清理、下载清理、并发控制和 FFmpeg 自动补齐 |
 
@@ -79,9 +79,10 @@
   - 任务添加 / 完成 / 失败、登录成功 / 锁定、QR 登录成功 / 失败等事件推送
   - 异步重试队列，递增间隔保证投递
 - CookieCloud 集成
-  - 从 CookieCloud 服务自动拉取 YouTube / Google Cookies
+  - 从 CookieCloud 服务按平台拉取 Cookies（YouTube / Bilibili）
   - 支持 auto / legacy / aes-128-cbc-fixed 加密模式
-  - Web UI 一键测试与同步
+  - Web UI 按平台一键测试与拉取
+  - 定时失效检测：仅在检测到 Cookies 失效时才拉取更新
 - 字幕变换引擎
   - 长行自动拆分、标点标准化、填充词 / 重复词过滤
   - 幻觉文本与噪声标签检测、文本密度过高检测
@@ -266,14 +267,40 @@ python app.py
 
 ### CookieCloud
 
+CookieCloud 相关配置按「全局凭据 + 按平台开关 + 定时检测」三层组织。
+
+全局凭据：
+
 - `COOKIECLOUD_ENABLED`：启用 CookieCloud 同步，默认 `false`
 - `COOKIECLOUD_SERVER_URL`：CookieCloud 服务地址
 - `COOKIECLOUD_UUID`：CookieCloud UUID
 - `COOKIECLOUD_PASSWORD`：CookieCloud 加密密码
 - `COOKIECLOUD_CRYPTO_TYPE`：加密模式，支持 `auto` / `legacy` / `aes-128-cbc-fixed`
 - `COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT`：允许把解密后的 Cookies 明文写入本地文件，默认 `false`
-- `YOUTUBE_COOKIES_PATH`：CookieCloud 同步结果写入的 Netscape Cookies 文件路径，默认 `cookies/yt_cookies.txt`
-- `COOKIECLOUD_LAST_SYNC_AT` / `COOKIECLOUD_LAST_SYNC_STATUS` / `COOKIECLOUD_LAST_SYNC_MESSAGE`：最近一次测试/同步的时间、状态与消息（程序自行写入）
+
+按平台开关与输出（新增平台只需在 `modules/cookiecloud.py` 注册一份 `CookiePlatformSpec`）：
+
+- `COOKIECLOUD_YOUTUBE_ENABLED`：是否同步 YouTube，默认 `true`
+- `COOKIECLOUD_BILIBILI_ENABLED`：是否同步 Bilibili，默认 `false`
+- `YOUTUBE_COOKIES_PATH`：YouTube 输出路径（Netscape 格式，供 yt-dlp），默认 `cookies/yt_cookies.txt`
+- `BILIBILI_COOKIES_PATH`：Bilibili 输出路径（JSON 列表，与扫码登录写出的格式一致），默认 `cookies/bili_cookies.json`
+
+定时失效检测（**只在检测到失效时才拉取更新**，有效时不写任何文件）：
+
+- `COOKIECLOUD_HEALTHCHECK_ENABLED`：启用定时检测，默认 `false`
+- `COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS`：检测间隔，1~168 小时，默认 `6`
+- `COOKIECLOUD_YOUTUBE_PROBE_URL`：YouTube 有效性探测用的公开视频，默认 yt-dlp 测试视频
+- `COOKIECLOUD_HEALTHCHECK_LAST_AT` / `_STATUS` / `_MESSAGE`：最近一次检测的时间、状态与消息（程序自行写入）
+
+各平台最近一次同步状态（程序自行写入）：
+
+- YouTube：`COOKIECLOUD_LAST_SYNC_AT` / `_STATUS` / `_MESSAGE`（沿用旧键名）
+- Bilibili：`COOKIECLOUD_BILIBILI_LAST_SYNC_AT` / `_STATUS` / `_MESSAGE`
+
+失效判定方式：
+
+- YouTube：用 yt-dlp 探测一个公开视频，命中风控特征（`Sign in to confirm`、`not a bot`、`HTTP Error 403` 等）即判失效；其它错误（探测视频被删、网络抖动）只记为「无法判定」，不触发更新。
+- Bilibili：走 `x/web-interface/nav` 校验登录态，`isLogin=false` 即判失效。
 
 ### 内容审核
 
@@ -361,7 +388,7 @@ QC 会先用规则做硬拦截，只有边界样本才会调用 AI 严格复核�
 4. 启用 YouTube 监控后，可按频道或关键词定时拉取任务，并自动加入任务队列。
 5. 在设置页可分组维护账号、AI、字幕、ASR、转码、维护与安全项。
 6. AcFun / bilibili 支持 QR 码扫码登录：在设置页点击「扫码登录」，用手机 App 扫码即可完成认证。
-7. 如已部署 CookieCloud 服务，可在设置页配置后一键同步 YouTube Cookies，无需手动导出。
+7. 如已部署 CookieCloud 服务，可在设置页按平台配置后一键同步 Cookies（YouTube / Bilibili），无需手动导出；也可开启「定时失效检测」让 Cookies 在失效时自动更新。
 8. 启用通知推送后，任务状态变化和登录事件会自动推送到企业微信等渠道。
 
 ## FFmpeg 与硬件加速
@@ -433,14 +460,30 @@ group_add:
 
 ## CookieCloud 集成
 
-支持从 [CookieCloud](https://github.com/easychen/CookieCloud) 服务自动拉取 YouTube / Google Cookies，免去手动导出的麻烦。
+支持从 [CookieCloud](https://github.com/easychen/CookieCloud) 服务自动拉取各平台 Cookies，免去手动导出的麻烦。
 
 - 配置 `COOKIECLOUD_SERVER_URL`、`COOKIECLOUD_UUID`、`COOKIECLOUD_PASSWORD` 后即可启用
 - 支持三种加密模式：`auto`（自动探测）、`legacy`、`aes-128-cbc-fixed`
-- 自动过滤仅保留 `youtube.com`、`youtu.be`、`google.com` 域名的 Cookie
-- 输出为 Netscape 格式 `cookies/yt_cookies.txt`
-- Web 设置页提供「测试连接」和「立即同步」按钮
-- 同步状态会记录时间戳、成功/失败和消息，便于排查
+- 平台化结构：YouTube 与 Bilibili 各自独立开关、独立输出路径，新增平台只需注册一份平台规格
+  - YouTube：过滤 `youtube.com` / `youtu.be` / `google.com`，输出 Netscape 格式 `cookies/yt_cookies.txt`
+  - Bilibili：过滤 `bilibili.com` / `bilibili.cn`，输出 JSON 列表 `cookies/bili_cookies.json`（同名 Cookie 优先取 `.bilibili.com`）
+- Web 设置页按平台提供「测试连接」和「立即拉取一次」按钮
+- 各平台同步状态会分别记录时间戳、成功/失败和消息，便于排查
+
+### 触发方式
+
+CookieCloud 的拉取有三种触发方式，注意它们的区别：
+
+1. **手动测试**：设置页「测试连接」——只联网校验并在内存中解析，不写本地文件
+2. **手动拉取**：设置页「立即拉取一次」——需要勾选「允许明文导出」，会覆盖对应平台的文件
+3. **自动兜底**：YouTube 下载遇风控（bot challenge）时自动刷新 Cookies 后重试，单个任务内最多触发两次
+4. **定时失效检测**：启用后用 yt-dlp / nav 接口周期性体检，**只有判定失效（或本地文件缺失）时才拉取更新**；判定为有效时完全不写文件
+
+「无法判定」的情况（探测视频失效、网络抖动等）不会触发更新，只记录状态等下一轮再测，避免把可用的 Cookies 换成一份来路不明的副本。
+
+> 定时检测任务在服务启动时按当时配置注册，修改开关或间隔后需要重启服务生效。
+
+> Bilibili 侧注意：`cookies/bili_cookies.json` 同时是扫码登录的写入目标，两条路径谁后写谁生效。扫码登录会覆盖该文件（只写入 SESSDATA / bili_jct / DedeUserID / buvid3 / buvid4 / ac_time_value 等字段），如需保留浏览器侧的完整 Cookie 集合，请在扫码登录后重新执行一次「立即拉取一次」。
 
 ## 安全特性
 

@@ -549,7 +549,7 @@
                                             <div class="settings-card-header">
                                                 <div>
                                                     <span class="section-eyebrow">可选同步</span>
-                                                    <h4>CookieCloud（YouTube）</h4>
+                                                    <h4>CookieCloud（按平台）</h4>
                                                 </div>
                                                 <span class="settings-status-badge {{ 'is-success' if config.get('COOKIECLOUD_ENABLED', False) else 'is-neutral' }}">
                                                     {{ '已启用' if config.get('COOKIECLOUD_ENABLED', False) else '未启用' }}
@@ -558,11 +558,11 @@
                                             <div class="settings-card-body">
                                                 <div class="alert alert-info mb-3">
                                                     <i class="bi bi-info-circle"></i>
-                                                    当前首版仅支持从 CookieCloud 拉取 YouTube / Google 相关 Cookies。<strong>“测试连接”只会联网校验并在内存中解析，不会写本地文件；“立即拉取一次”才会把结果写入上方的 YouTube Cookies 文件路径。</strong> 按钮会直接使用当前表单里的值，不必先保存设置。
+                                                    从 CookieCloud 拉取各平台 Cookies：YouTube 输出 yt-dlp 需要的 Netscape 文件，Bilibili 输出项目自身使用的 JSON 列表。<strong>“测试连接”只联网校验并在内存中解析，不会写本地文件；“立即拉取一次”才会写入对应路径。</strong> 按钮会直接使用当前表单里的值，不必先保存设置。
                                                 </div>
                                                 <label class="checkbox-label mb-3">
                                                     <input type="checkbox" id="cookiecloud-enabled" name="COOKIECLOUD_ENABLED" {% if config.get('COOKIECLOUD_ENABLED', False) %}checked{% endif %}>
-                                                    启用 CookieCloud 作为可选 YouTube Cookies 来源
+                                                    启用 CookieCloud 作为可选 Cookies 来源
                                                 </label>
                                                 <div class="row g-3">
                                                     <div class="col-md-6">
@@ -596,31 +596,84 @@
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                <h5 class="mt-4 mb-2">平台</h5>
+                                                {% for platform in cookiecloud_platforms %}
+                                                <div class="border rounded p-3 mb-3" data-cookiecloud-platform="{{ platform.key }}" data-cookiecloud-label="{{ platform.label }}">
+                                                    <label class="checkbox-label">
+                                                        <input type="checkbox" data-cookiecloud-platform-enabled name="{{ platform.enabled_config_key }}" {% if config.get(platform.enabled_config_key, False) %}checked{% endif %}>
+                                                        启用 {{ platform.label }} 同步
+                                                    </label>
+                                                    <div class="form-text mt-2">
+                                                        输出文件：<code>{{ config.get(platform.output_config_key, platform.default_output_path) }}</code> · 文件路径在上方「账号与网络」区域修改
+                                                    </div>
+                                                    <div class="settings-inline-actions mt-3">
+                                                        <button type="button" class="btn btn-outline-primary" data-cookiecloud-test-btn>
+                                                            <i class="bi bi-wifi"></i> 测试连接
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-success" data-cookiecloud-sync-btn>
+                                                            <i class="bi bi-cloud-download"></i> 立即拉取一次
+                                                        </button>
+                                                        <span class="help-text" data-cookiecloud-platform-status></span>
+                                                    </div>
+                                                    <div class="form-text mt-3" data-cookiecloud-platform-last-sync>
+                                                        {% set cookiecloud_status_at = config.get(platform.status_at_key, '') %}
+                                                        {% if cookiecloud_status_at %}
+                                                            最近结果：{{ '成功' if config.get(platform.status_key, '') == 'success' else '失败' }} · {{ cookiecloud_status_at }}{% if config.get(platform.status_message_key, '') %} · {{ config.get(platform.status_message_key, '') }}{% endif %}
+                                                        {% else %}
+                                                            最近未执行 {{ platform.label }} 的测试或拉取。
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+
                                                 <div class="alert alert-warning mb-3 mt-3">
                                                     <i class="bi bi-exclamation-triangle"></i>
-                                                    如果你只是想确认服务地址、UUID、密码和加密算法是否正确，直接点“测试连接”即可，无需开启明文导出。只有当你明确需要让 <code>yt-dlp</code> / 本地任务读取 CookieCloud 结果时，才需要开启下面的明文导出选项并执行“立即拉取一次”。
+                                                    只想确认服务地址、UUID、密码和加密算法是否正确时，直接点“测试连接”即可，无需开启明文导出。只有需要让 <code>yt-dlp</code> / 本地任务读取 CookieCloud 结果时，才需要开启下面的明文导出并执行“立即拉取一次”。
                                                 </div>
                                                 <label class="checkbox-label mb-3">
                                                     <input type="checkbox" id="cookiecloud-allow-plaintext-export" name="COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT" {% if config.get('COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT', False) %}checked{% endif %}>
-                                                    允许明文导出到本地 YouTube Cookies 文件
+                                                    允许明文导出到本地 Cookies 文件
                                                 </label>
-                                                <p class="help-text mb-0">不开启也可以使用 CookieCloud 的“测试连接”，只是不会把结果写入本地文件；此时下载任务仍会继续读取现有的 YouTube Cookies 文件。开启后会将解密后的 Cookies 以明文写入上方路径，请仅在受信任的本机上使用。</p>
-                                                <div class="settings-inline-actions mt-3">
-                                                    <button type="button" class="btn btn-outline-primary" id="cookiecloud-test-btn">
-                                                        <i class="bi bi-wifi"></i> 测试连接
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-success" id="cookiecloud-sync-btn">
-                                                        <i class="bi bi-cloud-download"></i> 立即拉取一次
-                                                    </button>
-                                                    <span class="help-text" id="cookiecloud-status-text">启用后可先用“测试连接”校验配置；如需写入本地 YouTube Cookies 文件，再开启明文导出并执行“立即拉取一次”。</span>
+                                                <p class="help-text mb-0">不开启也可以使用“测试连接”，只是不会把结果写入本地文件，现有 Cookies 文件不会被改动。开启后会将解密后的 Cookies 以明文写入上面各平台对应的路径，请仅在受信任的本机上使用。</p>
+
+                                                <hr class="my-4">
+
+                                                <h5 class="mb-2">定时失效检测</h5>
+                                                <label class="checkbox-label mb-3">
+                                                    <input type="checkbox" id="cookiecloud-healthcheck-enabled" name="COOKIECLOUD_HEALTHCHECK_ENABLED" {% if config.get('COOKIECLOUD_HEALTHCHECK_ENABLED', False) %}checked{% endif %}>
+                                                    定时检测 Cookies 有效性，<strong>仅在检测到失效时才拉取更新</strong>
+                                                </label>
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="cookiecloud-healthcheck-interval" class="form-label">检测间隔（小时）</label>
+                                                            <input type="number" min="1" max="168" id="cookiecloud-healthcheck-interval" name="COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS" value="{{ config.get('COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS', 6) }}" class="form-control">
+                                                            <div class="form-text">1 ~ 168 小时，默认 6 小时。检测判定为有效时不会写任何文件。</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="cookiecloud-youtube-probe-url" class="form-label">YouTube 探测视频地址</label>
+                                                            <input type="url" id="cookiecloud-youtube-probe-url" name="COOKIECLOUD_YOUTUBE_PROBE_URL" value="{{ config.get('COOKIECLOUD_YOUTUBE_PROBE_URL', '') }}" class="form-control" placeholder="https://www.youtube.com/watch?v=BaW_jenozKc">
+                                                            <div class="form-text">用一个公开视频探测 YouTube 是否已风控。默认是 yt-dlp 的测试视频；若它失效了可换成任意长期公开的视频。</div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div class="form-text mt-3" id="cookiecloud-last-sync-text">
-                                                    {% if config.get('COOKIECLOUD_LAST_SYNC_AT', '') %}
-                                                        最近结果：{{ '成功' if config.get('COOKIECLOUD_LAST_SYNC_STATUS', '') == 'success' else '失败' }} · {{ config.get('COOKIECLOUD_LAST_SYNC_AT', '') }}{% if config.get('COOKIECLOUD_LAST_SYNC_MESSAGE', '') %} · {{ config.get('COOKIECLOUD_LAST_SYNC_MESSAGE', '') }}{% endif %}
+                                                <div class="settings-inline-actions mt-3">
+                                                    <button type="button" class="btn btn-outline-primary" id="cookiecloud-healthcheck-btn">
+                                                        <i class="bi bi-activity"></i> 立即检测一次
+                                                    </button>
+                                                    <span class="help-text" id="cookiecloud-healthcheck-status">YouTube 用 yt-dlp 探测公开视频判断是否被风控拦下；Bilibili 走 nav 接口校验登录态。</span>
+                                                </div>
+                                                <div class="form-text mt-3" id="cookiecloud-healthcheck-last">
+                                                    {% if config.get('COOKIECLOUD_HEALTHCHECK_LAST_AT', '') %}
+                                                        最近检测：{{ '正常' if config.get('COOKIECLOUD_HEALTHCHECK_LAST_STATUS', '') == 'success' else '异常' }} · {{ config.get('COOKIECLOUD_HEALTHCHECK_LAST_AT', '') }}{% if config.get('COOKIECLOUD_HEALTHCHECK_LAST_MESSAGE', '') %} · {{ config.get('COOKIECLOUD_HEALTHCHECK_LAST_MESSAGE', '') }}{% endif %}
                                                     {% else %}
-                                                        最近未执行 CookieCloud 测试或拉取。
+                                                        最近未执行 CookieCloud 失效检测。
                                                     {% endif %}
                                                 </div>
+                                                <p class="help-text mb-0 mt-2">定时任务在服务启动时按当前配置注册，修改开关或间隔后需要重启服务才会生效。</p>
                                             </div>
                                         </article>
                                     </div>
@@ -2585,93 +2638,174 @@ document.addEventListener('DOMContentLoaded', function () {
     const cookieCloudPassword = document.getElementById('cookiecloud-password');
     const cookieCloudCryptoType = document.getElementById('cookiecloud-crypto-type');
     const cookieCloudAllowPlaintextExport = document.getElementById('cookiecloud-allow-plaintext-export');
-    const cookieCloudTestBtn = document.getElementById('cookiecloud-test-btn');
-    const cookieCloudSyncBtn = document.getElementById('cookiecloud-sync-btn');
-    const cookieCloudStatusText = document.getElementById('cookiecloud-status-text');
-    const cookieCloudLastSyncText = document.getElementById('cookiecloud-last-sync-text');
+    const cookieCloudHealthcheckEnabled = document.getElementById('cookiecloud-healthcheck-enabled');
+    const cookieCloudHealthcheckInterval = document.getElementById('cookiecloud-healthcheck-interval');
+    const cookieCloudHealthcheckBtn = document.getElementById('cookiecloud-healthcheck-btn');
+    const cookieCloudHealthcheckStatus = document.getElementById('cookiecloud-healthcheck-status');
+    const cookieCloudHealthcheckLast = document.getElementById('cookiecloud-healthcheck-last');
     const youtubeCookiesPathField = document.getElementById('youtube-cookies');
+    const bilibiliCookiesPathField = document.getElementById('bilibili-cookies');
     const cookieCloudTestEndpoint = '{{ url_for("settings_test_cookiecloud") }}';
     const cookieCloudSyncEndpoint = '{{ url_for("settings_sync_cookiecloud") }}';
+    const cookieCloudHealthcheckEndpoint = '{{ url_for("settings_cookiecloud_healthcheck") }}';
+
+    const cookieCloudPlatformCards = Array.prototype.slice.call(
+        document.querySelectorAll('[data-cookiecloud-platform]')
+    );
+
+    const cookieCloudCardParts = function (card) {
+        return {
+            key: card.getAttribute('data-cookiecloud-platform') || '',
+            label: card.getAttribute('data-cookiecloud-label') || '',
+            enabled: card.querySelector('[data-cookiecloud-platform-enabled]'),
+            testBtn: card.querySelector('[data-cookiecloud-test-btn]'),
+            syncBtn: card.querySelector('[data-cookiecloud-sync-btn]'),
+            statusText: card.querySelector('[data-cookiecloud-platform-status]'),
+            lastSyncText: card.querySelector('[data-cookiecloud-platform-last-sync]')
+        };
+    };
 
     const isCookieCloudPlaintextExportAllowed = function () {
         return !!(cookieCloudAllowPlaintextExport && cookieCloudAllowPlaintextExport.checked);
     };
 
-    const setCookieCloudStatus = function (text, tone) {
-        if (!cookieCloudStatusText) {
-            return;
-        }
-        cookieCloudStatusText.textContent = text || '';
-        applyStatusTone(cookieCloudStatusText, tone || 'neutral');
+    const isCookieCloudEnabled = function () {
+        return !!(cookieCloudEnabled && cookieCloudEnabled.checked);
     };
 
-    const updateCookieCloudLastSync = function (status, updatedAt, message) {
-        if (!cookieCloudLastSyncText) {
+    const setTonedText = function (element, text, tone) {
+        if (!element) {
             return;
         }
-        const parts = ['最近结果：' + (status === 'success' ? '成功' : '失败')];
+        element.textContent = text || '';
+        applyStatusTone(element, tone || 'neutral');
+    };
+
+    const setPlatformStatus = function (card, text, tone) {
+        setTonedText(cookieCloudCardParts(card).statusText, text, tone);
+    };
+
+    const updatePlatformLastSync = function (card, status, updatedAt, message) {
+        const parts = cookieCloudCardParts(card);
+        if (!parts.lastSyncText) {
+            return;
+        }
+        const chunks = ['最近结果：' + (status === 'success' ? '成功' : '失败')];
         if (updatedAt) {
-            parts.push(updatedAt);
+            chunks.push(updatedAt);
         }
         if (message) {
-            parts.push(message);
+            chunks.push(message);
         }
-        cookieCloudLastSyncText.textContent = parts.join(' · ');
+        parts.lastSyncText.textContent = chunks.join(' · ');
+    };
+
+    const setCookieCloudHealthcheckStatus = function (text, tone) {
+        setTonedText(cookieCloudHealthcheckStatus, text, tone);
+    };
+
+    const updateCookieCloudHealthcheckLast = function (status, updatedAt, message) {
+        if (!cookieCloudHealthcheckLast) {
+            return;
+        }
+        const chunks = ['最近检测：' + (status === 'success' ? '正常' : '异常')];
+        if (updatedAt) {
+            chunks.push(updatedAt);
+        }
+        if (message) {
+            chunks.push(message);
+        }
+        cookieCloudHealthcheckLast.textContent = chunks.join(' · ');
     };
 
     const setCookieCloudBusy = function (isBusy) {
-        const enabled = !!(cookieCloudEnabled && cookieCloudEnabled.checked);
+        const enabled = isCookieCloudEnabled();
         const exportAllowed = isCookieCloudPlaintextExportAllowed();
-        [cookieCloudTestBtn, cookieCloudSyncBtn].forEach(function (button) {
-            if (!button) {
-                return;
-            }
-            const isSyncButton = button === cookieCloudSyncBtn;
-            button.disabled = !!isBusy || !enabled || (isSyncButton && !exportAllowed);
+        cookieCloudPlatformCards.forEach(function (card) {
+            const parts = cookieCloudCardParts(card);
+            const platformEnabled = !!(parts.enabled && parts.enabled.checked);
+            [parts.testBtn, parts.syncBtn].forEach(function (button) {
+                if (!button) {
+                    return;
+                }
+                const isSyncButton = button === parts.syncBtn;
+                button.disabled = !!isBusy || !enabled || !platformEnabled || (isSyncButton && !exportAllowed);
+            });
         });
+        if (cookieCloudHealthcheckBtn) {
+            cookieCloudHealthcheckBtn.disabled = !!isBusy || !enabled;
+        }
     };
 
     const syncCookieCloudActionState = function () {
-        const enabled = !!(cookieCloudEnabled && cookieCloudEnabled.checked);
+        const enabled = isCookieCloudEnabled();
         const exportAllowed = isCookieCloudPlaintextExportAllowed();
         setCookieCloudBusy(false);
-        if (!enabled) {
-            setCookieCloudStatus('启用后可先用“测试连接”校验配置；如需写入本地 YouTube Cookies 文件，再开启明文导出并执行“立即拉取一次”。', 'neutral');
-            return;
-        }
-        if (!exportAllowed) {
-            setCookieCloudStatus('当前可直接测试连接；若要把 CookieCloud Cookies 写入本地文件供 yt-dlp / 任务使用，请勾选“允许明文导出”。', 'neutral');
-            return;
-        }
-        if (cookieCloudStatusText && !cookieCloudStatusText.textContent.trim()) {
-            setCookieCloudStatus('测试连接不会写文件；立即拉取会把结果写入当前 YouTube Cookies 路径。', 'neutral');
-        }
+        cookieCloudPlatformCards.forEach(function (card) {
+            const parts = cookieCloudCardParts(card);
+            const platformEnabled = !!(parts.enabled && parts.enabled.checked);
+            if (!enabled) {
+                setPlatformStatus(card, '启用 CookieCloud 后可对 ' + parts.label + ' 执行测试或拉取。', 'neutral');
+                return;
+            }
+            if (!platformEnabled) {
+                setPlatformStatus(card, '未启用该平台，定时检测与自动更新都会跳过它。', 'neutral');
+                return;
+            }
+            if (!exportAllowed) {
+                setPlatformStatus(card, '可测试连接；写入本地 ' + parts.label + ' Cookies 文件需要先勾选“允许明文导出”。', 'neutral');
+                return;
+            }
+            if (parts.statusText && !parts.statusText.textContent.trim()) {
+                setPlatformStatus(card, '测试连接不写文件；立即拉取会把结果写入当前路径。', 'neutral');
+            }
+        });
     };
 
-    const collectCookieCloudPayload = function () {
-        return {
-            COOKIECLOUD_ENABLED: !!(cookieCloudEnabled && cookieCloudEnabled.checked),
+    const collectCookieCloudPayload = function (platformKey) {
+        const payload = {
+            COOKIECLOUD_ENABLED: isCookieCloudEnabled(),
             COOKIECLOUD_SERVER_URL: cookieCloudServerUrl ? cookieCloudServerUrl.value : '',
             COOKIECLOUD_UUID: cookieCloudUuid ? cookieCloudUuid.value : '',
             COOKIECLOUD_PASSWORD: cookieCloudPassword ? cookieCloudPassword.value : '',
             COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT: isCookieCloudPlaintextExportAllowed(),
             COOKIECLOUD_CRYPTO_TYPE: cookieCloudCryptoType ? cookieCloudCryptoType.value : 'auto',
-            YOUTUBE_COOKIES_PATH: youtubeCookiesPathField ? youtubeCookiesPathField.value : ''
+            COOKIECLOUD_HEALTHCHECK_ENABLED: !!(cookieCloudHealthcheckEnabled && cookieCloudHealthcheckEnabled.checked),
+            COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS: cookieCloudHealthcheckInterval ? cookieCloudHealthcheckInterval.value : '',
+            YOUTUBE_COOKIES_PATH: youtubeCookiesPathField ? youtubeCookiesPathField.value : '',
+            BILIBILI_COOKIES_PATH: bilibiliCookiesPathField ? bilibiliCookiesPathField.value : ''
         };
+        cookieCloudPlatformCards.forEach(function (card) {
+            const parts = cookieCloudCardParts(card);
+            if (parts.enabled) {
+                payload[parts.enabled.name] = !!parts.enabled.checked;
+            }
+            if (platformKey && parts.key === platformKey) {
+                payload.platform = platformKey;
+            }
+        });
+        return payload;
     };
 
-    const invokeCookieCloudAction = function (endpoint, waitingText, defaultErrorMessage) {
-        if (!cookieCloudEnabled || !cookieCloudEnabled.checked) {
+    const invokeCookieCloudAction = function (card, endpoint, waitingText, defaultErrorMessage) {
+        if (!isCookieCloudEnabled()) {
             showSettingsToast('warning', '请先启用 CookieCloud。');
             return;
         }
+        const parts = card ? cookieCloudCardParts(card) : null;
+        if (parts && parts.enabled && !parts.enabled.checked) {
+            showSettingsToast('warning', '请先启用 ' + parts.label + ' 平台的同步。');
+            return;
+        }
         if (endpoint === cookieCloudSyncEndpoint && !isCookieCloudPlaintextExportAllowed()) {
-            showSettingsToast('warning', '“立即拉取一次”需要先勾选“允许明文导出”，因为它会写入本地 YouTube Cookies 文件。');
+            showSettingsToast('warning', '“立即拉取一次”需要先勾选“允许明文导出”，因为它会写入本地 Cookies 文件。');
             return;
         }
 
         setCookieCloudBusy(true);
-        setCookieCloudStatus(waitingText, 'neutral');
+        if (parts) {
+            setPlatformStatus(card, waitingText, 'neutral');
+        }
 
         fetch(endpoint, {
             method: 'POST',
@@ -2679,7 +2813,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify(collectCookieCloudPayload())
+            body: JSON.stringify(collectCookieCloudPayload(parts ? parts.key : ''))
         })
             .then(function (response) {
                 return response.json().catch(function () {
@@ -2692,23 +2826,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             })
             .then(function (result) {
-                if (!result.ok || !result.data.success) {
+                if (!result.ok || (!result.data.success && result.data.status !== 'skipped')) {
                     throw {
                         message: result.data.message || defaultErrorMessage,
                         updatedAt: result.data.updated_at || '',
                         status: result.data.status || 'error'
                     };
                 }
-                setCookieCloudStatus(result.data.message || '操作成功', 'success');
-                updateCookieCloudLastSync(result.data.status || 'success', result.data.updated_at || '', result.data.message || '');
-                showSettingsToast('success', result.data.message || '操作成功');
+                const tone = result.data.status === 'skipped' ? 'neutral' : 'success';
+                if (parts) {
+                    setPlatformStatus(card, result.data.message || '操作成功', tone);
+                    updatePlatformLastSync(card, result.data.status || 'success', result.data.updated_at || '', result.data.message || '');
+                }
+                showSettingsToast(tone === 'success' ? 'success' : 'info', result.data.message || '操作成功');
             })
             .catch(function (error) {
                 const message = error && error.message ? error.message : defaultErrorMessage;
                 const updatedAt = error && error.updatedAt ? error.updatedAt : '';
-                setCookieCloudStatus(message, 'error');
-                if (updatedAt) {
-                    updateCookieCloudLastSync('error', updatedAt, message);
+                if (parts) {
+                    setPlatformStatus(card, message, 'error');
+                    if (updatedAt) {
+                        updatePlatformLastSync(card, 'error', updatedAt, message);
+                    }
                 }
                 showSettingsToast('error', message);
             })
@@ -2717,34 +2856,100 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     };
 
+    const invokeCookieCloudHealthcheck = function () {
+        if (!isCookieCloudEnabled()) {
+            showSettingsToast('warning', '请先启用 CookieCloud。');
+            return;
+        }
+
+        setCookieCloudBusy(true);
+        setCookieCloudHealthcheckStatus('正在检测各平台 Cookies 有效性…', 'neutral');
+
+        fetch(cookieCloudHealthcheckEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(collectCookieCloudPayload(''))
+        })
+            .then(function (response) {
+                return response.json().catch(function () {
+                    return {};
+                }).then(function (data) {
+                    return { ok: response.ok, data: data || {} };
+                });
+            })
+            .then(function (result) {
+                const data = result.data || {};
+                const tone = data.status === 'error' ? 'error' : (data.status === 'skipped' ? 'neutral' : 'success');
+                setCookieCloudHealthcheckStatus(data.message || '检测完成', tone);
+                updateCookieCloudHealthcheckLast(data.status || 'success', '', data.message || '');
+                // 同步回填各平台状态，便于直接看到哪一侧失效被更新
+                const platforms = data.platforms || {};
+                cookieCloudPlatformCards.forEach(function (card) {
+                    const parts = cookieCloudCardParts(card);
+                    const entry = platforms[parts.key];
+                    if (!entry) {
+                        return;
+                    }
+                    const text = entry.state_label + (entry.update_message ? ('，' + entry.update_message) : (entry.message ? ('，' + entry.message) : ''));
+                    setPlatformStatus(card, text, entry.updated ? 'success' : (entry.state === 'valid' ? 'neutral' : 'error'));
+                });
+                if (data.status === 'skipped') {
+                    showSettingsToast('info', data.message || '已跳过检测');
+                } else if (tone === 'error') {
+                    showSettingsToast('error', data.message || '检测发现异常');
+                } else {
+                    showSettingsToast('success', data.message || '检测完成');
+                }
+            })
+            .catch(function (error) {
+                const message = error && error.message ? error.message : 'CookieCloud 失效检测失败，请稍后重试。';
+                setCookieCloudHealthcheckStatus(message, 'error');
+                showSettingsToast('error', message);
+            })
+            .finally(function () {
+                setCookieCloudBusy(false);
+            });
+    };
+
+    [cookieCloudEnabled, cookieCloudAllowPlaintextExport, cookieCloudHealthcheckEnabled].forEach(function (checkbox) {
+        if (checkbox) {
+            checkbox.addEventListener('change', syncCookieCloudActionState);
+        }
+    });
+    cookieCloudPlatformCards.forEach(function (card) {
+        const parts = cookieCloudCardParts(card);
+        if (parts.enabled) {
+            parts.enabled.addEventListener('change', syncCookieCloudActionState);
+        }
+        if (parts.testBtn) {
+            parts.testBtn.addEventListener('click', function () {
+                invokeCookieCloudAction(
+                    card,
+                    cookieCloudTestEndpoint,
+                    '正在测试 CookieCloud 连接并解析 ' + parts.label + ' Cookies…',
+                    'CookieCloud 连接测试失败，请稍后重试。'
+                );
+            });
+        }
+        if (parts.syncBtn) {
+            parts.syncBtn.addEventListener('click', function () {
+                invokeCookieCloudAction(
+                    card,
+                    cookieCloudSyncEndpoint,
+                    '正在拉取 CookieCloud 数据并写入 ' + parts.label + ' Cookies 文件…',
+                    'CookieCloud 立即拉取失败，请稍后重试。'
+                );
+            });
+        }
+    });
+    if (cookieCloudHealthcheckBtn) {
+        cookieCloudHealthcheckBtn.addEventListener('click', invokeCookieCloudHealthcheck);
+    }
     if (cookieCloudEnabled) {
-        cookieCloudEnabled.addEventListener('change', syncCookieCloudActionState);
         syncCookieCloudActionState();
-    }
-
-    if (cookieCloudAllowPlaintextExport) {
-        cookieCloudAllowPlaintextExport.addEventListener('change', syncCookieCloudActionState);
-        syncCookieCloudActionState();
-    }
-
-    if (cookieCloudTestBtn) {
-        cookieCloudTestBtn.addEventListener('click', function () {
-            invokeCookieCloudAction(
-                cookieCloudTestEndpoint,
-                '正在测试 CookieCloud 连接并校验 YouTube Cookies…',
-                'CookieCloud 连接测试失败，请稍后重试。'
-            );
-        });
-    }
-
-    if (cookieCloudSyncBtn) {
-        cookieCloudSyncBtn.addEventListener('click', function () {
-            invokeCookieCloudAction(
-                cookieCloudSyncEndpoint,
-                '正在拉取 CookieCloud 数据并写入 YouTube Cookies 文件…',
-                'CookieCloud 立即拉取失败，请稍后重试。'
-            );
-        });
     }
 
     const settingsForm = document.getElementById('settings-form');

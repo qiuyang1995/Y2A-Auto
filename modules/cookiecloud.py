@@ -6,7 +6,8 @@ import hashlib
 import json
 import os
 import sys
-from typing import Any, Iterable
+from dataclasses import dataclass
+from typing import Any, Callable, Iterable
 from urllib.parse import quote, urlparse, urlunparse
 
 import requests
@@ -23,13 +24,14 @@ SUPPORTED_CRYPTO_TYPES = (
 )
 DEFAULT_CRYPTO_TYPE = COOKIECLOUD_CRYPTO_AUTO
 DEFAULT_YOUTUBE_COOKIES_PATH = "cookies/yt_cookies.txt"
+DEFAULT_BILIBILI_COOKIES_PATH = "cookies/bili_cookies.json"
 DEFAULT_TIMEOUT = (5, 20)
 AES_BLOCK_SIZE_BITS = 128
-_YOUTUBE_ALLOWED_BASE_DOMAINS = (
-    "youtube.com",
-    "youtu.be",
-    "google.com",
-)
+
+# 输出格式：YouTube 走 yt-dlp 需要的 Netscape 格式；B 站走项目自身
+# cookies/bili_cookies.json 使用的浏览器导出式 JSON 列表。
+OUTPUT_FORMAT_NETSCAPE = "netscape"
+OUTPUT_FORMAT_JSON_LIST = "json_list"
 
 
 class CookieCloudError(RuntimeError):
@@ -50,6 +52,92 @@ class CookieCloudDecryptError(CookieCloudError):
 
 class CookieCloudDataError(CookieCloudError):
     """返回数据不符合预期。"""
+
+
+@dataclass(frozen=True)
+class CookiePlatformSpec:
+    """单个平台的 CookieCloud 同步规格。
+
+    把原先散落在各处的 YouTube 专用逻辑收敛成数据描述：域名白名单、
+    开关配置键、输出路径与格式、状态记录键。新增平台只需注册一份规格，
+    无需改动拉取/解密/落盘等通用流程。
+    """
+
+    key: str
+    label: str
+    # 该平台在 CookieCloud 里的域名白名单（按后缀匹配，含子域）
+    base_domains: tuple[str, ...]
+    # 单平台开关的配置键（总开关之外）
+    enabled_config_key: str
+    # 本地输出文件路径的配置键
+    output_config_key: str
+    default_output_path: str
+    output_format: str
+    # 同名 cookie 冲突时的优先域名
+    preferred_domain: str
+    # 最近一次同步状态的配置键顺序：(时间, 状态, 消息)
+    status_config_keys: tuple[str, str, str]
+
+    @property
+    def empty_message(self) -> str:
+        return f"CookieCloud 中未找到可用的 {self.label} Cookies。"
+
+
+PLATFORM_YOUTUBE = CookiePlatformSpec(
+    key="youtube",
+    label="YouTube",
+    base_domains=("youtube.com", "youtu.be", "google.com"),
+    enabled_config_key="COOKIECLOUD_YOUTUBE_ENABLED",
+    output_config_key="YOUTUBE_COOKIES_PATH",
+    default_output_path=DEFAULT_YOUTUBE_COOKIES_PATH,
+    output_format=OUTPUT_FORMAT_NETSCAPE,
+    preferred_domain="google.com",
+    status_config_keys=(
+        "COOKIECLOUD_LAST_SYNC_AT",
+        "COOKIECLOUD_LAST_SYNC_STATUS",
+        "COOKIECLOUD_LAST_SYNC_MESSAGE",
+    ),
+)
+
+PLATFORM_BILIBILI = CookiePlatformSpec(
+    key="bilibili",
+    label="Bilibili",
+    base_domains=("bilibili.com", "bilibili.cn"),
+    enabled_config_key="COOKIECLOUD_BILIBILI_ENABLED",
+    output_config_key="BILIBILI_COOKIES_PATH",
+    default_output_path=DEFAULT_BILIBILI_COOKIES_PATH,
+    output_format=OUTPUT_FORMAT_JSON_LIST,
+    preferred_domain="bilibili.com",
+    status_config_keys=(
+        "COOKIECLOUD_BILIBILI_LAST_SYNC_AT",
+        "COOKIECLOUD_BILIBILI_LAST_SYNC_STATUS",
+        "COOKIECLOUD_BILIBILI_LAST_SYNC_MESSAGE",
+    ),
+)
+
+_PLATFORM_SPECS: dict[str, CookiePlatformSpec] = {
+    PLATFORM_YOUTUBE.key: PLATFORM_YOUTUBE,
+    PLATFORM_BILIBILI.key: PLATFORM_BILIBILI,
+}
+
+SUPPORTED_PLATFORMS = tuple(_PLATFORM_SPECS.keys())
+DEFAULT_PLATFORM = PLATFORM_YOUTUBE.key
+
+
+def iter_platform_specs() -> tuple[CookiePlatformSpec, ...]:
+    return tuple(_PLATFORM_SPECS.values())
+
+
+def get_platform_spec(platform: Any) -> CookiePlatformSpec:
+    key = str(platform or "").strip().lower() or DEFAULT_PLATFORM
+    spec = _PLATFORM_SPECS.get(key)
+    if spec is None:
+        raise CookieCloudConfigError(f"不支持的 CookieCloud 平台: {platform}")
+    return spec
+
+
+def normalize_platform(platform: Any) -> str:
+    return get_platform_spec(platform).key
 
 
 def _get_app_root_dir() -> str:
@@ -114,7 +202,7 @@ def validate_cookiecloud_settings(settings: dict[str, Any] | None, require_enabl
     if not cc_key:
         raise CookieCloudConfigError("请先填写 CookieCloud 密码。")
 
-    return {
+    result: dict[str, Any] = {
         "COOKIECLOUD_ENABLED": enabled,
         "COOKIECLOUD_SERVER_URL": server_url,
         "COOKIECLOUD_UUID": cc_user,
@@ -125,10 +213,28 @@ def validate_cookiecloud_settings(settings: dict[str, Any] | None, require_enabl
         "COOKIECLOUD_CRYPTO_TYPE": normalize_crypto_type(
             normalized.get("COOKIECLOUD_CRYPTO_TYPE", DEFAULT_CRYPTO_TYPE)
         ),
-        "YOUTUBE_COOKIES_PATH": _coerce_text(
-            normalized.get("YOUTUBE_COOKIES_PATH", DEFAULT_YOUTUBE_COOKIES_PATH)
-        ) or DEFAULT_YOUTUBE_COOKIES_PATH,
     }
+
+    # 各平台的启用开关与输出路径（保持 YOUTUBE_COOKIES_PATH 老键名不变）
+    for spec in iter_platform_specs():
+        default_enabled = spec.key == DEFAULT_PLATFORM
+        result[spec.enabled_config_key] = _as_bool(
+            normalized.get(spec.enabled_config_key, default_enabled)
+        )
+        result[spec.output_config_key] = (
+            _coerce_text(normalized.get(spec.output_config_key, "")) or spec.default_output_path
+        )
+
+    return result
+
+
+def is_platform_enabled(settings: dict[str, Any] | None, platform: Any) -> bool:
+    spec = get_platform_spec(platform)
+    return _as_bool((settings or {}).get(spec.enabled_config_key, False))
+
+
+def enabled_platforms(settings: dict[str, Any] | None) -> tuple[CookiePlatformSpec, ...]:
+    return tuple(spec for spec in iter_platform_specs() if is_platform_enabled(settings, spec.key))
 
 
 def build_cookiecloud_get_url(server_url: str, uuid_value: str, crypto_type: str = DEFAULT_CRYPTO_TYPE) -> str:
@@ -341,16 +447,26 @@ def _iter_cookie_items(cookie_payload: dict[str, Any]) -> Iterable[tuple[str, di
                 yield "", item
 
 
-def _is_youtube_related_domain(domain: str) -> bool:
+def is_platform_related_domain(platform: Any, domain: str) -> bool:
+    spec = get_platform_spec(platform)
     normalized = _sanitize_cookie_field(domain).lower().lstrip(".")
     if not normalized:
         return False
-    for base_domain in _YOUTUBE_ALLOWED_BASE_DOMAINS:
+    for base_domain in spec.base_domains:
         if normalized == base_domain:
             return True
         if normalized.endswith(f".{base_domain}"):
             return True
     return False
+
+
+def _matches_preferred_domain(domain: str, spec: CookiePlatformSpec) -> bool:
+    normalized = _sanitize_cookie_field(domain).lower().lstrip(".")
+    if not normalized:
+        return False
+    if normalized == spec.preferred_domain:
+        return True
+    return normalized.endswith(f".{spec.preferred_domain}")
 
 
 def _normalize_cookie_domain(domain: str, host_only: bool) -> tuple[str, str]:
@@ -382,7 +498,7 @@ def build_youtube_netscape_cookies(cookie_payload: dict[str, Any]) -> tuple[str,
     lines_by_key: dict[tuple[str, str, str], str] = {}
     for bucket, item in _iter_cookie_items(cookie_payload):
         domain = _sanitize_cookie_field(item.get("domain")) or _sanitize_cookie_field(bucket)
-        if not domain or not _is_youtube_related_domain(domain):
+        if not domain or not is_platform_related_domain(PLATFORM_YOUTUBE.key, domain):
             continue
 
         name = _sanitize_cookie_field(item.get("name"))
@@ -410,7 +526,7 @@ def build_youtube_netscape_cookies(cookie_payload: dict[str, Any]) -> tuple[str,
         lines_by_key[(normalized_domain, path, name)] = line
 
     if not lines_by_key:
-        raise CookieCloudDataError("CookieCloud 中未找到可用的 YouTube / Google Cookies。")
+        raise CookieCloudDataError(PLATFORM_YOUTUBE.empty_message)
 
     header = [
         "# Netscape HTTP Cookie File",
@@ -421,6 +537,61 @@ def build_youtube_netscape_cookies(cookie_payload: dict[str, Any]) -> tuple[str,
     return content, len(body)
 
 
+def build_bilibili_cookies_json(cookie_payload: dict[str, Any]) -> tuple[str, int]:
+    """把 CookieCloud 的 B 站 cookie 输出成项目自身的 JSON 列表格式。
+
+    形状与 `bilibili_auth.save_credential_to_file()` 写出的文件一致
+    （`[{"name", "value", "domain", "path"}]`），因此 bilibili_auth 的解析层
+    （`_parse_cookies_text` 的 list 分支）无需任何改动即可读取。
+    同名 cookie 冲突时优先保留 `.bilibili.com` 下的那份，保证 SESSDATA /
+    bili_jct / DedeUserID 不会取到 `.bilibili.cn` 上的旧值。
+    """
+    spec = PLATFORM_BILIBILI
+    chosen: dict[str, tuple[int, str, str, str]] = {}
+    for bucket, item in _iter_cookie_items(cookie_payload):
+        domain = _sanitize_cookie_field(item.get("domain")) or _sanitize_cookie_field(bucket)
+        if not domain or not is_platform_related_domain(spec.key, domain):
+            continue
+
+        name = _sanitize_cookie_field(item.get("name"))
+        if not name:
+            continue
+
+        rank = 0 if _matches_preferred_domain(domain, spec) else 1
+        existing = chosen.get(name)
+        if existing is not None and existing[0] <= rank:
+            continue
+        chosen[name] = (
+            rank,
+            _sanitize_cookie_field(domain).lower().lstrip("."),
+            _sanitize_cookie_field(item.get("path")) or "/",
+            _sanitize_cookie_value(item.get("value", "")),
+        )
+
+    if not chosen:
+        raise CookieCloudDataError(spec.empty_message)
+
+    items = [
+        {"name": name, "value": entry[3], "domain": entry[1], "path": entry[2]}
+        for name, entry in sorted(chosen.items(), key=lambda kv: (kv[1][1], kv[0]))
+    ]
+    return json.dumps(items, ensure_ascii=False, indent=2) + "\n", len(items)
+
+
+_PLATFORM_SERIALIZERS: dict[str, Callable[[dict[str, Any]], tuple[str, int]]] = {
+    PLATFORM_YOUTUBE.key: build_youtube_netscape_cookies,
+    PLATFORM_BILIBILI.key: build_bilibili_cookies_json,
+}
+
+
+def build_platform_cookies(platform: Any, cookie_payload: dict[str, Any]) -> tuple[str, int]:
+    spec = get_platform_spec(platform)
+    serializer = _PLATFORM_SERIALIZERS.get(spec.key)
+    if serializer is None:  # pragma: no cover - 规格与序列化器一一对应
+        raise CookieCloudConfigError(f"平台 {spec.label} 未注册输出序列化器。")
+    return serializer(cookie_payload)
+
+
 def resolve_cookie_output_path(path_value: Any, default_relative_path: str = DEFAULT_YOUTUBE_COOKIES_PATH) -> str:
     raw_path = _coerce_text(path_value) or default_relative_path
     app_root = os.path.realpath(_get_app_root_dir())
@@ -428,10 +599,24 @@ def resolve_cookie_output_path(path_value: Any, default_relative_path: str = DEF
     try:
         common_path = os.path.commonpath([app_root, resolved])
     except ValueError as exc:
-        raise CookieCloudConfigError("YouTube Cookies 输出路径无效。") from exc
+        raise CookieCloudConfigError("Cookie 输出路径无效。") from exc
     if common_path != app_root:
-        raise CookieCloudConfigError("YouTube Cookies 输出路径必须位于项目目录内。")
+        raise CookieCloudConfigError("Cookie 输出路径必须位于项目目录内。")
     return resolved
+
+
+def resolve_platform_output_path(
+    settings: dict[str, Any] | None,
+    platform: Any,
+    output_path: str | None = None,
+) -> str:
+    spec = get_platform_spec(platform)
+    raw_path = (
+        _coerce_text(output_path)
+        or _coerce_text((settings or {}).get(spec.output_config_key, ""))
+        or spec.default_output_path
+    )
+    return resolve_cookie_output_path(raw_path, default_relative_path=spec.default_output_path)
 
 
 def make_display_path(path_value: str) -> str:
@@ -446,12 +631,14 @@ def make_display_path(path_value: str) -> str:
     return os.path.relpath(resolved, app_root).replace("\\", "/")
 
 
-def test_cookiecloud_youtube_sync(
+def _fetch_and_build_platform_cookies(
     settings: dict[str, Any] | None,
+    platform: Any,
     *,
     timeout: tuple[int, int] = DEFAULT_TIMEOUT,
     session: requests.Session | None = None,
 ) -> dict[str, Any]:
+    spec = get_platform_spec(platform)
     normalized = validate_cookiecloud_settings(settings, require_enabled=True)
     cc_user = str(normalized["COOKIECLOUD_UUID"])
     cc_key = str(normalized["COOKIECLOUD_PASSWORD"])
@@ -468,12 +655,36 @@ def test_cookiecloud_youtube_sync(
         cc_key,
         crypto_type=normalized["COOKIECLOUD_CRYPTO_TYPE"],
     )
-    content, cookie_count = build_youtube_netscape_cookies(decrypted)
+    content, cookie_count = build_platform_cookies(spec.key, decrypted)
     return {
+        "platform": spec.key,
+        "platform_label": spec.label,
         "content": content,
         "cookie_count": cookie_count,
         "crypto_type_used": crypto_type_used,
     }
+
+
+def test_cookiecloud_platform_sync(
+    settings: dict[str, Any] | None,
+    platform: Any = DEFAULT_PLATFORM,
+    *,
+    timeout: tuple[int, int] = DEFAULT_TIMEOUT,
+    session: requests.Session | None = None,
+) -> dict[str, Any]:
+    """联网校验配置并在内存中解析指定平台的 cookies，不写本地文件。"""
+    return _fetch_and_build_platform_cookies(settings, platform, timeout=timeout, session=session)
+
+
+def test_cookiecloud_youtube_sync(
+    settings: dict[str, Any] | None,
+    *,
+    timeout: tuple[int, int] = DEFAULT_TIMEOUT,
+    session: requests.Session | None = None,
+) -> dict[str, Any]:
+    return test_cookiecloud_platform_sync(
+        settings, PLATFORM_YOUTUBE.key, timeout=timeout, session=session,
+    )
 
 
 def _write_cookie_file(target_path: str, cookie_text: str) -> None:
@@ -481,11 +692,51 @@ def _write_cookie_file(target_path: str, cookie_text: str) -> None:
 
     This is intentional plaintext storage of browser cookies (not passwords)
     after the user has explicitly opted in via COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT.
-    The file uses Netscape cookie format consumed by yt-dlp.
+    The file is consumed by yt-dlp (Netscape) or by the platform SDK (JSON).
     """
     os.makedirs(os.path.dirname(target_path), exist_ok=True)
     with open(target_path, "w", encoding="utf-8", newline="\n") as file_obj:
         file_obj.write(cookie_text)
+
+
+def _write_cookie_file_if_changed(target_path: str, cookie_text: str) -> bool:
+    """内容无变化时跳过写入，避免无意义刷新挂载盘上的文件。返回是否真的写入。"""
+    try:
+        if os.path.exists(target_path):
+            with open(target_path, "r", encoding="utf-8") as file_obj:
+                if file_obj.read() == cookie_text:
+                    return False
+    except OSError:
+        pass
+    _write_cookie_file(target_path, cookie_text)
+    return True
+
+
+def sync_cookiecloud_to_platform_file(
+    settings: dict[str, Any] | None,
+    platform: Any = DEFAULT_PLATFORM,
+    *,
+    output_path: str | None = None,
+    timeout: tuple[int, int] = DEFAULT_TIMEOUT,
+    session: requests.Session | None = None,
+) -> dict[str, Any]:
+    spec = get_platform_spec(platform)
+    normalized = validate_cookiecloud_settings(settings, require_enabled=True)
+    if not normalized.get("COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT", False):
+        raise CookieCloudConfigError(
+            "CookieCloud 立即拉取需要显式勾选\u201c允许明文导出\u201d后，才会把 Cookies 写入本地文件。"
+        )
+    result = _fetch_and_build_platform_cookies(
+        normalized, spec.key, timeout=timeout, session=session,
+    )
+    target_path = resolve_platform_output_path(normalized, spec.key, output_path)
+    changed = _write_cookie_file_if_changed(target_path, result["content"])
+    result.update({
+        "output_path": target_path,
+        "output_path_display": make_display_path(target_path),
+        "changed": changed,
+    })
+    return result
 
 
 def sync_cookiecloud_to_youtube_file(
@@ -495,34 +746,45 @@ def sync_cookiecloud_to_youtube_file(
     timeout: tuple[int, int] = DEFAULT_TIMEOUT,
     session: requests.Session | None = None,
 ) -> dict[str, Any]:
-    normalized = validate_cookiecloud_settings(settings, require_enabled=True)
-    if not normalized.get("COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT", False):
-        raise CookieCloudConfigError(
-            "CookieCloud 立即拉取需要显式勾选\u201c允许明文导出\u201d后，才会把 Cookies 写入本地文件。"
+    return sync_cookiecloud_to_platform_file(
+        settings,
+        PLATFORM_YOUTUBE.key,
+        output_path=output_path,
+        timeout=timeout,
+        session=session,
+    )
+
+
+def try_cookiecloud_platform_sync(
+    settings: dict[str, Any] | None,
+    platform: Any = DEFAULT_PLATFORM,
+    *,
+    timeout: tuple[int, int] = DEFAULT_TIMEOUT,
+    session: requests.Session | None = None,
+) -> tuple[bool, dict[str, Any] | str]:
+    """尝试通过 CookieCloud 同步指定平台的 cookies 到本地文件。
+
+    用于 cookie 失效时的自动恢复：拉取远端 cookies 并写入本地文件，
+    成功后返回 (True, result_dict)，失败返回 (False, error_msg)。
+    所有异常内部捕获，不会向调用方抛出。
+
+    仅在 CookieCloud 已启用、对应平台已启用且允许明文导出时执行。
+    """
+    try:
+        spec = get_platform_spec(platform)
+        effective_config = dict(settings or {})
+        if not _as_bool(effective_config.get("COOKIECLOUD_ENABLED", False)):
+            return False, "CookieCloud 未启用"
+        if not is_platform_enabled(effective_config, spec.key):
+            return False, f"CookieCloud 未启用 {spec.label} 平台"
+        if not _as_bool(effective_config.get("COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT", False)):
+            return False, "CookieCloud 未允许明文导出"
+        result = sync_cookiecloud_to_platform_file(
+            effective_config, spec.key, timeout=timeout, session=session,
         )
-    server_url = normalized["COOKIECLOUD_SERVER_URL"]
-    cc_user = str(normalized["COOKIECLOUD_UUID"])
-    cc_key = str(normalized["COOKIECLOUD_PASSWORD"])
-    crypto_type = normalized["COOKIECLOUD_CRYPTO_TYPE"]
-    payload = fetch_cookiecloud_payload(
-        server_url, cc_user, crypto_type=crypto_type, timeout=timeout, session=session,
-    )
-    decrypted, crypto_type_used = decrypt_cookiecloud_payload(
-        payload, cc_user, cc_key, crypto_type=crypto_type,
-    )
-    content, cookie_count = build_youtube_netscape_cookies(decrypted)
-    target_path = resolve_cookie_output_path(
-        output_path or normalized.get("YOUTUBE_COOKIES_PATH") or DEFAULT_YOUTUBE_COOKIES_PATH,
-        default_relative_path=DEFAULT_YOUTUBE_COOKIES_PATH,
-    )
-    _write_cookie_file(target_path, content)
-    return {
-        "content": content,
-        "cookie_count": cookie_count,
-        "crypto_type_used": crypto_type_used,
-        "output_path": target_path,
-        "output_path_display": make_display_path(target_path),
-    }
+        return True, result
+    except Exception:
+        return False, "CookieCloud 同步失败"
 
 
 def try_cookiecloud_youtube_sync(
@@ -531,23 +793,6 @@ def try_cookiecloud_youtube_sync(
     timeout: tuple[int, int] = DEFAULT_TIMEOUT,
     session: requests.Session | None = None,
 ) -> tuple[bool, dict[str, Any] | str]:
-    """尝试通过 CookieCloud 同步 YouTube cookies 到本地文件。
-
-    用于 cookie 失效时的自动恢复：拉取 CookieCloud 远端 cookies 并写入本地
-    yt_cookies.txt，成功后返回 (True, result_dict)，失败返回 (False, error_msg)。
-    所有异常内部捕获，不会向调用方抛出。
-
-    仅在 CookieCloud 已启用且允许明文导出时执行。
-    """
-    try:
-        effective_config = dict(settings or {})
-        if not _as_bool(effective_config.get("COOKIECLOUD_ENABLED", False)):
-            return False, "CookieCloud 未启用"
-        if not _as_bool(effective_config.get("COOKIECLOUD_ALLOW_PLAINTEXT_EXPORT", False)):
-            return False, "CookieCloud 未允许明文导出"
-        result = sync_cookiecloud_to_youtube_file(
-            effective_config, timeout=timeout, session=session,
-        )
-        return True, result
-    except Exception:
-        return False, "CookieCloud 同步失败"
+    return try_cookiecloud_platform_sync(
+        settings, PLATFORM_YOUTUBE.key, timeout=timeout, session=session,
+    )

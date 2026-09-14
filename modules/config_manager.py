@@ -128,6 +128,20 @@ DEFAULT_CONFIG = {
     "COOKIECLOUD_LAST_SYNC_AT": "",
     "COOKIECLOUD_LAST_SYNC_STATUS": "",
     "COOKIECLOUD_LAST_SYNC_MESSAGE": "",
+    # CookieCloud 单平台开关（总开关 COOKIECLOUD_ENABLED 之外的按平台配置）
+    "COOKIECLOUD_YOUTUBE_ENABLED": True,
+    "COOKIECLOUD_BILIBILI_ENABLED": False,
+    "COOKIECLOUD_BILIBILI_LAST_SYNC_AT": "",
+    "COOKIECLOUD_BILIBILI_LAST_SYNC_STATUS": "",
+    "COOKIECLOUD_BILIBILI_LAST_SYNC_MESSAGE": "",
+    # CookieCloud 定时失效检测：只在检测到本地 cookie 失效时才拉取更新
+    "COOKIECLOUD_HEALTHCHECK_ENABLED": False,
+    "COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS": 6,
+    "COOKIECLOUD_HEALTHCHECK_LAST_AT": "",
+    "COOKIECLOUD_HEALTHCHECK_LAST_STATUS": "",
+    "COOKIECLOUD_HEALTHCHECK_LAST_MESSAGE": "",
+    # YouTube cookie 有效性探测用的公开视频（yt-dlp 官方测试视频，可自行替换）
+    "COOKIECLOUD_YOUTUBE_PROBE_URL": "https://www.youtube.com/watch?v=BaW_jenozKc",
     "ACFUN_USERNAME": "",
     "ACFUN_PASSWORD": "",
     "UPLOAD_TARGET_DEFAULT": "bilibili",  # 任务默认投稿平台：acfun|bilibili|both
@@ -292,6 +306,21 @@ def normalize_login_session_timeout_minutes(value):
     return max(1, normalized)
 
 
+_COOKIECLOUD_HEALTHCHECK_INTERVAL_DEFAULT = 6
+_COOKIECLOUD_HEALTHCHECK_INTERVAL_MAX_HOURS = 168  # 一周
+
+
+def normalize_cookiecloud_healthcheck_interval_hours(value):
+    """收敛 CookieCloud 失效检测间隔：1 ~ 168 小时，默认 6 小时。"""
+    try:
+        normalized = int(str(value).strip())
+    except (AttributeError, TypeError, ValueError):
+        return _COOKIECLOUD_HEALTHCHECK_INTERVAL_DEFAULT
+    if normalized < 1:
+        return 1
+    return min(normalized, _COOKIECLOUD_HEALTHCHECK_INTERVAL_MAX_HOURS)
+
+
 def _prune_unknown_config_keys(config_data):
     # SECRET_KEY 不属于用户可见配置，但必须随配置持久化，否则重启后 session 全部失效
     _PRESERVED_INTERNAL_KEYS = {'SECRET_KEY'}
@@ -369,6 +398,13 @@ def load_config():
                 session_timeout_changed = (
                     config['LOGIN_SESSION_TIMEOUT_MINUTES'] != session_timeout_before
                 )
+                healthcheck_interval_before = config.get('COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS')
+                config['COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS'] = (
+                    normalize_cookiecloud_healthcheck_interval_hours(healthcheck_interval_before)
+                )
+                healthcheck_interval_changed = (
+                    config['COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS'] != healthcheck_interval_before
+                )
                 removed_unknown_keys = bool(removed_keys)
 
                 # Prompt 中心模式值标准化
@@ -393,6 +429,7 @@ def load_config():
                     or quality_mode_changed
                     or quality_height_changed
                     or session_timeout_changed
+                    or healthcheck_interval_changed
                     or migrated_legacy_speech
                     or removed_unknown_keys
                     or prompt_mode_changed
@@ -479,6 +516,8 @@ def update_config(new_config):
                 current_config[key] = normalize_youtube_download_max_height(new_config[key])
             elif key == 'LOGIN_SESSION_TIMEOUT_MINUTES':
                 current_config[key] = normalize_login_session_timeout_minutes(new_config[key])
+            elif key == 'COOKIECLOUD_HEALTHCHECK_INTERVAL_HOURS':
+                current_config[key] = normalize_cookiecloud_healthcheck_interval_hours(new_config[key])
             elif key.endswith('_MODE') and key.startswith(('SUBTITLE_', 'METADATA_')):
                 # Prompt 中心模式值标准化
                 try:
