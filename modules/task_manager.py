@@ -3136,6 +3136,9 @@ class TaskProcessor:
             'OPENAI_BASE_URL': self.config.get('OPENAI_BASE_URL', ''),
             'OPENAI_MODEL_NAME': self.config.get('OPENAI_MODEL_NAME', 'gpt-3.5-turbo'),
             'OPENAI_THINKING_ENABLED': self.config.get('OPENAI_THINKING_ENABLED', False),
+            'OPENAI_FALLBACK_MODEL_NAME': self.config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
+            'OPENAI_FALLBACK_BASE_URL': self.config.get('OPENAI_FALLBACK_BASE_URL', ''),
+            'OPENAI_FALLBACK_API_KEY': self.config.get('OPENAI_FALLBACK_API_KEY', ''),
             # 可选：允许用户配置固定分区ID，确保一次命中
             'FIXED_PARTITION_ID': self.config.get('FIXED_PARTITION_ID', ''),
         }
@@ -3237,6 +3240,9 @@ class TaskProcessor:
             'OPENAI_MODEL_NAME': self.config.get('OPENAI_MODEL_NAME', 'gpt-3.5-turbo'),
             'OPENAI_THINKING_ENABLED': self.config.get('OPENAI_THINKING_ENABLED', False),
             'OPENAI_TIMEOUT_SECONDS': self.config.get('OPENAI_TIMEOUT_SECONDS', 600),
+            'OPENAI_FALLBACK_MODEL_NAME': self.config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
+            'OPENAI_FALLBACK_BASE_URL': self.config.get('OPENAI_FALLBACK_BASE_URL', ''),
+            'OPENAI_FALLBACK_API_KEY': self.config.get('OPENAI_FALLBACK_API_KEY', ''),
         }
         generated = generate_bilibili_title_description(
             source_metadata,
@@ -7216,6 +7222,9 @@ class TaskProcessor:
             'OPENAI_BASE_URL': self.config.get('OPENAI_BASE_URL', ''),
             'OPENAI_MODEL_NAME': self.config.get('OPENAI_MODEL_NAME', 'gpt-3.5-turbo'),
             'OPENAI_THINKING_ENABLED': self.config.get('OPENAI_THINKING_ENABLED', False),
+            'OPENAI_FALLBACK_MODEL_NAME': self.config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
+            'OPENAI_FALLBACK_BASE_URL': self.config.get('OPENAI_FALLBACK_BASE_URL', ''),
+            'OPENAI_FALLBACK_API_KEY': self.config.get('OPENAI_FALLBACK_API_KEY', ''),
             'FIXED_PARTITION_ID': self.config.get('FIXED_PARTITION_ID', ''),
         }
         
@@ -7273,6 +7282,9 @@ class TaskProcessor:
             'OPENAI_MODEL_NAME': self.config.get('OPENAI_MODEL_NAME', 'gpt-3.5-turbo'),
             'OPENAI_THINKING_ENABLED': self.config.get('OPENAI_THINKING_ENABLED', False),
             'OPENAI_TIMEOUT_SECONDS': self.config.get('OPENAI_TIMEOUT_SECONDS', 600),
+            'OPENAI_FALLBACK_MODEL_NAME': self.config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
+            'OPENAI_FALLBACK_BASE_URL': self.config.get('OPENAI_FALLBACK_BASE_URL', ''),
+            'OPENAI_FALLBACK_API_KEY': self.config.get('OPENAI_FALLBACK_API_KEY', ''),
             'FIXED_PARTITION_ID': self.config.get('FIXED_PARTITION_ID', ''),
             'FIXED_PARTITION_ID_BILIBILI': self.config.get('FIXED_PARTITION_ID_BILIBILI', ''),
             'RECOMMEND_PARTITION_WITH_COVER': self.config.get('RECOMMEND_PARTITION_WITH_COVER', False),

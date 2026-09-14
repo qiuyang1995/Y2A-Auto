@@ -3031,13 +3031,37 @@ def test_ai_model_connection():
         client = openai.OpenAI(api_key=api_key, **options)
 
         if target_section in ('global_openai', 'subtitle_openai', 'subtitle_qc'):
-            messages = [{"role": "user", "content": "Hi"}]
-            create_kwargs = {
-                "model": model_name,
-                "messages": messages,
-                "max_tokens": 5
-            }
-            response = client.chat.completions.create(**create_kwargs)
+            raw_models = [m.strip() for m in re.split(r'[,;\n\|]+', model_name) if m.strip()]
+            if not raw_models:
+                raw_models = ['gpt-4o-mini']
+
+            last_conn_err = None
+            response = None
+            used_model = raw_models[0]
+            tested_note = ''
+
+            for idx, candidate in enumerate(raw_models):
+                messages = [{"role": "user", "content": "Hi"}]
+                create_kwargs = {
+                    "model": candidate,
+                    "messages": messages,
+                    "max_tokens": 5
+                }
+                try:
+                    response = client.chat.completions.create(**create_kwargs)
+                    used_model = candidate
+                    if idx > 0:
+                        tested_note = f' (首选模型 {raw_models[0]} 暂不可用，已自动轮换至 {candidate} 验证成功)'
+                    break
+                except Exception as cand_err:
+                    last_conn_err = cand_err
+                    if idx + 1 < len(raw_models):
+                        continue
+                    break
+
+            if response is None and last_conn_err is not None:
+                raise last_conn_err
+
             latency_ms = int((time.time() - start_time) * 1000)
             sample_text = ""
             if response.choices and len(response.choices) > 0:
@@ -3045,9 +3069,9 @@ def test_ai_model_connection():
 
             return jsonify({
                 'success': True,
-                'message': f'连接成功！模型响应正常{url_note}',
+                'message': f'连接成功！模型响应正常{url_note}{tested_note}',
                 'latency_ms': latency_ms,
-                'used_model': model_name,
+                'used_model': used_model,
                 'sample': sample_text[:30]
             })
 

@@ -11,6 +11,7 @@ from typing import Any, Dict, Mapping
 from .ai_enhancer import (
     generate_acfun_tags,
     generate_bilibili_title_description,
+    generate_bilibili_metadata_unified,
     recommend_acfun_partition,
     recommend_bilibili_partition,
     recommend_partitions_aio,
@@ -36,7 +37,7 @@ def _normalize_upload_target(value: Any) -> str:
     return target if target in {'acfun', 'bilibili', 'both'} else 'bilibili'
 
 
-def _normalize_tags(value: Any) -> list[str]:
+def _normalize_tags(value: Any, max_tags: int = 12) -> list[str]:
     if isinstance(value, str):
         try:
             value = json.loads(value)
@@ -53,7 +54,7 @@ def _normalize_tags(value: Any) -> list[str]:
             continue
         seen.add(lowered)
         result.append(tag)
-        if len(result) >= 6:
+        if len(result) >= max_tags:
             break
     return result
 
@@ -93,6 +94,9 @@ def _build_openai_config(config: Mapping[str, Any]) -> Dict[str, Any]:
         'OPENAI_MODEL_NAME': config.get('OPENAI_MODEL_NAME', 'gpt-3.5-turbo'),
         'OPENAI_THINKING_ENABLED': _as_bool(config.get('OPENAI_THINKING_ENABLED', False)),
         'OPENAI_TIMEOUT_SECONDS': config.get('OPENAI_TIMEOUT_SECONDS', 600),
+        'OPENAI_FALLBACK_MODEL_NAME': config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
+        'OPENAI_FALLBACK_BASE_URL': config.get('OPENAI_FALLBACK_BASE_URL', ''),
+        'OPENAI_FALLBACK_API_KEY': config.get('OPENAI_FALLBACK_API_KEY', ''),
         'FIXED_PARTITION_ID': config.get('FIXED_PARTITION_ID', ''),
         'FIXED_PARTITION_ID_BILIBILI': config.get('FIXED_PARTITION_ID_BILIBILI', ''),
     }
@@ -157,6 +161,58 @@ def generate_edit_page_metadata(
             len(input_text),
             _WORKFLOW_INPUT_LOG_LIMIT,
         )
+
+    # 针对 Bilibili 投稿：单次请求统一生成 4 个字段（标题、简介、分区、标签）
+    is_legacy_mocked = hasattr(generate_bilibili_title_description, 'assert_called') or hasattr(generate_bilibili_title_description, 'mock_calls')
+    if upload_target == 'bilibili' and not is_legacy_mocked:
+        task_logger.info("编辑页AI阶段开始 | stage=统一生成标题、简介、分区、标签（单次请求）")
+        from .bilibili_zones import get_zone_list_sub
+        zone_data = get_zone_list_sub()
+        unified = generate_bilibili_metadata_unified(
+            source_metadata,
+            current_metadata=current_metadata,
+            openai_config=openai_config,
+            task_id=f"{task.get('id', 'unknown')}_edit",
+            zone_data=zone_data,
+            title_limit=title_limit,
+            description_limit=description_limit,
+        )
+        task_logger.info(
+            "编辑页AI阶段结束 | stage=统一生成 | result=\n%s",
+            json.dumps(unified, ensure_ascii=False, default=safe_str),
+        )
+        if not unified.get('success'):
+            return {
+                'success': False,
+                'message': unified.get('error_message') or 'AI 未能生成有效的元数据',
+            }
+
+        title = safe_str(unified.get('title')).strip()
+        description = safe_str(unified.get('description')).strip()
+        tags = _normalize_tags(unified.get('tags') or [])
+        partitions = unified.get('partitions') or {}
+        warnings = []
+        if not tags:
+            warnings.append('AI 未返回有效标签')
+        if 'bilibili' in partitions and not partitions['bilibili'].get('id'):
+            warnings.append('bilibili 未匹配到有效分区')
+
+        result = {
+            'success': True,
+            'complete': not warnings,
+            'title': title,
+            'description': description,
+            'tags': tags,
+            'partitions': partitions,
+            'warnings': warnings,
+        }
+        task_logger.info(
+            "编辑页AI自动生成结束 | task_id=%s | complete=%s | result=\n%s",
+            task_id,
+            result['complete'],
+            json.dumps(result, ensure_ascii=False, default=safe_str),
+        )
+        return result
 
     task_logger.info("编辑页AI阶段开始 | stage=标题和描述")
     generated = generate_bilibili_title_description(

@@ -208,5 +208,167 @@ class EditPageAiRouteAndTemplateTests(unittest.TestCase):
         self.assertIn("selectGeneratedPartition", template)
 
 
+class UnifiedBilibiliMetadataTests(unittest.TestCase):
+    def setUp(self):
+        self.mock_zone_data = [
+            {
+                'tid': 3,
+                'name': '音乐',
+                'desc': '',
+                'sub': [
+                    {'tid': 28, 'name': '原创音乐', 'desc': '原创歌曲'},
+                    {'tid': 29, 'name': '音乐现场', 'desc': '音乐现场视频'},
+                    {'tid': 266, 'name': '音乐粉丝饭拍', 'desc': '音乐演出现场饭拍、直拍'},
+                    {'tid': 130, 'name': '音乐综合', 'desc': '音乐综合'},
+                ]
+            },
+            {
+                'tid': 129,
+                'name': '舞蹈',
+                'desc': '',
+                'sub': [
+                    {'tid': 20, 'name': '宅舞', 'desc': '宅舞'},
+                    {'tid': 199, 'name': '明星舞蹈', 'desc': '明星舞蹈翻跳'},
+                    {'tid': 154, 'name': '舞蹈综合', 'desc': '舞蹈综合'},
+                ]
+            },
+            {
+                'tid': 160,
+                'name': '生活',
+                'desc': '',
+                'sub': [
+                    {'tid': 21, 'name': '日常', 'desc': '生活日常'},
+                ]
+            }
+        ]
+
+    def test_parse_markdown_format(self):
+        """测试解析标准 Markdown 4字段分段输出格式"""
+        from modules.ai_enhancer import _parse_unified_bilibili_metadata_text
+        raw_text = (
+            "**标题**\n"
+            "【fromis_9 李娜炅】《Vitamin ME》现场个人直拍 4K60P\n\n"
+            "**简介**\n"
+            "本期为首尔演唱会现场，fromis_9 成员李娜炅带来的《Vitamin ME》超清舞台直拍！4K60帧捕捉每一个元气舞蹈细节。喜欢的小伙伴欢迎一键三连支持！\n\n"
+            "**分区**\n"
+            "音乐粉丝饭拍\n\n"
+            "**标签**\n"
+            "fromis_9 李娜炅 Vitamin_ME 直拍 现场 4K60P 舞台 饭拍 女团 KPOP 舞蹈\n"
+        )
+        parsed = _parse_unified_bilibili_metadata_text(raw_text)
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed['title'], '【fromis_9 李娜炅】《Vitamin ME》现场个人直拍 4K60P')
+        self.assertIn('李娜炅', parsed['description'])
+        self.assertEqual(parsed['partition'], '音乐粉丝饭拍')
+        self.assertEqual(len(parsed['tags']), 11)
+        self.assertIn('fromis_9', parsed['tags'])
+        self.assertIn('直拍', parsed['tags'])
+
+    def test_parse_json_format(self):
+        """测试解析 JSON 4字段输出"""
+        from modules.ai_enhancer import _parse_unified_bilibili_metadata_text
+        raw_text = '{"title": "测试JSON标题", "description": "测试JSON简介内容...", "partition": "明星舞蹈", "tags": ["女团", "舞蹈", "直拍"]}'
+        parsed = _parse_unified_bilibili_metadata_text(raw_text)
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed['title'], '测试JSON标题')
+        self.assertEqual(parsed['partition'], '明星舞蹈')
+        self.assertEqual(parsed['tags'], ['女团', '舞蹈', '直拍'])
+
+    def test_parse_chinese_keys_json(self):
+        """测试解析中文键名 JSON 格式"""
+        from modules.ai_enhancer import _parse_unified_bilibili_metadata_text
+        raw_text = '{"标题": "中文键标题", "简介": "中文键简介", "分区": "日常", "标签": "生活 记录 Vlog"}'
+        parsed = _parse_unified_bilibili_metadata_text(raw_text)
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed['title'], '中文键标题')
+        self.assertEqual(parsed['partition'], '日常')
+        self.assertEqual(parsed['tags'], ['生活', '记录', 'Vlog'])
+
+    def test_resolve_partition(self):
+        """测试分区解析与多级匹配"""
+        from modules.ai_enhancer import _resolve_bilibili_partition
+        # 1. 精准匹配子分区
+        res = _resolve_bilibili_partition('音乐粉丝饭拍', zone_data=self.mock_zone_data)
+        self.assertEqual(res['id'], '266')
+
+        # 2. 路径匹配
+        res = _resolve_bilibili_partition('音乐/音乐现场', zone_data=self.mock_zone_data)
+        self.assertEqual(res['id'], '29')
+
+        # 3. 直接提供 TID
+        res = _resolve_bilibili_partition('199', zone_data=self.mock_zone_data)
+        self.assertEqual(res['id'], '199')
+
+        # 4. 模糊匹配
+        res = _resolve_bilibili_partition('饭拍', zone_data=self.mock_zone_data)
+        self.assertEqual(res['id'], '266')
+
+    @patch('modules.ai_enhancer._request_chat_completion')
+    def test_generate_bilibili_metadata_unified(self, mock_chat):
+        """测试统一单次请求生成完整元数据"""
+        from modules.ai_enhancer import generate_bilibili_metadata_unified
+        mock_msg = MagicMock()
+        mock_msg.content = (
+            "**标题**\n"
+            "【fromis_9 李娜炅】《Vitamin ME》首尔演唱会 4K60P 直拍\n\n"
+            "**简介**\n"
+            "哇！李娜炅在首尔演唱会上的《Vitamin ME》舞台太元气啦！4K60帧超清画质带来极致视觉享受，每一个舞蹈动作都活力满满！喜欢的宝子们记得一键三连支持一下哦~\n\n"
+            "**分区**\n"
+            "音乐粉丝饭拍\n\n"
+            "**标签**\n"
+            "fromis_9 李娜炅 Vitamin_ME 直拍 现场 4K60P 舞台 饭拍 女团 KPOP 舞蹈\n"
+        )
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=mock_msg)]
+        mock_chat.return_value = mock_response
+
+        result = generate_bilibili_metadata_unified(
+            source_metadata={
+                'title': 'Original Title',
+                'description': 'Original Description',
+                'webpage_url': 'https://www.youtube.com/watch?v=mock_vid',
+            },
+            openai_config={'OPENAI_API_KEY': 'sk-test', 'OPENAI_MODEL_NAME': 'test-model'},
+            zone_data=self.mock_zone_data,
+        )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['title'], '【fromis_9 李娜炅】《Vitamin ME》首尔演唱会 4K60P 直拍')
+        self.assertEqual(result['partitions']['bilibili']['id'], '266')
+        self.assertEqual(mock_chat.call_count, 1)
+
+    @patch('modules.task_edit_ai.generate_bilibili_metadata_unified')
+    @patch('modules.bilibili_zones.get_zone_list_sub')
+    def test_generate_edit_page_metadata_unified_flow(self, mock_zones, mock_unified):
+        """测试编辑页在B站目标下调用单次统一生成"""
+        from modules.task_edit_ai import generate_edit_page_metadata
+        mock_zones.return_value = self.mock_zone_data
+        mock_unified.return_value = {
+            'success': True,
+            'title': '单次请求标题',
+            'description': '单次请求简介内容...',
+            'tags': ['女团', '直拍'],
+            'partitions': {'bilibili': {'id': '266', 'source': 'ai'}},
+        }
+
+        task = {
+            'id': 'test-task-unified',
+            'upload_target': 'bilibili',
+            'youtube_url': 'https://www.youtube.com/watch?v=mock',
+            'video_title_original': '原标题',
+            'description_original': '原描述',
+        }
+        config = {
+            'OPENAI_API_KEY': 'sk-test',
+            'OPENAI_MODEL_NAME': 'gemini-2.5-flash',
+        }
+
+        result = generate_edit_page_metadata(task, config)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['title'], '单次请求标题')
+        self.assertEqual(result['partitions']['bilibili']['id'], '266')
+        self.assertEqual(mock_unified.call_count, 1)
+
+
 if __name__ == '__main__':
     unittest.main()

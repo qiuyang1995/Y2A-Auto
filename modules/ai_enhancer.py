@@ -104,6 +104,46 @@ BILIBILI_TITLE_DESCRIPTION_PROMPT = """你是一个熟悉 B 站内容生态的�
 - JSON 格式严格为：{"title":"生成的中文标题","description":"生成的中文简介"}。
 """
 
+UNIFIED_BILIBILI_METADATA_SYSTEM_PROMPT = """你现在是一位资深 Bilibili 内容优化编辑，熟悉 B 站标题、简介、标签写法与搜索推荐逻辑。
+
+请基于“用户消息中提供的上下文信息 + 下面给出的视频链接”进行改写，不要声明“无法访问链接/无法提供帮助”，也不要输出任何免责声明。
+
+生成 B 站优化内容（必须中文）：
+
+**标题（Title）**  
+- 长度 18-32 个中文字符（含标点/表情）。  
+- 有吸引力，包含核心关键词，适合搜索与推荐。  
+
+**简介（Description）**  
+- 长度 120-220 字。  
+- 结构建议：开头钩子 + 核心内容总结 +（可选）时间戳 + 亮点提炼 + 互动引导。  
+- 若上下文没有明确时间戳，不要编造时间戳。  
+- 不要编造上下文中不存在的事实。  
+
+**分区（Partition）**  
+- 推荐 1 个最契合的 B 站投稿分区或子分区名称（例如：音乐粉丝饭拍、日常、明星舞蹈、街舞、音乐现场、原创音乐、网络游戏、单机游戏、科学科普、生活日常、影视剪辑、搞笑等）。  
+- 仅填写具体分区名称或子分区名称。  
+
+**标签（Tags）**  
+- 输出 10-12 个标签。  
+- 使用空格分隔标签（不是逗号）。  
+- 关键词覆盖核心主题 + 平台相关词（如 B站/教程/干货/直拍等）+ 长尾词。  
+
+**输出格式严格如下（不要添加其它段落）：**
+
+**标题**  
+[生成的标题]
+
+**简介**  
+[生成的简介]
+
+**分区**  
+[推荐的分区]
+
+**标签**  
+[空格分隔的标签]
+"""
+
 # yt-dlp 的 metadata.json 会携带每种格式、缩略图和字幕轨道的完整下载 URL。
 # 这些传输层字段对文案没有帮助，却可能让一次请求膨胀到数十万 token。
 _BILIBILI_AI_CONTEXT_MAX_CHARS = 40000
@@ -909,6 +949,108 @@ def _parse_bilibili_title_description_text(text: str) -> Optional[Dict[str, Any]
     return None
 
 
+def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]:
+    """解析模型返回的统一 B 站 4 字段元数据（兼容 Markdown 分段与各种格式的 JSON）。"""
+    raw_str = safe_str(text).strip()
+    if not raw_str:
+        return None
+
+    clean_text = raw_str
+    # 移除外层包裹的代码块标记
+    if clean_text.startswith('```'):
+        lines = clean_text.splitlines()
+        if len(lines) >= 2 and lines[-1].strip().startswith('```'):
+            clean_text = '\n'.join(lines[1:-1]).strip()
+
+    # 1. 优先尝试 JSON 提取
+    try:
+        parsed_dict = extract_json_from_text(clean_text, expected_type=dict)
+        if isinstance(parsed_dict, dict):
+            title_keys = ('title', 'video_title', 'bilibili_title', 'new_title', 'generated_title', '标题', '中文标题')
+            desc_keys = ('description', 'video_description', 'bilibili_description', 'desc', 'intro', 'generated_description', '简介', '中文简介', '描述')
+            part_keys = ('partition', 'zone', 'category', 'subpartition', 'bilibili_partition', '分区', '分类', '投稿分区', '推荐分区')
+            tags_keys = ('tags', 'video_tags', 'bilibili_tags', '标签', '视频标签')
+
+            t_val = next((str(parsed_dict[k]).strip() for k in title_keys if k in parsed_dict and parsed_dict[k]), '')
+            d_val = next((str(parsed_dict[k]).strip() for k in desc_keys if k in parsed_dict and parsed_dict[k]), '')
+            p_val = next((str(parsed_dict[k]).strip() for k in part_keys if k in parsed_dict and parsed_dict[k]), '')
+            raw_tags = next((parsed_dict[k] for k in tags_keys if k in parsed_dict and parsed_dict[k]), [])
+
+            if isinstance(raw_tags, str):
+                parsed_tags = [t.strip().lstrip('#') for t in re.split(r'[\s,，、\n]+', raw_tags) if t.strip().lstrip('#')]
+            elif isinstance(raw_tags, list):
+                parsed_tags = [str(t).strip().lstrip('#') for t in raw_tags if str(t).strip().lstrip('#')]
+            else:
+                parsed_tags = []
+
+            if t_val or d_val:
+                return {
+                    'title': t_val,
+                    'description': d_val,
+                    'partition': p_val,
+                    'tags': parsed_tags,
+                }
+    except Exception:
+        pass
+
+    # 2. Markdown 分段正则解析
+    sections: Dict[str, List[str]] = {}
+    current_key = None
+    heading_re = re.compile(
+        r'^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?:\*\*)?(标题|title|简介|描述|description|desc|分区|分类|partition|zone|标签|tags|tag)(?:\*\*)?\s*(?:(?:[:：])\s*(.*))?\s*$',
+        re.IGNORECASE,
+    )
+    key_map = {
+        '标题': 'title', 'title': 'title',
+        '简介': 'description', '描述': 'description', 'description': 'description', 'desc': 'description',
+        '分区': 'partition', '分类': 'partition', 'partition': 'partition', 'zone': 'partition',
+        '标签': 'tags', 'tags': 'tags', 'tag': 'tags',
+    }
+
+    for raw_line in clean_text.splitlines():
+        line_stripped = raw_line.strip()
+        match = heading_re.match(line_stripped)
+        if match:
+            current_key = key_map[match.group(1).lower()]
+            sections.setdefault(current_key, [])
+            if match.group(2):
+                sections[current_key].append(match.group(2).strip())
+        elif current_key is not None:
+            sections[current_key].append(raw_line)
+
+    title = '\n'.join(sections.get('title', [])).strip().strip('"“”')
+    description = '\n'.join(sections.get('description', [])).strip().strip('"“”')
+    partition = '\n'.join(sections.get('partition', [])).strip().strip('"“”')
+    raw_tags_str = '\n'.join(sections.get('tags', [])).strip()
+    tags = [t.strip().lstrip('#') for t in re.split(r'[\s,，、\n]+', raw_tags_str) if t.strip().lstrip('#')]
+
+    # 过滤可能遗留的模板占位符
+    if '[生成的标题]' in title:
+        title = ''
+    if '[生成的简介]' in description:
+        description = ''
+    if '[推荐的分区]' in partition:
+        partition = ''
+    tags = [t for t in tags if not (t.startswith('[') and t.endswith(']'))]
+
+    # 去重并保持顺序
+    seen_tags = set()
+    dedup_tags = []
+    for tag in tags:
+        if tag not in seen_tags:
+            seen_tags.add(tag)
+            dedup_tags.append(tag)
+
+    if title or description or dedup_tags:
+        return {
+            'title': title,
+            'description': description,
+            'partition': partition,
+            'tags': dedup_tags,
+        }
+    return None
+
+
 _AI_LOG_INPUT_MAX_CHARS = 12000
 
 
@@ -941,6 +1083,25 @@ def _get_complete_ai_message_for_log(message: Any) -> str:
 _MODEL_EXHAUSTED_COOLDOWN_MAP: Dict[str, float] = {}
 
 
+def _parse_model_candidates(*model_inputs: Any) -> List[str]:
+    """从多个输入（字符串、列表、逗号/分号/换行分隔字符串等）中解析出按优先级排序且去重的模型列表。"""
+    models: List[str] = []
+    for item in model_inputs:
+        if not item:
+            continue
+        if isinstance(item, (list, tuple)):
+            for sub in item:
+                s = str(sub or '').strip()
+                if s and s not in models:
+                    models.append(s)
+        elif isinstance(item, str):
+            for part in re.split(r'[,;\n\|]+', item):
+                s = part.strip()
+                if s and s not in models:
+                    models.append(s)
+    return models
+
+
 def _request_chat_completion(
     client,
     model_name: str,
@@ -956,7 +1117,7 @@ def _request_chat_completion(
     response_format=None,
     openai_config: Optional[Dict[str, Any]] = None,
 ):
-    """公共 LLM 调用逻辑：构建消息、计时、执行请求，返回原始 response。"""
+    """公共 LLM 调用逻辑：构建消息、多模型顺序故障转移（Failover Chain）、计时与冷却处理，返回原始 response。"""
     user_message_content = user_content
     if user_message_content is None:
         user_message_content = json.dumps(payload, ensure_ascii=False)
@@ -966,147 +1127,157 @@ def _request_chat_completion(
     if not fallback_model:
         try:
             from .config_manager import load_config
-            cfg = load_config() or {}
-            fallback_model = str(cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
+            disk_cfg = load_config() or {}
+            fallback_model = str(disk_cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
+            if not cfg.get('OPENAI_FALLBACK_BASE_URL') and disk_cfg.get('OPENAI_FALLBACK_BASE_URL'):
+                cfg['OPENAI_FALLBACK_BASE_URL'] = disk_cfg.get('OPENAI_FALLBACK_BASE_URL')
+            if not cfg.get('OPENAI_FALLBACK_API_KEY') and disk_cfg.get('OPENAI_FALLBACK_API_KEY'):
+                cfg['OPENAI_FALLBACK_API_KEY'] = disk_cfg.get('OPENAI_FALLBACK_API_KEY')
         except Exception:
             pass
 
-    # 检查主模型是否处于日配额耗尽冷却期，若是则直接切换至备用模型，避免后续各阶段重复消耗无效请求
-    active_model = model_name
-    active_client = client
-    now_ts = time.time()
-    if active_model in _MODEL_EXHAUSTED_COOLDOWN_MAP and now_ts < _MODEL_EXHAUSTED_COOLDOWN_MAP[active_model]:
-        if fallback_model and fallback_model != active_model and (fallback_model not in _MODEL_EXHAUSTED_COOLDOWN_MAP or now_ts >= _MODEL_EXHAUSTED_COOLDOWN_MAP[fallback_model]):
-            if logger_obj:
-                logger_obj.info(
-                    "模型 %s 处于配额耗尽冷却期，直接使用备用模型 %s | scene=%s",
-                    active_model, fallback_model, scene_name
-                )
-            active_model = fallback_model
-            fb_cfg = dict(cfg)
-            fb_cfg['OPENAI_MODEL_NAME'] = fallback_model
-            if fb_cfg.get('OPENAI_FALLBACK_BASE_URL'):
-                fb_cfg['OPENAI_BASE_URL'] = fb_cfg['OPENAI_FALLBACK_BASE_URL']
-            if fb_cfg.get('OPENAI_FALLBACK_API_KEY'):
-                fb_cfg['OPENAI_API_KEY'] = fb_cfg['OPENAI_FALLBACK_API_KEY']
-            active_client = get_openai_client(fb_cfg)
+    # 解析所有候选模型（主模型 + 备用模型链，去重并保持配置顺序）
+    candidates = _parse_model_candidates(model_name, fallback_model)
+    if not candidates:
+        candidates = ['gpt-3.5-turbo']
 
-    create_kwargs = {
-        "model": active_model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message_content},
-        ],
-        "temperature": temperature,
-    }
-    if max_tokens is not None:
-        # 为防止带思考能力的模型（Gemini / OpenAI o系列等）思考过程消耗 Token 导致输出在途中被截断，为请求提供至少 2048 Token 的预算
-        create_kwargs["max_tokens"] = max(max_tokens, 2048)
-    if response_format is not None:
-        create_kwargs["response_format"] = response_format
-    request_start = time.time()
+    now_ts = time.time()
+    # 区分可用模型与处于配额耗尽冷却期（如当天429超限）的模型
+    available_candidates = [
+        m for m in candidates
+        if m not in _MODEL_EXHAUSTED_COOLDOWN_MAP or now_ts >= _MODEL_EXHAUSTED_COOLDOWN_MAP[m]
+    ]
+    cooling_candidates = [
+        m for m in candidates
+        if m in _MODEL_EXHAUSTED_COOLDOWN_MAP and now_ts < _MODEL_EXHAUSTED_COOLDOWN_MAP[m]
+    ]
+
+    # 优先按顺序尝试可用模型；若所有模型都在冷却期，则按冷却到期时间尝试
+    if available_candidates:
+        models_to_try = available_candidates + cooling_candidates
+        if cooling_candidates and logger_obj:
+            logger_obj.info(
+                "模型 [%s] 处于配额耗尽冷却期，本次将优先尝试可用模型: [%s] | scene=%s",
+                ', '.join(cooling_candidates),
+                ', '.join(available_candidates),
+                scene_name,
+            )
+    else:
+        models_to_try = sorted(cooling_candidates, key=lambda m: _MODEL_EXHAUSTED_COOLDOWN_MAP.get(m, 0))
+
     mode_label = "JSON模式" if response_format else "纯文本模式"
     input_text = (
         f"[system]\n{safe_str(system_prompt)}\n"
         f"[user]\n{_serialize_ai_log_value(user_message_content)}"
     )
-    if logger_obj:
-        logger_obj.info(
-            "AI请求开始 | scene=%s | model=%s | mode=%s | max_tokens=%s | "
-            "temperature=%s | thinking=%s | input_chars=%d",
-            scene_name,
-            active_model,
-            mode_label,
-            max_tokens,
-            temperature,
-            thinking_enabled,
-            len(input_text),
-        )
-        if len(input_text) <= _AI_LOG_INPUT_MAX_CHARS:
-            logger_obj.info("AI输入完整内容 | scene=%s\n%s", scene_name, input_text)
-        else:
-            logger_obj.info(
-                "AI输入内容已省略 | scene=%s | input_chars=%d | log_limit=%d",
-                scene_name,
-                len(input_text),
-                _AI_LOG_INPUT_MAX_CHARS,
-            )
+
+    primary_model = candidates[0]
+    response = None
+    last_exc = None
+    request_start = time.time()
+
     try:
-        try:
-            response = openai_chat_create_with_thinking_control(
-                client=active_client,
-                create_kwargs=create_kwargs,
-                thinking_enabled=thinking_enabled,
-                logger=logger_obj,
-                scene_name=scene_name,
-            )
-        except Exception as exc:
-            err_text = safe_str(exc)
-            now_ts = time.time()
-            if 'PerDay' in err_text or 'generate_content_free_tier_requests' in err_text:
-                _MODEL_EXHAUSTED_COOLDOWN_MAP[active_model] = now_ts + 1800
+        for idx, current_model in enumerate(models_to_try):
+            # 确定客户端：若是首选模型且未独立配置 fallback base_url/key，使用原始 client；
+            # 若是备用模型且配置了 OPENAI_FALLBACK_BASE_URL 或 OPENAI_FALLBACK_API_KEY，切换对应 client
+            active_client = client
+            if current_model != primary_model or cfg.get('OPENAI_FALLBACK_BASE_URL') or cfg.get('OPENAI_FALLBACK_API_KEY'):
+                fb_cfg = dict(cfg)
+                fb_cfg['OPENAI_MODEL_NAME'] = current_model
+                if fb_cfg.get('OPENAI_FALLBACK_BASE_URL'):
+                    fb_cfg['OPENAI_BASE_URL'] = fb_cfg['OPENAI_FALLBACK_BASE_URL']
+                if fb_cfg.get('OPENAI_FALLBACK_API_KEY'):
+                    fb_cfg['OPENAI_API_KEY'] = fb_cfg['OPENAI_FALLBACK_API_KEY']
+                active_client = get_openai_client(fb_cfg)
 
-            is_failover_err = (
-                '429' in err_text or
-                'RateLimitError' in type(exc).__name__ or
-                'RESOURCE_EXHAUSTED' in err_text or
-                _is_timeout_like_error(exc) or
-                '500' in err_text or
-                '503' in err_text
-            )
+            create_kwargs = {
+                "model": current_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message_content},
+                ],
+                "temperature": temperature,
+            }
+            if max_tokens is not None:
+                # 为防止带思考能力的模型思考过程消耗 Token 导致输出在途中被截断，为请求提供至少 2048 Token 的预算
+                create_kwargs["max_tokens"] = max(max_tokens, 2048)
+            if response_format is not None:
+                create_kwargs["response_format"] = response_format
 
-            # 构建故障转移候选模型链：配置的 fallback_model -> 若仍不可用且为 Gemini，尝试稳定版 gemini-2.5-flash
-            candidates = []
-            if fallback_model and fallback_model != active_model:
-                candidates.append(fallback_model)
+            if logger_obj:
+                logger_obj.info(
+                    "AI请求开始 [%d/%d] | scene=%s | model=%s | mode=%s | max_tokens=%s | "
+                    "temperature=%s | thinking=%s | input_chars=%d",
+                    idx + 1,
+                    len(models_to_try),
+                    scene_name,
+                    current_model,
+                    mode_label,
+                    max_tokens,
+                    temperature,
+                    thinking_enabled,
+                    len(input_text),
+                )
+                if idx == 0:
+                    if len(input_text) <= _AI_LOG_INPUT_MAX_CHARS:
+                        logger_obj.info("AI输入完整内容 | scene=%s\n%s", scene_name, input_text)
+                    else:
+                        logger_obj.info(
+                            "AI输入内容已省略 | scene=%s | input_chars=%d | log_limit=%d",
+                            scene_name,
+                            len(input_text),
+                            _AI_LOG_INPUT_MAX_CHARS,
+                        )
 
-            client_base_url = safe_str(getattr(active_client, 'base_url', '')).lower()
-            is_gemini_endpoint = 'googleapis.com' in client_base_url or 'gemini' in active_model.lower()
-            if is_gemini_endpoint and 'gemini-2.5-flash' not in candidates and active_model != 'gemini-2.5-flash':
-                candidates.append('gemini-2.5-flash')
+            try:
+                response = openai_chat_create_with_thinking_control(
+                    client=active_client,
+                    create_kwargs=create_kwargs,
+                    thinking_enabled=thinking_enabled,
+                    logger=logger_obj,
+                    scene_name=f"{scene_name}_{current_model}",
+                )
+                # 调用成功，清理可能存在的冷却记录
+                if current_model in _MODEL_EXHAUSTED_COOLDOWN_MAP:
+                    _MODEL_EXHAUSTED_COOLDOWN_MAP.pop(current_model, None)
+                break
+            except Exception as exc:
+                last_exc = exc
+                err_text = safe_str(exc)
+                now_ts = time.time()
+                if (
+                    'PerDay' in err_text or
+                    'generate_content_free_tier_requests' in err_text or
+                    'RESOURCE_EXHAUSTED' in err_text or
+                    '429' in err_text
+                ):
+                    _MODEL_EXHAUSTED_COOLDOWN_MAP[current_model] = now_ts + 1800
 
-            response = None
-            last_exc = exc
-            if is_failover_err and candidates:
-                for candidate_model in candidates:
-                    if candidate_model in _MODEL_EXHAUSTED_COOLDOWN_MAP and now_ts < _MODEL_EXHAUSTED_COOLDOWN_MAP[candidate_model]:
-                        continue
+                has_next = (idx + 1 < len(models_to_try))
+                if has_next:
+                    next_model = models_to_try[idx + 1]
                     if logger_obj:
                         logger_obj.warning(
-                            "AI请求模型 %s 失败，正在自动故障转移切至备用模型 %s | scene=%s | 错误=%s: %s",
-                            active_model,
-                            candidate_model,
+                            "模型 %s 请求失败（原因: %s: %s），正在自动切换至下一个模型 %s... | scene=%s",
+                            current_model,
+                            exc.__class__.__name__,
+                            err_text,
+                            next_model,
                             scene_name,
-                            last_exc.__class__.__name__,
-                            safe_str(last_exc),
                         )
-                    fb_cfg = dict(cfg)
-                    fb_cfg['OPENAI_MODEL_NAME'] = candidate_model
-                    if fb_cfg.get('OPENAI_FALLBACK_BASE_URL'):
-                        fb_cfg['OPENAI_BASE_URL'] = fb_cfg['OPENAI_FALLBACK_BASE_URL']
-                    if fb_cfg.get('OPENAI_FALLBACK_API_KEY'):
-                        fb_cfg['OPENAI_API_KEY'] = fb_cfg['OPENAI_FALLBACK_API_KEY']
-
-                    fb_client = get_openai_client(fb_cfg)
-                    fb_create_kwargs = copy.deepcopy(create_kwargs)
-                    fb_create_kwargs['model'] = candidate_model
-                    try:
-                        response = openai_chat_create_with_thinking_control(
-                            client=fb_client,
-                            create_kwargs=fb_create_kwargs,
-                            thinking_enabled=thinking_enabled,
-                            logger=logger_obj,
-                            scene_name=f"{scene_name}_fallback_{candidate_model}",
+                else:
+                    if logger_obj:
+                        logger_obj.warning(
+                            "所有备选模型 (%s) 均尝试失败。最后失败模型 %s，错误: %s: %s | scene=%s",
+                            ', '.join(models_to_try),
+                            current_model,
+                            exc.__class__.__name__,
+                            err_text,
+                            scene_name,
                         )
-                        break
-                    except Exception as fb_exc:
-                        last_exc = fb_exc
-                        if 'PerDay' in safe_str(fb_exc) or 'generate_content_free_tier_requests' in safe_str(fb_exc):
-                            _MODEL_EXHAUSTED_COOLDOWN_MAP[candidate_model] = time.time() + 1800
-                        continue
 
-            if response is None:
-                raise last_exc
+        if response is None:
+            raise last_exc
         if logger_obj:
             choices = list(getattr(response, 'choices', None) or [])
             if not choices:
@@ -1153,6 +1324,7 @@ def _request_json_object(
     scene_name: str,
     user_content=None,
     text_fallback_parser: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None,
+    openai_config: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     try:
         response = _request_chat_completion(
@@ -1161,6 +1333,7 @@ def _request_json_object(
             thinking_enabled=thinking_enabled, logger_obj=logger_obj,
             scene_name=scene_name, user_content=user_content,
             response_format={"type": "json_object"},
+            openai_config=openai_config,
         )
     except Exception as exc:
         if _is_timeout_like_error(exc) or _is_response_format_unsupported_error(exc):
@@ -1174,6 +1347,7 @@ def _request_json_object(
                 thinking_enabled=thinking_enabled, logger_obj=logger_obj,
                 scene_name=f"{scene_name}_fallback_plain_json",
                 user_content=user_content,
+                openai_config=openai_config,
             )
         else:
             raise
@@ -1207,6 +1381,7 @@ def _request_json_object(
             thinking_enabled=thinking_enabled, logger_obj=logger_obj,
             scene_name=f"{scene_name}_retry_json",
             user_content=user_content,
+            openai_config=openai_config,
         )
     except Exception:
         pass
@@ -1246,6 +1421,7 @@ def _request_raw_text(
     logger_obj,
     scene_name: str,
     user_content=None,
+    openai_config: Optional[Dict[str, Any]] = None,
 ) -> str:
     """请求 LLM 返回原始文本（不做 JSON 解析），用于索引制分段等场景。"""
     response = _request_chat_completion(
@@ -1253,6 +1429,7 @@ def _request_raw_text(
         max_tokens=max_tokens, temperature=temperature,
         thinking_enabled=thinking_enabled, logger_obj=logger_obj,
         scene_name=scene_name, user_content=user_content,
+        openai_config=openai_config,
     )
     if not getattr(response, "choices", None):
         return ''
@@ -1308,6 +1485,7 @@ def generate_bilibili_title_description(
             logger_obj=logger,
             scene_name='ai_enhancer_generate_bilibili_title_description',
             text_fallback_parser=_parse_bilibili_title_description_text,
+            openai_config=config,
         )
     except Exception as exc:
         logger.exception("生成 B 站标题与简介失败")
@@ -1899,6 +2077,7 @@ def generate_acfun_tags(title, description, openai_config=None, task_id=None):
             thinking_enabled=openai_config.get('OPENAI_THINKING_ENABLED', False),
             logger_obj=logger,
             scene_name='ai_enhancer_tags',
+            openai_config=openai_config,
         )
         response_time = time.time() - start_time
         logger.info(f"标签生成完成，耗时: {response_time:.2f}秒")
@@ -2063,6 +2242,139 @@ def _rule_based_partition_fallback(title: str, description: str, partitions) -> 
             if matched:
                 return matched
     return None
+
+
+def _resolve_bilibili_partition(
+    partition_input: str,
+    zone_data=None,
+    title: str = '',
+    description: str = '',
+    fixed_pid: str = '',
+) -> Dict[str, Any]:
+    """将模型输出的分区名称或ID映射解析为标准 Bilibili 分区结构。"""
+    raw_str = safe_str(partition_input).strip()
+    if fixed_pid:
+        return {
+            'id': str(fixed_pid).strip(),
+            'name': '',
+            'source': 'fixed',
+            'confidence': 1.0,
+            'reason_summary': '命中固定分区配置',
+        }
+
+    partitions = flatten_bilibili_partitions(zone_data) if zone_data else []
+    if not partitions:
+        try:
+            from .bilibili_zones import get_zone_list_sub
+            partitions = flatten_bilibili_partitions(get_zone_list_sub())
+        except Exception:
+            partitions = []
+
+    if not partitions:
+        fallback_id = '266' if any(w in (title + description).lower() for w in ['直拍', '饭拍', 'fancam', 'stage']) else '21'
+        return {
+            'id': fallback_id,
+            'name': '',
+            'source': 'fallback',
+            'confidence': 0.5,
+            'reason_summary': '分区数据为空，兜底分配',
+        }
+
+    # 1. 直接是有效 TID 数字
+    clean_target = raw_str.strip('\"\'“”【】[]()（）')
+    if clean_target.isdigit():
+        for p in partitions:
+            if str(p.get('id')) == clean_target:
+                return {
+                    'id': clean_target,
+                    'name': p.get('name', ''),
+                    'source': 'ai',
+                    'confidence': 0.95,
+                    'reason_summary': f"匹配指定分区ID: {p.get('name', clean_target)}",
+                }
+
+    # 2. 如果包含层级路径，取最底级子分区，如 "音乐/音乐粉丝饭拍" -> "音乐粉丝饭拍"
+    sub_name = clean_target
+    for sep in ['/', '>', '->', '-', '\\']:
+        if sep in sub_name:
+            sub_name = sub_name.split(sep)[-1].strip()
+
+    # 3. 精准匹配子分区（具有父级的叶子分区优先）
+    if sub_name:
+        for p in partitions:
+            if p.get('parent_name') and p.get('name') == sub_name:
+                return {
+                    'id': str(p.get('id')),
+                    'name': p.get('name', ''),
+                    'source': 'ai',
+                    'confidence': 0.95,
+                    'reason_summary': f"精准匹配子分区: {p.get('name')}",
+                }
+        for p in partitions:
+            if p.get('name') == sub_name:
+                return {
+                    'id': str(p.get('id')),
+                    'name': p.get('name', ''),
+                    'source': 'ai',
+                    'confidence': 0.90,
+                    'reason_summary': f"匹配分区: {p.get('name')}",
+                }
+
+    # 4. 模糊包含匹配
+    if sub_name:
+        # 优先在二级子分区中模糊匹配
+        for p in partitions:
+            p_name = p.get('name', '')
+            if p.get('parent_name') and (sub_name in p_name or p_name in sub_name):
+                return {
+                    'id': str(p.get('id')),
+                    'name': p_name,
+                    'source': 'ai',
+                    'confidence': 0.85,
+                    'reason_summary': f"模糊匹配子分区: {p_name}",
+                }
+        for p in partitions:
+            p_name = p.get('name', '')
+            if sub_name in p_name or p_name in sub_name:
+                return {
+                    'id': str(p.get('id')),
+                    'name': p_name,
+                    'source': 'ai',
+                    'confidence': 0.80,
+                    'reason_summary': f"模糊匹配分区: {p_name}",
+                }
+
+    # 5. 基于规则词汇兜底
+    rule_id = _rule_based_partition_fallback(title, description, partitions)
+    if rule_id:
+        p_name = next((p.get('name', '') for p in partitions if str(p.get('id')) == str(rule_id)), '')
+        return {
+            'id': str(rule_id),
+            'name': p_name,
+            'source': 'rule',
+            'confidence': 0.70,
+            'reason_summary': f"规则关键词推断: {p_name or rule_id}",
+        }
+
+    # 6. 默认保底分区（饭拍/音乐 -> 266 音乐粉丝饭拍；其他 -> 21 日常）
+    text_lower = (title + ' ' + description).lower()
+    if any(w in text_lower for w in ['直拍', '饭拍', 'fancam', 'stage', '打歌', '演唱会']):
+        default_id = '266'
+        default_name = '音乐粉丝饭拍'
+    elif any(w in text_lower for w in ['dance', '舞蹈', '跳舞', '编舞', '翻跳']):
+        default_id = '199'
+        default_name = '明星舞蹈'
+    else:
+        default_id = '21'
+        default_name = '日常'
+
+    return {
+        'id': default_id,
+        'name': default_name,
+        'source': 'fallback',
+        'confidence': 0.50,
+        'reason_summary': f"默认兜底分区: {default_name}",
+    }
 
 
 _PARTITION_CANDIDATE_DESCRIPTION_LIMIT = 144
@@ -2564,6 +2876,7 @@ def _request_partition_selection(
         thinking_enabled=openai_config.get('OPENAI_THINKING_ENABLED', False),
         logger_obj=logger,
         scene_name=scene_name,
+        openai_config=openai_config,
     )
 
     parsed = parsed if isinstance(parsed, dict) else {}
@@ -2906,3 +3219,133 @@ def recommend_acfun_partition(
         include_cover_for_ai=include_cover_for_ai,
     )
     return result_map.get("acfun", _make_partition_selection())
+
+
+def generate_bilibili_metadata_unified(
+    source_metadata: Mapping[str, Any],
+    *,
+    current_metadata: Optional[Mapping[str, Any]] = None,
+    openai_config=None,
+    task_id=None,
+    zone_data=None,
+    title_limit: int = 80,
+    description_limit: int = 2000,
+) -> Dict[str, Any]:
+    """单次请求 LLM 统一生成 B 站 4 个字段：标题、简介、分区、标签。"""
+    logger = setup_task_logger(task_id or "unknown")
+    config = dict(openai_config or {})
+    if not str(config.get('OPENAI_API_KEY') or '').strip():
+        return {'success': False, 'error_message': 'OpenAI API 密钥未配置'}
+
+    model_name = str(config.get('OPENAI_MODEL_NAME') or 'gpt-3.5-turbo').strip()
+    src = dict(source_metadata or {})
+    cur = dict(current_metadata or {})
+
+    video_url = src.get('webpage_url') or cur.get('youtube_url') or src.get('url') or ''
+    orig_title = src.get('title') or cur.get('video_title_original') or ''
+    orig_desc = src.get('description') or cur.get('description_original') or ''
+    channel = src.get('channel') or src.get('uploader') or ''
+    duration = src.get('duration_string') or str(src.get('duration') or '')
+
+    # 构建上下文信息
+    user_prompt_lines = [
+        f"视频链接（仅作主题参考）：**{video_url}**",
+        "",
+        "【上下文信息】",
+        f"- 原始标题：{orig_title}",
+    ]
+    if channel:
+        user_prompt_lines.append(f"- 频道名称：{channel}")
+    if duration:
+        user_prompt_lines.append(f"- 视频时长：{duration}")
+    if orig_desc:
+        user_prompt_lines.append(f"- 原始描述：\n{orig_desc[:1200]}")
+    if cur.get('video_title_current'):
+        user_prompt_lines.append(f"- 当前已输入标题：{cur.get('video_title_current')}")
+    if cur.get('description_current'):
+        user_prompt_lines.append(f"- 当前已输入简介：{cur.get('description_current')}")
+
+    user_prompt_lines.extend([
+        "",
+        "请严格按指定格式输出 4 个字段（标题、简介、分区、标签）：",
+    ])
+    user_content = '\n'.join(user_prompt_lines)
+
+    payload = {
+        'video_url': video_url,
+        'title_limit': title_limit,
+        'description_limit': description_limit,
+    }
+
+    try:
+        response = _request_chat_completion(
+            client=get_openai_client(config),
+            model_name=model_name,
+            system_prompt=UNIFIED_BILIBILI_METADATA_SYSTEM_PROMPT,
+            payload=payload,
+            user_content=user_content,
+            max_tokens=4096,
+            temperature=0.6,
+            thinking_enabled=bool(config.get('OPENAI_THINKING_ENABLED', False)),
+            logger_obj=logger,
+            scene_name='ai_enhancer_generate_bilibili_metadata_unified',
+            openai_config=config,
+        )
+    except Exception as exc:
+        logger.exception("统一生成 B 站元数据请求失败")
+        return {'success': False, 'error_message': safe_str(exc) or exc.__class__.__name__}
+
+    if not getattr(response, "choices", None):
+        logger.warning("模型返回空 choices")
+        return {'success': False, 'error_message': '模型返回空响应'}
+
+    raw_text = get_chat_message_text(response.choices[0].message)
+    parsed = _parse_unified_bilibili_metadata_text(raw_text)
+    if not parsed:
+        logger.warning("无法解析模型返回的统一元数据文本:\n%s", raw_text[:500])
+        return {'success': False, 'error_message': '模型返回内容无法解析为有效的元数据'}
+
+    raw_title = parsed.get('title', '')
+    raw_desc = parsed.get('description', '')
+    raw_partition = parsed.get('partition', '')
+    tags = parsed.get('tags', [])
+
+    title = _normalize_whitespace(safe_str(raw_title)).replace('\n', ' ').strip()
+    description = _normalize_whitespace(safe_str(raw_desc)).strip()
+    title = _apply_output_limits(title, content_type='title', logger=logger, title_limit=title_limit)
+    description = _apply_output_limits(description, content_type='description', logger=logger, description_limit=description_limit)
+
+    fixed_pid = str(config.get('FIXED_PARTITION_ID_BILIBILI') or '').strip()
+    partition_selection = _resolve_bilibili_partition(
+        raw_partition,
+        zone_data=zone_data,
+        title=title,
+        description=description,
+        fixed_pid=fixed_pid,
+    )
+
+    tags = tags[:12]
+
+    missing = []
+    if not title:
+        missing.append('标题')
+    if not description:
+        missing.append('简介')
+    if missing:
+        return {
+            'success': False,
+            'error_message': f"AI 返回结果缺少{'、'.join(missing)}",
+        }
+
+    return {
+        'success': True,
+        'title': title,
+        'description': description,
+        'partition': partition_selection,
+        'partitions': {
+            'bilibili': partition_selection,
+        },
+        'tags': tags,
+        'raw_response': raw_text,
+    }
+

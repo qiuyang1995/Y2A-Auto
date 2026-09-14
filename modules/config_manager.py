@@ -4,6 +4,8 @@
 import os
 import json
 import logging
+import shutil
+import time
 from .utils import get_app_subdir
 from .speech_pipeline_settings import (
     inject_speech_pipeline_defaults,
@@ -442,6 +444,13 @@ def load_config():
                 return config
     except (json.JSONDecodeError, FileNotFoundError, PermissionError) as e:
         logger.warning(f"读取配置文件时出错: {str(e)}")
+        if isinstance(e, json.JSONDecodeError) and os.path.exists(config_path):
+            backup_path = f"{config_path}.corrupted.{int(time.time())}"
+            try:
+                shutil.copy2(config_path, backup_path)
+                logger.warning(f"检测到损坏的配置文件，已自动备份至: {backup_path}")
+            except Exception as backup_err:
+                logger.error(f"备份损坏的配置文件失败: {backup_err}")
     
     # 如果配置文件不存在或读取失败，创建默认配置
     logger.info("使用默认配置并创建配置文件")
@@ -450,7 +459,7 @@ def load_config():
 
 def save_config(config, config_path=None):
     """
-    保存配置到文件
+    保存配置到文件（原子写入）
     
     Args:
         config (dict): 配置字典
@@ -465,13 +474,20 @@ def save_config(config, config_path=None):
     # 确保config目录存在
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
     
+    temp_file = f"{config_path}.tmp.{os.getpid()}"
     try:
-        with open(config_path, 'w', encoding='utf-8') as f:
+        with open(temp_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=4)
+        os.replace(temp_file, config_path)
         logger.info("配置已保存到文件")
         return True
     except Exception as e:
         logger.error(f"保存配置文件时出错: {str(e)}")
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except OSError:
+                pass
         return False
 
 def update_config(new_config):
