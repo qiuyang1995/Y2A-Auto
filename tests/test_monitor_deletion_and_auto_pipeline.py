@@ -119,5 +119,42 @@ class TestMonitorDeletionAndAutoPipeline(unittest.TestCase):
         delete_task(task_id)
 
 
+    @patch('modules.youtube_monitor.add_task')
+    def test_batch_add_to_tasks(self, mock_add_task):
+        """测试批量添加监控记录到任务队列"""
+        mock_add_task.side_effect = lambda url, **kwargs: f"task_{url.split('=')[-1]}"
+
+        conn = sqlite3.connect(self.test_db)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO monitor_history (id, config_id, video_id, video_title, channel_title, added_to_tasks)
+            VALUES (201, 1, 'vid_201', '标题201', '频道1', 0),
+                   (202, 1, 'vid_202', '标题202', '频道2', 1),
+                   (203, 1, 'vid_203', '标题203', '频道3', 0)
+        """)
+        conn.commit()
+        conn.close()
+
+        # 批量添加 201, 202 (已添加过的), 203
+        ok, msg, added_ids = self.monitor.batch_add_to_tasks([201, 202, 203])
+        self.assertTrue(ok)
+        self.assertEqual(len(added_ids), 2)
+        self.assertEqual(sorted(added_ids), [201, 203])
+        self.assertEqual(mock_add_task.call_count, 2)
+
+        # 检查数据库状态更新
+        conn = sqlite3.connect(self.test_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, added_to_tasks FROM monitor_history ORDER BY id")
+        rows = cursor.fetchall()
+        conn.close()
+        self.assertEqual(rows, [(201, 1), (202, 1), (203, 1)])
+
+        # 再次调用，应该全部已添加，添加数为0
+        ok2, msg2, added_ids2 = self.monitor.batch_add_to_tasks([201, 203])
+        self.assertTrue(ok2)
+        self.assertEqual(len(added_ids2), 0)
+
+
 if __name__ == '__main__':
     unittest.main()

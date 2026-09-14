@@ -115,4 +115,159 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-}); 
+});
+
+// ==========================================================================
+// 全局 Popconfirm 气泡确认框组件
+// ==========================================================================
+let _activePopconfirm = null;
+
+window.closeActivePopconfirm = function() {
+    if (_activePopconfirm && _activePopconfirm.bubble) {
+        if (_activePopconfirm.bubble.parentNode) {
+            _activePopconfirm.bubble.parentNode.removeChild(_activePopconfirm.bubble);
+        }
+        if (typeof _activePopconfirm.onClose === 'function') {
+            _activePopconfirm.onClose();
+        }
+        _activePopconfirm = null;
+    }
+};
+
+document.addEventListener('click', function(e) {
+    if (_activePopconfirm && _activePopconfirm.bubble) {
+        if (!_activePopconfirm.bubble.contains(e.target) && !_activePopconfirm.trigger.contains(e.target)) {
+            window.closeActivePopconfirm();
+        }
+    }
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        window.closeActivePopconfirm();
+    }
+});
+
+window.addEventListener('scroll', function() {
+    if (_activePopconfirm) {
+        window.closeActivePopconfirm();
+    }
+}, true);
+
+window.showPopconfirm = function(triggerEl, options) {
+    if (!triggerEl) return;
+
+    // 如果点击的是当前已打开的气泡触发按钮，则关闭它
+    if (_activePopconfirm && _activePopconfirm.trigger === triggerEl) {
+        window.closeActivePopconfirm();
+        return;
+    }
+    window.closeActivePopconfirm();
+
+    options = options || {};
+    const title = options.title || '确定执行此操作吗？';
+    const description = options.description || '';
+    const okText = options.okText || '确定';
+    const cancelText = options.cancelText || '取消';
+    const okClass = options.okClass || 'btn-success';
+    const iconClass = options.iconClass || 'bi-question-circle-fill text-warning';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'popconfirm-bubble';
+    bubble.innerHTML = `
+        <div class="popconfirm-content">
+            <div class="popconfirm-message">
+                <i class="bi ${iconClass}"></i>
+                <div class="popconfirm-text">
+                    <div class="popconfirm-title">${title}</div>
+                    ${description ? `<div class="popconfirm-desc">${description}</div>` : ''}
+                </div>
+            </div>
+            <div class="popconfirm-actions">
+                <button type="button" class="btn btn-light btn-sm popconfirm-cancel-btn">${cancelText}</button>
+                <button type="button" class="btn ${okClass} btn-sm popconfirm-ok-btn">${okText}</button>
+            </div>
+        </div>
+        <div class="popconfirm-arrow"></div>
+    `;
+
+    document.body.appendChild(bubble);
+
+    const cancelBtn = bubble.querySelector('.popconfirm-cancel-btn');
+    const okBtn = bubble.querySelector('.popconfirm-ok-btn');
+
+    cancelBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        window.closeActivePopconfirm();
+    });
+
+    okBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (typeof options.onConfirm === 'function') {
+            const originalHtml = okBtn.innerHTML;
+            okBtn.disabled = true;
+            okBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            cancelBtn.disabled = true;
+
+            Promise.resolve(options.onConfirm(okBtn, cancelBtn))
+                .then(function(shouldClose) {
+                    if (shouldClose !== false) {
+                        window.closeActivePopconfirm();
+                    } else {
+                        okBtn.disabled = false;
+                        okBtn.innerHTML = originalHtml;
+                        cancelBtn.disabled = false;
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Popconfirm action error:', err);
+                    okBtn.disabled = false;
+                    okBtn.innerHTML = originalHtml;
+                    cancelBtn.disabled = false;
+                });
+        } else {
+            window.closeActivePopconfirm();
+        }
+    });
+
+    // 计算定位
+    const triggerRect = triggerEl.getBoundingClientRect();
+    const bubbleRect = bubble.getBoundingClientRect();
+    const arrow = bubble.querySelector('.popconfirm-arrow');
+
+    const margin = 8;
+    const placeTop = triggerRect.top >= bubbleRect.height + margin + 12;
+
+    const top = placeTop 
+        ? triggerRect.top - bubbleRect.height - margin 
+        : triggerRect.bottom + margin;
+
+    let left = triggerRect.left + (triggerRect.width / 2) - (bubbleRect.width / 2);
+
+    // 视口边缘防溢出
+    const minLeft = 12;
+    const maxLeft = window.innerWidth - bubbleRect.width - 12;
+    if (left < minLeft) left = minLeft;
+    if (left > maxLeft) left = maxLeft;
+
+    bubble.style.top = `${top}px`;
+    bubble.style.left = `${left}px`;
+
+    if (placeTop) {
+        bubble.classList.add('popconfirm-placement-top');
+    } else {
+        bubble.classList.add('popconfirm-placement-bottom');
+    }
+
+    if (arrow) {
+        const arrowLeft = triggerRect.left + (triggerRect.width / 2) - left - 5;
+        arrow.style.left = `${Math.max(12, Math.min(arrowLeft, bubbleRect.width - 22))}px`;
+    }
+
+    _activePopconfirm = {
+        trigger: triggerEl,
+        bubble: bubble,
+        onClose: options.onClose
+    };
+};
+ 

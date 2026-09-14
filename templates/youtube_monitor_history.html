@@ -102,7 +102,10 @@
             <i class="bi bi-pencil"></i> 编辑配置
         </a>
         {% if history %}
-        <button type="button" class="btn btn-outline-danger" id="batchDeleteBtn" onclick="batchDeleteRecords()" disabled>
+        <button type="button" class="btn btn-outline-success" id="batchAddBtn" onclick="confirmBatchAdd(this)" disabled>
+            <i class="bi bi-plus-circle"></i> 批量添加到队列 (<span id="selectedAddCount">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-danger" id="batchDeleteBtn" onclick="confirmBatchDelete(this)" disabled>
             <i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">0</span>)
         </button>
         <form method="POST" action="{{ url_for('youtube_monitor_clear_history', config_id=config.id) }}" class="d-inline" onsubmit="return confirm('确定要清除该配置的所有历史记录吗？此操作不可恢复！')">
@@ -140,7 +143,7 @@
             {% for record in history %}
             <tr id="history-row-{{ record.id }}">
                 <td class="text-center align-middle">
-                    <input type="checkbox" class="form-check-input record-checkbox" value="{{ record.id }}" onchange="updateSelectedCount()">
+                    <input type="checkbox" class="form-check-input record-checkbox" value="{{ record.id }}" data-added="{{ '1' if record.added_to_tasks else '0' }}" onchange="updateSelectedCount()">
                 </td>
                 <td>
                     <small>{{ record.run_time }}</small>
@@ -207,14 +210,14 @@
                             <i class="bi bi-youtube"></i>
                         </a>
                         {% if not record.added_to_tasks %}
-                        <button type="button" class="btn btn-outline-success btn-sm" 
-                                onclick="addToTasks('{{ record.video_id }}', '{{ config.id }}')" 
+                        <button type="button" class="btn btn-outline-success btn-sm btn-add-task" 
+                                onclick="confirmSingleAdd(this, '{{ record.video_id }}', '{{ config.id }}')" 
                                 title="添加到任务队列">
                             <i class="bi bi-plus-circle"></i>
                         </button>
                         {% endif %}
                         <button type="button" class="btn btn-outline-danger btn-sm"
-                                onclick="deleteSingleRecord('{{ record.id }}', {{ record.video_title|tojson }})"
+                                onclick="confirmSingleDelete(this, '{{ record.id }}', {{ record.video_title|tojson }})"
                                 title="删除记录">
                             <i class="bi bi-trash"></i>
                         </button>
@@ -389,60 +392,141 @@ function bindMonitorRunForms() {
     });
 }
 
+function confirmSingleAdd(button, videoId, configId) {
+    window.showPopconfirm(button, {
+        title: '确定要添加到任务队列吗？',
+        description: '添加后将自动执行下载与发布流水线',
+        okText: '确定添加',
+        cancelText: '取消',
+        okClass: 'btn-success',
+        onConfirm: function() {
+            return fetch('/youtube_monitor/add_to_tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_id: videoId,
+                    config_id: parseInt(configId)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    button.style.display = 'none';
+                    const tr = button.closest('tr');
+                    if (tr) {
+                        const statusCell = tr.querySelector('td:nth-last-child(2)');
+                        if (statusCell) {
+                            statusCell.innerHTML = '<span class="badge bg-success">已添加</span>';
+                        }
+                        const cb = tr.querySelector('.record-checkbox');
+                        if (cb) {
+                            cb.dataset.added = '1';
+                        }
+                    }
+                    updateSelectedCount();
+                    showAlert('success', data.message || '已成功添加到任务队列');
+                    return true;
+                } else {
+                    showAlert('danger', data.message || '添加失败');
+                    return false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', '操作失败，请重试');
+                return false;
+            });
+        }
+    });
+}
+
 function addToTasks(videoId, configId) {
-    if (!confirm('确定要将此视频添加到任务队列吗？')) {
+    const btn = event ? event.target.closest('button') : null;
+    if (btn) {
+        confirmSingleAdd(btn, videoId, configId);
+    }
+}
+
+function confirmBatchAdd(triggerBtn) {
+    const checked = Array.from(document.querySelectorAll('.record-checkbox:checked'));
+    const unadded = checked.filter(cb => cb.dataset.added !== '1');
+    if (unadded.length === 0) {
+        showAlert('warning', '选中的记录均已在任务队列中，无需重复添加');
         return;
     }
-    
-    const button = event.target.closest('button');
-    const originalHtml = button.innerHTML;
-    button.disabled = true;
-    button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
-    
-    fetch('/youtube_monitor/add_to_tasks', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            video_id: videoId,
-            config_id: parseInt(configId)
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // 成功后隐藏按钮并更新状态
-            button.style.display = 'none';
-            const statusCell = button.closest('tr').querySelector('td:nth-last-child(2)');
-            statusCell.innerHTML = '<span class="badge bg-success">已添加</span>';
-            
-            // 显示成功消息
-            showAlert('success', data.message);
-        } else {
-            // 失败后恢复按钮
-            button.disabled = false;
-            button.innerHTML = originalHtml;
-            showAlert('danger', data.message);
+    const recordIds = unadded.map(cb => cb.value);
+
+    window.showPopconfirm(triggerBtn, {
+        title: `确定将选中的 ${recordIds.length} 个视频添加到任务队列？`,
+        description: '添加后将自动执行下载与发布流水线',
+        okText: '批量添加',
+        cancelText: '取消',
+        okClass: 'btn-success',
+        onConfirm: function() {
+            return fetch('/youtube_monitor/batch_add_to_tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ record_ids: recordIds })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const addedSet = new Set((data.added_record_ids || []).map(String));
+                    recordIds.forEach(id => {
+                        if (addedSet.size === 0 || addedSet.has(String(id))) {
+                            const tr = document.getElementById(`history-row-${id}`);
+                            if (tr) {
+                                const addBtn = tr.querySelector('.btn-add-task');
+                                if (addBtn) addBtn.style.display = 'none';
+                                const statusCell = tr.querySelector('td:nth-last-child(2)');
+                                if (statusCell) {
+                                    statusCell.innerHTML = '<span class="badge bg-success">已添加</span>';
+                                }
+                                const cb = tr.querySelector('.record-checkbox');
+                                if (cb) {
+                                    cb.dataset.added = '1';
+                                    cb.checked = false;
+                                }
+                            }
+                        }
+                    });
+                    const selectAll = document.getElementById('selectAllHistory');
+                    if (selectAll) selectAll.checked = false;
+                    updateSelectedCount();
+                    showAlert('success', data.message || `成功添加 ${recordIds.length} 个视频到任务队列`);
+                    return true;
+                } else {
+                    showAlert('danger', data.message || '批量添加失败');
+                    return false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', '请求异常，请稍后重试');
+                return false;
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        button.disabled = false;
-        button.innerHTML = originalHtml;
-        showAlert('danger', '操作失败，请重试');
     });
 }
 
 function updateSelectedCount() {
     const checkboxes = document.querySelectorAll('.record-checkbox');
     const checked = document.querySelectorAll('.record-checkbox:checked');
+    const unaddedChecked = Array.from(checked).filter(cb => cb.dataset.added !== '1');
     const countSpan = document.getElementById('selectedCount');
-    const batchBtn = document.getElementById('batchDeleteBtn');
+    const addCountSpan = document.getElementById('selectedAddCount');
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    const batchAddBtn = document.getElementById('batchAddBtn');
     const selectAll = document.getElementById('selectAllHistory');
     
     if (countSpan) countSpan.textContent = checked.length;
-    if (batchBtn) batchBtn.disabled = (checked.length === 0);
+    if (addCountSpan) addCountSpan.textContent = unaddedChecked.length;
+    if (batchDeleteBtn) batchDeleteBtn.disabled = (checked.length === 0);
+    if (batchAddBtn) batchAddBtn.disabled = (unaddedChecked.length === 0);
     if (selectAll) {
         selectAll.checked = (checkboxes.length > 0 && checked.length === checkboxes.length);
         selectAll.indeterminate = (checked.length > 0 && checked.length < checkboxes.length);
@@ -460,88 +544,104 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function deleteSingleRecord(recordId, title) {
+function confirmSingleDelete(button, recordId, title) {
     const displayName = title ? `"${title}"` : '该记录';
-    if (!confirm(`确定要删除 ${displayName} 吗？`)) {
-        return;
-    }
-    
-    fetch('/youtube_monitor/history/delete', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ record_ids: [recordId] })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('success', data.message || '删除成功');
-            const row = document.getElementById(`history-row-${recordId}`);
-            if (row) {
-                row.remove();
-            } else {
-                window.location.reload();
-            }
-            updateSelectedCount();
-        } else {
-            showAlert('danger', data.message || '删除失败');
+    window.showPopconfirm(button, {
+        title: `确定要删除 ${displayName} 吗？`,
+        description: '此操作不可恢复',
+        okText: '确定删除',
+        cancelText: '取消',
+        okClass: 'btn-danger',
+        iconClass: 'bi-exclamation-triangle-fill text-danger',
+        onConfirm: function() {
+            return fetch('/youtube_monitor/history/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ record_ids: [recordId] })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message || '删除成功');
+                    const row = document.getElementById(`history-row-${recordId}`);
+                    if (row) {
+                        row.remove();
+                    } else {
+                        window.location.reload();
+                    }
+                    updateSelectedCount();
+                    return true;
+                } else {
+                    showAlert('danger', data.message || '删除失败');
+                    return false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', '删除请求出错，请稍后重试');
+                return false;
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('danger', '删除请求出错，请稍后重试');
     });
 }
 
-function batchDeleteRecords() {
+function deleteSingleRecord(recordId, title) {
+    const btn = event ? event.target.closest('button') : null;
+    if (btn) {
+        confirmSingleDelete(btn, recordId, title);
+    }
+}
+
+function confirmBatchDelete(triggerBtn) {
     const checked = document.querySelectorAll('.record-checkbox:checked');
     const ids = Array.from(checked).map(cb => cb.value);
     if (ids.length === 0) {
         showAlert('warning', '请先勾选需要删除的记录');
         return;
     }
-    
-    if (!confirm(`确定要批量删除选中的 ${ids.length} 条监控记录吗？此操作不可恢复！`)) {
-        return;
-    }
-    
-    const batchBtn = document.getElementById('batchDeleteBtn');
-    if (batchBtn) {
-        batchBtn.disabled = true;
-        batchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>正在删除...';
-    }
-    
-    fetch('/youtube_monitor/history/delete', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ record_ids: ids })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('success', data.message || '批量删除成功');
-            setTimeout(() => {
-                window.location.reload();
-            }, 800);
-        } else {
-            if (batchBtn) {
-                batchBtn.disabled = false;
-                batchBtn.innerHTML = `<i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">${ids.length}</span>)`;
-            }
-            showAlert('danger', data.message || '批量删除失败');
+
+    window.showPopconfirm(triggerBtn, {
+        title: `确定要批量删除选中的 ${ids.length} 条监控记录吗？`,
+        description: '此操作不可恢复',
+        okText: '批量删除',
+        cancelText: '取消',
+        okClass: 'btn-danger',
+        iconClass: 'bi-exclamation-triangle-fill text-danger',
+        onConfirm: function() {
+            return fetch('/youtube_monitor/history/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ record_ids: ids })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message || '批量删除成功');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 600);
+                    return true;
+                } else {
+                    showAlert('danger', data.message || '批量删除失败');
+                    return false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', '请求异常，请稍后重试');
+                return false;
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        if (batchBtn) {
-            batchBtn.disabled = false;
-            batchBtn.innerHTML = `<i class="bi bi-trash"></i> 批量删除 (<span id="selectedCount">${ids.length}</span>)`;
-        }
-        showAlert('danger', '批量删除请求出错，请稍后重试');
     });
+}
+
+function batchDeleteRecords() {
+    const btn = document.getElementById('batchDeleteBtn');
+    if (btn) confirmBatchDelete(btn);
 }
 
 function showAlert(type, message) {

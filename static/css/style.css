@@ -805,3 +805,107 @@ body.login-fullscreen {
     .navbar .container { padding-left: 0.75rem; padding-right: 0.75rem; }
     .settings-container { padding: 18px; }
 }
+
+/* --------------------------------------------------------------------------
+   11. Popconfirm 气泡确认框样式
+   -------------------------------------------------------------------------- */
+.popconfirm-bubble {
+    position: fixed;
+    z-index: 1080;
+    background: #ffffff;
+    border-radius: var(--radius-md, 10px);
+    box-shadow: 0 10px 30px -4px rgba(15, 23, 42, 0.18), 0 4px 10px -2px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    padding: 14px 16px 12px;
+    width: max-content;
+    min-width: 210px;
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.5;
+    animation: popconfirmFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popconfirmFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.popconfirm-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.popconfirm-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    color: var(--text-main, #0f172a);
+}
+
+.popconfirm-message i {
+    font-size: 17px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.popconfirm-text {
+    flex: 1;
+}
+
+.popconfirm-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-main, #0f172a);
+    word-break: break-word;
+}
+
+.popconfirm-desc {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+    margin-top: 2px;
+    word-break: break-word;
+}
+
+.popconfirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.popconfirm-actions .btn {
+    padding: 0.22rem 0.65rem;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: var(--radius-sm, 6px);
+}
+
+.popconfirm-arrow {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #ffffff;
+    transform: rotate(45deg);
+    pointer-events: none;
+}
+
+.popconfirm-bubble.popconfirm-placement-top .popconfirm-arrow {
+    bottom: -5px;
+    border-right: 1px solid rgba(226, 232, 240, 0.95);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+}
+
+.popconfirm-bubble.popconfirm-placement-bottom .popconfirm-arrow {
+    top: -5px;
+    border-left: 1px solid rgba(226, 232, 240, 0.95);
+    border-top: 1px solid rgba(226, 232, 240, 0.95);
+}
+

@@ -1803,6 +1803,94 @@ class YouTubeMonitor:
                 logger.error(f"添加视频到任务队列失败: {video_info['title']}")
                 return False, "添加到任务队列失败"
     
+    def batch_add_to_tasks(self, record_ids):
+        """批量将选中的监控历史记录视频添加到任务队列"""
+        if not record_ids:
+            return False, "未指定要添加的监控记录", []
+
+        clean_ids = []
+        for rid in record_ids:
+            try:
+                clean_ids.append(int(rid))
+            except (ValueError, TypeError):
+                continue
+
+        if not clean_ids:
+            return False, "记录ID格式无效", []
+
+        # 检查自动启动配置
+        auto_start = False
+        try:
+            from flask import current_app
+            if hasattr(current_app, 'config') and 'Y2A_SETTINGS' in current_app.config:
+                auto_start = current_app.config['Y2A_SETTINGS'].get('AUTO_MODE_ENABLED', False)
+        except (ImportError, RuntimeError):
+            try:
+                cfg = load_config() or {}
+                auto_start = cfg.get('AUTO_MODE_ENABLED', False)
+            except Exception as e:
+                logger.warning(f"读取配置文件失败: {str(e)}")
+
+        added_record_ids = []
+        already_count = 0
+        failed_count = 0
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            placeholders = ','.join('?' for _ in clean_ids)
+            cursor.execute(f'''
+                SELECT id, video_id, config_id, video_title, channel_title, view_count, like_count, 
+                       comment_count, duration, published_at, added_to_tasks
+                FROM monitor_history 
+                WHERE id IN ({placeholders})
+            ''', clean_ids)
+            rows = cursor.fetchall()
+
+            if not rows:
+                return False, "未找到对应的记录", []
+
+            for row in rows:
+                rec_id = row[0]
+                video_id = row[1]
+                config_id = row[2]
+                title = row[3]
+                added_to_tasks = row[10]
+
+                if added_to_tasks:
+                    already_count += 1
+                    continue
+
+                video_info = {
+                    'id': video_id,
+                    'title': title,
+                    'channel_title': row[4],
+                    'view_count': row[5],
+                    'like_count': row[6],
+                    'comment_count': row[7],
+                    'duration': row[8],
+                    'published_at': row[9]
+                }
+
+                try:
+                    task_id = self._add_video_to_tasks(video_info, auto_start=auto_start, auto_pipeline=True)
+                    if task_id:
+                        self._mark_video_added_to_tasks(video_id, config_id)
+                        added_record_ids.append(rec_id)
+                        logger.info(f"批量添加成功: {title} (ID: {rec_id}, 任务ID: {task_id})")
+                    else:
+                        failed_count += 1
+                except Exception as e:
+                    logger.error(f"批量添加任务异常: {title}, 错误: {e}")
+                    failed_count += 1
+
+        msg = f"成功添加 {len(added_record_ids)} 个视频到任务队列"
+        if already_count > 0:
+            msg += f"（{already_count} 个此前已在队列中）"
+        if failed_count > 0:
+            msg += f"（{failed_count} 个添加失败）"
+
+        return True, msg, added_record_ids
+
     def _mark_video_added_to_tasks(self, video_id, config_id):
         """标记视频已添加到任务队列"""
         with sqlite3.connect(self.db_path) as conn:

@@ -3929,6 +3929,34 @@ def youtube_monitor_add_to_tasks():
     else:
         return jsonify({'success': False, 'message': message}), 400
 
+@app.route('/youtube_monitor/batch_add_to_tasks', methods=['POST'])
+@login_required
+def youtube_monitor_batch_add_to_tasks():
+    """批量从监控历史中添加视频到任务队列"""
+    data = request.get_json(silent=True) or {}
+    record_ids = data.get('record_ids')
+    if not record_ids:
+        record_ids = request.form.getlist('record_ids') or request.form.get('record_ids')
+
+    if not record_ids:
+        return jsonify({'success': False, 'message': '未选择要添加的视频记录'}), 400
+
+    if isinstance(record_ids, (int, str)):
+        if isinstance(record_ids, str) and ',' in record_ids:
+            record_ids = [r.strip() for r in record_ids.split(',') if r.strip()]
+        else:
+            record_ids = [record_ids]
+
+    success, message, added_ids = youtube_monitor.batch_add_to_tasks(record_ids)
+    if success:
+        return jsonify({
+            'success': True,
+            'message': message,
+            'added_record_ids': added_ids,
+        })
+    else:
+        return jsonify({'success': False, 'message': message}), 400
+
 @app.route('/youtube_monitor/history/delete', methods=['POST'])
 @login_required
 def youtube_monitor_delete_history():
