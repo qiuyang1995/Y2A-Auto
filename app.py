@@ -30,7 +30,7 @@ from modules.config_manager import (
     update_config,
 )
 from modules.whisper_languages import WHISPER_LANGUAGE_LIST
-from modules.task_manager import add_task, start_task, get_task, get_tasks_paginated, get_tasks_by_status, update_task, delete_task, force_upload_task, TASK_STATES, clear_all_tasks, retry_failed_tasks, register_task_updates_listener, unregister_task_updates_listener, resolve_cookie_file_path
+from modules.task_manager import add_task, start_task, get_task, get_tasks_paginated, get_tasks_by_status, update_task, delete_task, force_upload_task, TASK_STATES, PROCESSING_STATES, clear_all_tasks, retry_failed_tasks, register_task_updates_listener, unregister_task_updates_listener, resolve_cookie_file_path, get_task_status_counts
 from modules.acfun_auth import AcfunQrLoginSession
 from modules.bilibili_auth import BilibiliQrLoginSession
 from queue import Empty
@@ -1754,18 +1754,38 @@ def tasks():
     """任务列表页面"""
     logger.info("访问任务列表页面")
     
-    # 获取分页参数
+    # 获取分页与状态筛选参数
     page = request.args.get('page', 1, type=int)
-    per_page = 20  # 每页显示20条记录
-    
-    # 获取分页数据
-    pagination_data = get_tasks_paginated(page=page, per_page=per_page)
+    per_page = request.args.get('per_page', 20, type=int)
+    if per_page not in (10, 20, 50, 100):
+        per_page = 20
+    status = request.args.get('status', 'all').strip()
+    if not status:
+        status = 'all'
+
+    # 获取分页数据与各状态计数
+    pagination_data = get_tasks_paginated(page=page, per_page=per_page, status=status)
+    status_counts = get_task_status_counts()
     config = load_config()
+
+    status_labels = {
+        'all': '全部',
+        'pending': '等待中',
+        'processing': '处理中',
+        'awaiting_manual_review': '待审核',
+        'ready_for_upload': '准备上传',
+        'completed': '已完成',
+        'failed': '失败',
+    }
+    current_status_label = status_labels.get(status, task_status_display(status) if 'task_status_display' in globals() else status)
     
     return render_template('tasks.html', 
                          tasks=pagination_data['tasks'],
                          pagination=pagination_data,
-                         config=config)
+                         config=config,
+                         current_status=status,
+                         current_status_label=current_status_label,
+                         status_counts=status_counts)
 
 
 def _render_task_fragments(task: dict, config: dict | None = None) -> dict:
@@ -2423,7 +2443,58 @@ def force_upload_task_route(task_id):
 
     _start_background_force_upload(task_id, config, platform_name)
 
-    return redirect(url_for('manual_review'))
+    return redirect(request.referrer or url_for('tasks'))
+
+@app.route('/tasks/<task_id>/reupload', methods=['POST'])
+@login_required
+def reupload_task_route(task_id):
+    """重新上传任务（适用于视频在目标平台被删除后重新提交）"""
+    task = get_task(task_id)
+
+    if not task:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': '任务不存在'}), 404
+        flash('任务不存在', 'danger')
+        return redirect(url_for('tasks'))
+
+    if task.get('status') in PROCESSING_STATES:
+        msg = f'当前任务正在处理中（状态：{task_status_display(task["status"])}），暂不可重新上传'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'warning')
+        return redirect(request.referrer or url_for('tasks'))
+
+    # 获取当前配置
+    config = load_config()
+    upload_target = str(task.get('upload_target') or 'acfun').lower()
+    platform_name = '双平台' if upload_target == 'both' else ('bilibili' if upload_target == 'bilibili' else 'AcFun')
+    missing_partitions = _missing_upload_partition_labels(task, config)
+    if missing_partitions:
+        msg = f'请先选择{ "、".join(missing_partitions) }，或开启分区推荐后再继续上传。'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'danger')
+        return redirect(url_for('edit_task', task_id=task_id))
+
+    # 清除历史旧上传记录与状态，置为 ready_for_upload 准备重传
+    update_kwargs = {
+        'status': TASK_STATES['READY_FOR_UPLOAD'],
+        'error_message': None,
+        'upload_progress': None,
+    }
+    if upload_target in ('bilibili', 'both'):
+        update_kwargs['bilibili_upload_response'] = None
+    if upload_target in ('acfun', 'both'):
+        update_kwargs['acfun_upload_response'] = None
+    update_task(task_id, **update_kwargs)
+
+    _start_background_force_upload(task_id, config, platform_name)
+
+    msg = f'已启动重新上传到 {platform_name}，正在后台处理...'
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        return jsonify({'success': True, 'message': msg})
+    flash(msg, 'info')
+    return redirect(request.referrer or url_for('tasks'))
 
 @app.route('/tasks/reset_stuck', methods=['POST'])
 @login_required

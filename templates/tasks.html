@@ -6,7 +6,7 @@
 <div class="tasks-container"
      data-tasks-stream="{{ url_for('tasks_event_stream') }}"
      data-task-fragment-template="{{ url_for('task_fragment', task_id='__TASK_ID__') }}">
-    {% set failed_tasks = tasks|selectattr('status', 'equalto', 'failed')|list if tasks else [] %}
+    {% set failed_count = status_counts.failed if status_counts is defined else (tasks|selectattr('status', 'equalto', 'failed')|list|length if tasks else 0) %}
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 p-3 bg-white rounded-3 shadow-sm border">
         <div class="d-flex align-items-center gap-2">
             <h2 class="h3 mb-0 fw-bold"><i class="bi bi-collection-play-fill text-primary me-2"></i>任务列表</h2>
@@ -18,13 +18,13 @@
             <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addTaskModal">
                 <i class="bi bi-plus-circle-fill me-1"></i> 新建任务
             </button>
-            {% if failed_tasks %}
+            {% if failed_count > 0 %}
             <button type="button" class="btn btn-outline-danger shadow-sm" id="retryFailedTasksBtn" onclick="confirmRetryFailed()">
                 <i class="bi bi-arrow-repeat me-1"></i> 重试失败任务
-                <span class="badge bg-danger ms-1">{{ failed_tasks|length }}</span>
+                <span class="badge bg-danger ms-1">{{ failed_count }}</span>
             </button>
             {% endif %}
-            {% if tasks %}
+            {% if pagination and pagination.total > 0 %}
             <button type="button" class="btn btn-outline-secondary shadow-sm" onclick="confirmClearAll()">
                 <i class="bi bi-trash-fill me-1"></i> 清除所有任务
             </button>
@@ -33,6 +33,45 @@
     </div>
 
     <div id="tasksContent">
+    <!-- 状态筛选栏 -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div class="btn-group btn-group-sm flex-wrap shadow-sm" role="group" aria-label="任务状态筛选">
+            <a href="{{ url_for('tasks', status='all', per_page=pagination.per_page) }}"
+               class="btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-secondary bg-white' }}">
+                全部 <span class="badge {{ 'bg-white text-primary' if current_status == 'all' else 'bg-secondary' }} ms-1">{{ status_counts.all if status_counts else pagination.total }}</span>
+            </a>
+            <a href="{{ url_for('tasks', status='pending', per_page=pagination.per_page) }}"
+               class="btn {{ 'btn-primary' if current_status == 'pending' else 'btn-outline-secondary bg-white' }}">
+                等待中 <span class="badge {{ 'bg-white text-primary' if current_status == 'pending' else 'bg-secondary' }} ms-1">{{ status_counts.pending if status_counts else 0 }}</span>
+            </a>
+            <a href="{{ url_for('tasks', status='processing', per_page=pagination.per_page) }}"
+               class="btn {{ 'btn-primary' if current_status == 'processing' else 'btn-outline-secondary bg-white' }}">
+                处理中 <span class="badge {{ 'bg-white text-primary' if current_status == 'processing' else 'bg-secondary' }} ms-1">{{ status_counts.processing if status_counts else 0 }}</span>
+            </a>
+            <a href="{{ url_for('tasks', status='awaiting_manual_review', per_page=pagination.per_page) }}"
+               class="btn {{ 'btn-primary' if current_status == 'awaiting_manual_review' else 'btn-outline-secondary bg-white' }}">
+                待审核 <span class="badge {{ 'bg-white text-primary' if current_status == 'awaiting_manual_review' else 'bg-secondary' }} ms-1">{{ status_counts.awaiting_manual_review if status_counts else 0 }}</span>
+            </a>
+            <a href="{{ url_for('tasks', status='ready_for_upload', per_page=pagination.per_page) }}"
+               class="btn {{ 'btn-primary' if current_status == 'ready_for_upload' else 'btn-outline-secondary bg-white' }}">
+                准备上传 <span class="badge {{ 'bg-white text-primary' if current_status == 'ready_for_upload' else 'bg-secondary' }} ms-1">{{ status_counts.ready_for_upload if status_counts else 0 }}</span>
+            </a>
+            <a href="{{ url_for('tasks', status='completed', per_page=pagination.per_page) }}"
+               class="btn {{ 'btn-primary' if current_status == 'completed' else 'btn-outline-secondary bg-white' }}">
+                已完成 <span class="badge {{ 'bg-white text-primary' if current_status == 'completed' else 'bg-secondary' }} ms-1">{{ status_counts.completed if status_counts else 0 }}</span>
+            </a>
+            <a href="{{ url_for('tasks', status='failed', per_page=pagination.per_page) }}"
+               class="btn {{ 'btn-primary' if current_status == 'failed' else 'btn-outline-secondary bg-white' }}">
+                失败 <span class="badge {{ 'bg-white text-primary' if current_status == 'failed' else 'bg-secondary' }} ms-1">{{ status_counts.failed if status_counts else 0 }}</span>
+            </a>
+        </div>
+        {% if current_status != 'all' %}
+        <div class="small text-muted">
+            正在筛选：<strong class="text-primary">{{ current_status_label }}</strong> (共 {{ pagination.total }} 条)
+            <a href="{{ url_for('tasks', status='all', per_page=pagination.per_page) }}" class="text-decoration-none ms-1">&times; 清除筛选</a>
+        </div>
+        {% endif %}
+    </div>
     {% if tasks %}
     <div class="modern-list">
         <!-- 桌面端表格（md及以上显示） -->
@@ -82,30 +121,46 @@
         </div>
     </div>
     {% else %}
-    <div class="alert alert-info">
-        <i class="bi bi-info-circle"></i> 暂无任务，请点击"新建任务"按钮添加任务。
+    <div class="alert alert-info py-4 text-center">
+        {% if current_status != 'all' %}
+            <i class="bi bi-info-circle fs-4 d-block mb-2"></i>
+            <p class="mb-2">当前状态（<strong>{{ current_status_label }}</strong>）下暂无任务。</p>
+            <a href="{{ url_for('tasks', status='all', per_page=pagination.per_page) }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-collection-play me-1"></i> 查看全部任务
+            </a>
+        {% else %}
+            <i class="bi bi-info-circle fs-4 d-block mb-2"></i>
+            <p class="mb-2">暂无任务，请点击"新建任务"按钮添加任务。</p>
+        {% endif %}
     </div>
     {% endif %}
     
     <!-- 分页导航 -->
     {% if pagination and pagination.total > 0 %}
     <nav aria-label="任务列表分页" class="mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="text-muted small">
-                显示第 {{ (pagination.page - 1) * pagination.per_page + 1 }} - {{ (pagination.page - 1) * pagination.per_page + pagination.tasks|length }} 条，共 {{ pagination.total }} 条任务
-            </span>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small">
+                    显示第 {{ (pagination.page - 1) * pagination.per_page + 1 }} - {{ (pagination.page - 1) * pagination.per_page + pagination.tasks|length }} 条，共 {{ pagination.total }} 条任务
+                </span>
+                <select class="form-select form-select-sm" style="width: auto; min-width: 125px;" onchange="window.location.href=this.value" aria-label="每页显示条数">
+                    {% for pp in [10, 20, 50, 100] %}
+                    <option value="{{ url_for('tasks', page=1, status=current_status, per_page=pp) }}" {{ 'selected' if pagination.per_page == pp else '' }}>{{ pp }} 条/页</option>
+                    {% endfor %}
+                </select>
+            </div>
             {% if pagination.total_pages > 1 %}
             {%- set start_page = pagination.page - 2 if pagination.page > 2 else 1 -%}
             {%- set end_page = pagination.page + 2 if pagination.page + 2 < pagination.total_pages else pagination.total_pages -%}
             <div class="pagination pagination-sm mb-0" role="list">{{- '' -}}
             {%- if pagination.has_prev -%}
-                <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=pagination.prev_page) }}" aria-label="上一页"><span aria-hidden="true">&laquo;</span></a></div>{{- '' -}}
+                <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=pagination.prev_page, status=current_status, per_page=pagination.per_page) }}" aria-label="上一页"><span aria-hidden="true">&laquo;</span></a></div>{{- '' -}}
             {%- else -%}
                 <div class="page-item disabled" role="listitem"><span class="page-link" aria-label="上一页"><span aria-hidden="true">&laquo;</span></span></div>{{- '' -}}
             {%- endif -%}
 
             {%- if start_page > 1 -%}
-                <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=1) }}">1</a></div>{{- '' -}}
+                <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=1, status=current_status, per_page=pagination.per_page) }}">1</a></div>{{- '' -}}
                 {%- if start_page > 2 -%}
                     <div class="page-item disabled" role="listitem"><span class="page-link">...</span></div>{{- '' -}}
                 {%- endif -%}
@@ -115,7 +170,7 @@
                 {%- if page_num == pagination.page -%}
                     <div class="page-item active" role="listitem" aria-current="page"><span class="page-link">{{ page_num }}</span></div>{{- '' -}}
                 {%- else -%}
-                    <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=page_num) }}">{{ page_num }}</a></div>{{- '' -}}
+                    <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=page_num, status=current_status, per_page=pagination.per_page) }}">{{ page_num }}</a></div>{{- '' -}}
                 {%- endif -%}
             {%- endfor -%}
 
@@ -123,11 +178,11 @@
                 {%- if end_page < pagination.total_pages - 1 -%}
                     <div class="page-item disabled" role="listitem"><span class="page-link">...</span></div>{{- '' -}}
                 {%- endif -%}
-                <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=pagination.total_pages) }}">{{ pagination.total_pages }}</a></div>{{- '' -}}
+                <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=pagination.total_pages, status=current_status, per_page=pagination.per_page) }}">{{ pagination.total_pages }}</a></div>{{- '' -}}
             {%- endif -%}
 
             {%- if pagination.has_next -%}
-                <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=pagination.next_page) }}" aria-label="下一页"><span aria-hidden="true">&raquo;</span></a></div>{{- '' -}}
+                <div class="page-item" role="listitem"><a class="page-link" href="{{ url_for('tasks', page=pagination.next_page, status=current_status, per_page=pagination.per_page) }}" aria-label="下一页"><span aria-hidden="true">&raquo;</span></a></div>{{- '' -}}
             {%- else -%}
                 <div class="page-item disabled" role="listitem"><span class="page-link" aria-label="下一页"><span aria-hidden="true">&raquo;</span></span></div>{{- '' -}}
             {%- endif -%}
@@ -231,6 +286,34 @@
                     <input type="hidden" name="delete_files" id="deleteFilesInput" value="true">
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-trash"></i> 删除
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 重新上传确认对话框 -->
+<div class="modal fade" id="reuploadTaskModal" tabindex="-1" aria-labelledby="reuploadTaskModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reuploadTaskModalLabel"><i class="bi bi-arrow-repeat text-success me-1"></i> 确认重新上传</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要重新上传任务 <strong id="reuploadTaskTitle"></strong> 吗？</p>
+                <div class="alert alert-info py-2 px-3 small mb-0">
+                    <i class="bi bi-info-circle me-1"></i>如果本地视频缓存已清理，系统将自动从 YouTube 重新下载原视频并提交上传。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i> 取消
+                </button>
+                <form id="reuploadTaskForm" method="post" action="">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-cloud-upload me-1"></i> 确认重新上传
                     </button>
                 </form>
             </div>
@@ -513,6 +596,13 @@ tr.status-awaiting_manual_review td { background-color: rgba(255,193,7,0.05); }
         }
 
         new bootstrap.Modal(document.getElementById('deleteTaskModal')).show();
+    }
+
+    // 重新上传任务确认框
+    function confirmReupload(taskId, taskTitle) {
+        document.getElementById('reuploadTaskTitle').textContent = taskTitle;
+        document.getElementById('reuploadTaskForm').action = "{{ url_for('reupload_task_route', task_id='TASK_ID') }}".replace('TASK_ID', taskId);
+        new bootstrap.Modal(document.getElementById('reuploadTaskModal')).show();
     }
 
     // 清除所有任务确认框
@@ -956,6 +1046,12 @@ tr.status-awaiting_manual_review td { background-color: rgba(255,193,7,0.05); }
         queryAllWithin(root, '[onclick*="confirmDelete"]').forEach(btn => {
             btn.onclick = function() {
                 confirmDelete(this.dataset.taskId, this.dataset.taskTitle);
+            };
+        });
+
+        queryAllWithin(root, '[onclick*="confirmReupload"]').forEach(btn => {
+            btn.onclick = function() {
+                confirmReupload(this.dataset.taskId, this.dataset.taskTitle);
             };
         });
 

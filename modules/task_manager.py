@@ -1627,30 +1627,90 @@ def get_all_tasks():
     finally:
         conn.close()
 
-def get_tasks_paginated(page=1, per_page=20):
+def get_task_status_counts():
+    """
+    获取各状态分组的任务数量
+    
+    Returns:
+        dict: 各状态及其任务数量
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT status, COUNT(*) FROM tasks GROUP BY status")
+        rows = cursor.fetchall()
+        raw_counts = {row[0]: row[1] for row in rows}
+
+        processing_count = sum(raw_counts.get(s, 0) for s in PROCESSING_STATES)
+
+        counts = {
+            'all': sum(raw_counts.values()),
+            'pending': raw_counts.get(TASK_STATES['PENDING'], 0),
+            'processing': processing_count,
+            'awaiting_manual_review': raw_counts.get(TASK_STATES['AWAITING_REVIEW'], 0),
+            'ready_for_upload': raw_counts.get(TASK_STATES['READY_FOR_UPLOAD'], 0),
+            'completed': raw_counts.get(TASK_STATES['COMPLETED'], 0),
+            'failed': raw_counts.get(TASK_STATES['FAILED'], 0),
+        }
+        return counts
+    except Exception as e:
+        logger.error(f"获取任务状态统计失败: {str(e)}")
+        return {
+            'all': 0,
+            'pending': 0,
+            'processing': 0,
+            'awaiting_manual_review': 0,
+            'ready_for_upload': 0,
+            'completed': 0,
+            'failed': 0,
+        }
+    finally:
+        conn.close()
+
+def get_tasks_paginated(page=1, per_page=20, status='all'):
     """
     获取分页任务信息
     
     Args:
         page (int): 页码，从1开始
         per_page (int): 每页数量，默认20
+        status (str): 状态筛选，默认'all'
     
     Returns:
         dict: 包含tasks、total、page、per_page、total_pages等信息的字典
     """
     conn = get_db_connection()
     try:
+        where_clause = ""
+        params = []
+
+        status_str = str(status or 'all').strip()
+        if status_str and status_str != 'all':
+            if status_str == 'processing':
+                placeholders = ",".join(["?"] * len(PROCESSING_STATES))
+                where_clause = f" WHERE status IN ({placeholders})"
+                params.extend(PROCESSING_STATES)
+            else:
+                where_clause = " WHERE status = ?"
+                params.append(status_str)
+
         # 获取总数
-        cursor = conn.execute('SELECT COUNT(*) FROM tasks')
+        cursor = conn.execute(f'SELECT COUNT(*) FROM tasks{where_clause}', params)
         total = cursor.fetchone()[0]
         
         # 计算分页参数
-        total_pages = (total + per_page - 1) // per_page  # 向上取整
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+        if total_pages > 0 and page > total_pages:
+            page = total_pages
+        if page < 1:
+            page = 1
         offset = (page - 1) * per_page
         
         # 获取分页数据
-        cursor = conn.execute('SELECT * FROM tasks ORDER BY created_at DESC LIMIT ? OFFSET ?', 
-                            (per_page, offset))
+        cursor = conn.execute(
+            f'SELECT * FROM tasks{where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?', 
+            tuple(params + [per_page, offset])
+        )
         tasks = [dict(row) for row in cursor.fetchall()]
         
         return {
@@ -8537,8 +8597,8 @@ def force_upload_task(task_id, config=None):
         logger.error(f"任务 {task_id} 不存在")
         return False
     
-    # 允许状态为"等待人工审核"、"已完成"、"等待处理"或"准备上传"的任务进行上传
-    allowed_states = [TASK_STATES['AWAITING_REVIEW'], TASK_STATES['COMPLETED'], TASK_STATES['PENDING'], TASK_STATES['READY_FOR_UPLOAD']]
+    # 允许状态为"等待人工审核"、"已完成"、"等待处理"、"准备上传"或"失败"的任务进行上传
+    allowed_states = [TASK_STATES['AWAITING_REVIEW'], TASK_STATES['COMPLETED'], TASK_STATES['PENDING'], TASK_STATES['READY_FOR_UPLOAD'], TASK_STATES['FAILED']]
     if task['status'] not in allowed_states:
         logger.warning(f"任务 {task_id} 状态为 {task['status']}，只有以下状态的任务可以上传: {', '.join(allowed_states)}")
         return False
