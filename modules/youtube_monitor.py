@@ -774,8 +774,8 @@ class YouTubeMonitor:
             self._save_config_to_file(config_id, config_data)
             
             # 如果是自动调度，添加到调度器
-            if config_data.get('schedule_type') == 'auto':
-                logger.info(f"配置 {config_id} 启用自动调度，间隔: {config_data.get('schedule_interval', 120)}分钟")
+            if config_data.get('enabled') and config_data.get('schedule_type') in ('auto', 'daily_times'):
+                logger.info(f"配置 {config_id} 启用自动调度，类型: {config_data.get('schedule_type')}")
                 self._schedule_monitor(config_id, config_data.get('schedule_interval', 120))
             
             return config_id
@@ -1642,14 +1642,14 @@ class YouTubeMonitor:
             # 基本信息
             video_info = {
                 'id': video['id'],
-                'title': video['snippet']['title'],
-                'channel_title': video['snippet']['channelTitle'],
-                'channel_id': video['snippet']['channelId'],
-                'published_at': video['snippet']['publishedAt'],
-                'duration': video['contentDetails']['duration'],
-                'view_count': int(video['statistics'].get('viewCount', 0)),
-                'like_count': int(video['statistics'].get('likeCount', 0)),
-                'comment_count': int(video['statistics'].get('commentCount', 0))
+                'title': video.get('snippet', {}).get('title', ''),
+                'channel_title': video.get('snippet', {}).get('channelTitle', ''),
+                'channel_id': video.get('snippet', {}).get('channelId', ''),
+                'published_at': video.get('snippet', {}).get('publishedAt', ''),
+                'duration': video.get('contentDetails', {}).get('duration', 'PT0S'),
+                'view_count': int(video.get('statistics', {}).get('viewCount', 0)),
+                'like_count': int(video.get('statistics', {}).get('likeCount', 0)),
+                'comment_count': int(video.get('statistics', {}).get('commentCount', 0))
             }
             # 提取缩略图 URL（按 high -> medium -> default 优先级，或保底通过 video_id 构造）
             thumbnails = video.get('snippet', {}).get('thumbnails', {}) or {}
@@ -1674,7 +1674,7 @@ class YouTubeMonitor:
             filtered.append(video_info)
             
             # 限制结果数量
-            if len(filtered) >= config['max_results']:
+            if len(filtered) >= config.get('max_results', 50):
                 break
         
         return filtered
@@ -1760,15 +1760,15 @@ class YouTubeMonitor:
             return False
 
         # 检查观看数
-        if video_info['view_count'] < config['min_view_count']:
+        if video_info['view_count'] < config.get('min_view_count', 0):
             return False
         
         # 检查点赞数
-        if video_info['like_count'] < config['min_like_count']:
+        if video_info['like_count'] < config.get('min_like_count', 0):
             return False
         
         # 检查评论数
-        if video_info['comment_count'] < config['min_comment_count']:
+        if video_info['comment_count'] < config.get('min_comment_count', 0):
             return False
         
         # 检查排除关键词
@@ -1795,22 +1795,22 @@ class YouTubeMonitor:
                 return False
         
         # 检查频道ID过滤
-        if config['exclude_channel_ids']:
-            exclude_channels = [ch.strip() for ch in config['exclude_channel_ids'].split(',')]
+        if config.get('exclude_channel_ids'):
+            exclude_channels = [ch.strip() for ch in config['exclude_channel_ids'].split(',') if ch.strip()]
             if video_info['channel_id'] in exclude_channels:
                 return False
         
         # 检查指定频道（如果没有指定频道，则不限制）
-        if config['channel_ids'] and config['channel_ids'].strip():
-            include_channels = [ch.strip() for ch in config['channel_ids'].split(',') if ch.strip()]
+        if config.get('channel_ids') and str(config['channel_ids']).strip():
+            include_channels = [ch.strip() for ch in str(config['channel_ids']).split(',') if ch.strip()]
             if include_channels and video_info['channel_id'] not in include_channels:
                 return False
         
         # 检查视频时长
         duration_seconds = self._parse_duration(video_info['duration'])
-        if config['min_duration'] > 0 and duration_seconds < config['min_duration']:
+        if config.get('min_duration', 0) > 0 and duration_seconds < config['min_duration']:
             return False
-        if config['max_duration'] > 0 and duration_seconds > config['max_duration']:
+        if config.get('max_duration', 0) > 0 and duration_seconds > config['max_duration']:
             return False
         
         return True
@@ -1890,6 +1890,23 @@ class YouTubeMonitor:
                 logger.warning(f"跳过添加无效的 YouTube 视频 ID 到任务队列: '{vid}'")
                 return None
             video_url = f"https://www.youtube.com/watch?v={vid}"
+
+            # 跨任务查重：检查 tasks.db 是否已有此视频的处理任务（非失败状态）
+            try:
+                from modules.task_manager import get_db_connection
+                with get_db_connection() as tconn:
+                    tcur = tconn.cursor()
+                    tcur.execute(
+                        "SELECT id, status FROM tasks WHERE youtube_url LIKE ? AND status != 'FAILED' LIMIT 1",
+                        (f"%{vid}%",)
+                    )
+                    existing = tcur.fetchone()
+                    if existing:
+                        logger.info(f"视频已存在于处理任务队列中 (ID: {existing[0]}, 状态: {existing[1]})，跨任务自动去重避免重复下载: {video_info.get('title')}")
+                        return existing[0]
+            except Exception as e:
+                logger.warning(f"跨任务查重检查失败: {e}")
+
             task_id = add_task(video_url, upload_target='bilibili', auto_pipeline=auto_pipeline)
             
             if task_id:
@@ -2055,13 +2072,13 @@ class YouTubeMonitor:
 
         return True, msg, added_record_ids
 
-    def _mark_video_added_to_tasks(self, video_id, config_id):
-        """标记视频已添加到任务队列"""
+    def _mark_video_added_to_tasks(self, video_id, config_id=None):
+        """标记视频已添加到任务队列（同时标记该视频在所有监控配置下的记录，防止跨任务重复入队）"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                'UPDATE monitor_history SET added_to_tasks = 1 WHERE video_id = ? AND config_id = ?',
-                (video_id, config_id)
+                'UPDATE monitor_history SET added_to_tasks = 1 WHERE video_id = ?',
+                (video_id,)
             )
             conn.commit()
     
