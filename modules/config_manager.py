@@ -28,6 +28,7 @@ DEFAULT_CONFIG = {
     "TRANSLATE_DESCRIPTION": False,
     "GENERATE_TITLE_DESCRIPTION": False,
     "UPLOAD_APPEND_REPOST_NOTICE": True,
+    "BILIBILI_SUBMIT_AS_REPOST": False,
     "GENERATE_TAGS": False,
     "YOUTUBE_UPLOADER_AS_FIRST_TAG": False,
     "RECOMMEND_PARTITION": False,
@@ -147,6 +148,7 @@ DEFAULT_CONFIG = {
     "ACFUN_USERNAME": "",
     "ACFUN_PASSWORD": "",
     "UPLOAD_TARGET_DEFAULT": "bilibili",  # 任务默认投稿平台：acfun|bilibili|both
+    "BILIBILI_SUBMIT_AS_REPOST": False,  # bilibili 投稿标记为转载（开启后注明来源，默认关闭为自制/原创投稿）
     "OPENAI_API_KEY": "",
     "OPENAI_BASE_URL": "https://api.openai.com/v1",
     "OPENAI_MODEL_NAME": "gpt-3.5-turbo",

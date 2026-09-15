@@ -220,6 +220,7 @@ class BilibiliUploader:
         progress_callback: Optional[Callable[[str], None]] = None,
         title_limit: int = BILIBILI_TITLE_LIMIT,
         description_limit: int = BILIBILI_DESCRIPTION_LIMIT,
+        submit_as_repost: bool = False,
     ) -> Tuple[bool, Union[dict, str]]:
         self.task_id = task_id
         self.logger = setup_task_logger(task_id or "unknown")
@@ -263,9 +264,16 @@ class BilibiliUploader:
                 return False, "分区ID为空，无法上传到bilibili"
 
             tid = int(partition_id)
-            # 业务要求：bilibili强制按非自制（转载）投稿
-            is_original = False
-            source = youtube_url or None
+            if submit_as_repost:
+                is_original = False
+                source = (youtube_url or "").strip() or None
+                if source and len(source) > 200:
+                    source = source[:200]
+                self.log(f"Bilibili投稿模式: 转载 (来源: {source})")
+            else:
+                is_original = True
+                source = None
+                self.log("Bilibili投稿模式: 自制")
 
             meta = video_uploader.VideoMeta(
                 tid=tid,

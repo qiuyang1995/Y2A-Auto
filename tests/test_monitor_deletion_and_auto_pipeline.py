@@ -128,9 +128,9 @@ class TestMonitorDeletionAndAutoPipeline(unittest.TestCase):
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO monitor_history (id, config_id, video_id, video_title, channel_title, added_to_tasks)
-            VALUES (201, 1, 'vid_201', '标题201', '频道1', 0),
-                   (202, 1, 'vid_202', '标题202', '频道2', 1),
-                   (203, 1, 'vid_203', '标题203', '频道3', 0)
+            VALUES (201, 1, '11111111201', '标题201', '频道1', 0),
+                   (202, 1, '11111111202', '标题202', '频道2', 1),
+                   (203, 1, '11111111203', '标题203', '频道3', 0)
         """)
         conn.commit()
         conn.close()

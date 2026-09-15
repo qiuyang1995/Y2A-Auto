@@ -198,6 +198,7 @@ python app.py
 - `LOGIN_SESSION_TIMEOUT_MINUTES`：登录空闲超时时长，默认 `30` 分钟，最小 `1`，访问受保护页面会自动续期
 - `UPLOAD_TARGET_DEFAULT`：默认投稿平台，支持 `acfun`、`bilibili`、`both`
 - `UPLOAD_APPEND_REPOST_NOTICE`：是否自动追加转载声明，默认 `true`
+- `BILIBILI_SUBMIT_AS_REPOST`：bilibili 投稿是否标记为转载（开启后注明来源，默认 `false` 为自制/原创投稿）
 
 ### 账号与网络
 

@@ -221,7 +221,12 @@
                                                                 <input type="checkbox" name="UPLOAD_APPEND_REPOST_NOTICE" {% if config.get('UPLOAD_APPEND_REPOST_NOTICE', True) %}checked{% endif %}>
                                                                 自动追加转载声明
                                                             </label>
+                                                            <label class="checkbox-label">
+                                                                <input type="checkbox" name="BILIBILI_SUBMIT_AS_REPOST" {% if config.get('BILIBILI_SUBMIT_AS_REPOST', False) %}checked{% endif %}>
+                                                                bilibili 投稿标记为转载
+                                                            </label>
                                                         </div>
+                                                        <p class="help-text mt-1 mb-0">bilibili 投稿标记为转载：开启后投稿将标记为转载并注明 YouTube 来源地址；默认关闭，以自制/原创投稿。</p>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <div class="form-group">

@@ -8433,6 +8433,9 @@ class TaskProcessor:
                 last_progress_text = normalized_text
                 update_task(task_id, upload_progress=normalized_text, silent=True)
 
+            submit_as_repost = bool(self.config.get('BILIBILI_SUBMIT_AS_REPOST', False))
+            task_logger.info(f"bilibili投稿类型: {'转载' if submit_as_repost else '自制'}")
+
             success, result = uploader.upload_video(
                 video_file_path=video_path,
                 cover_file_path=cover_path,
@@ -8445,6 +8448,7 @@ class TaskProcessor:
                 progress_callback=_on_progress,
                 title_limit=effective_limits['title_limit'],
                 description_limit=effective_limits['description_limit'],
+                submit_as_repost=submit_as_repost,
             )
 
             if success:

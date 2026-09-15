@@ -160,6 +160,50 @@ class PlatformMetadataLimitTests(unittest.TestCase):
             {"title_limit": 80, "description_limit": 2000},
         )
 
+    def test_bilibili_submit_as_repost_setting_and_meta(self):
+        import inspect
+        from modules.config_manager import DEFAULT_CONFIG
+        from modules.bilibili_uploader import BilibiliUploader
+        from modules.bili_sdk.video_uploader import VideoMeta, Picture
+
+        # 1. 验证默认配置为 False（即默认不按转载，按自制投稿）
+        self.assertIn("BILIBILI_SUBMIT_AS_REPOST", DEFAULT_CONFIG)
+        self.assertFalse(DEFAULT_CONFIG["BILIBILI_SUBMIT_AS_REPOST"])
+
+        # 2. 验证 upload_video 方法参数签名默认 submit_as_repost=False
+        sig = inspect.signature(BilibiliUploader.upload_video)
+        self.assertIn("submit_as_repost", sig.parameters)
+        self.assertEqual(sig.parameters["submit_as_repost"].default, False)
+
+        # 3. 验证自制投稿 (original=True, source=None)
+        meta_original = VideoMeta(
+            tid=1,
+            title="自制视频测试",
+            desc="自制视频描述",
+            cover=Picture(),
+            tags=["测试"],
+            original=True,
+            source=None,
+        )
+        meta_dict_orig = meta_original.__dict__()
+        self.assertEqual(meta_dict_orig["copyright"], 1)
+        self.assertNotIn("source", meta_dict_orig)
+
+        # 4. 验证转载投稿 (original=False, source=youtube_url)
+        yt_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        meta_repost = VideoMeta(
+            tid=1,
+            title="转载视频测试",
+            desc="转载视频描述",
+            cover=Picture(),
+            tags=["测试"],
+            original=False,
+            source=yt_url,
+        )
+        meta_dict_repost = meta_repost.__dict__()
+        self.assertEqual(meta_dict_repost["copyright"], 2)
+        self.assertEqual(meta_dict_repost["source"], yt_url)
+
 
 if __name__ == "__main__":
     unittest.main()
