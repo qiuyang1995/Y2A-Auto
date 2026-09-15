@@ -35,33 +35,33 @@
     <div id="tasksContent">
     <!-- 状态筛选栏 -->
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <div class="btn-group btn-group-sm flex-wrap shadow-sm" role="group" aria-label="任务状态筛选">
+        <div class="btn-group btn-group-sm flex-wrap shadow-sm task-filter-group" role="group" aria-label="任务状态筛选">
             <a href="{{ url_for('tasks', status='all', per_page=pagination.per_page) }}"
-               class="btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-secondary bg-white' }}">
+               class="btn task-filter-btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-secondary' }}">
                 全部 <span class="badge {{ 'bg-white text-primary' if current_status == 'all' else 'bg-secondary' }} ms-1">{{ status_counts.all if status_counts else pagination.total }}</span>
             </a>
             <a href="{{ url_for('tasks', status='pending', per_page=pagination.per_page) }}"
-               class="btn {{ 'btn-primary' if current_status == 'pending' else 'btn-outline-secondary bg-white' }}">
+               class="btn task-filter-btn {{ 'btn-primary' if current_status == 'pending' else 'btn-outline-secondary' }}">
                 等待中 <span class="badge {{ 'bg-white text-primary' if current_status == 'pending' else 'bg-secondary' }} ms-1">{{ status_counts.pending if status_counts else 0 }}</span>
             </a>
             <a href="{{ url_for('tasks', status='processing', per_page=pagination.per_page) }}"
-               class="btn {{ 'btn-primary' if current_status == 'processing' else 'btn-outline-secondary bg-white' }}">
+               class="btn task-filter-btn {{ 'btn-primary' if current_status == 'processing' else 'btn-outline-secondary' }}">
                 处理中 <span class="badge {{ 'bg-white text-primary' if current_status == 'processing' else 'bg-secondary' }} ms-1">{{ status_counts.processing if status_counts else 0 }}</span>
             </a>
             <a href="{{ url_for('tasks', status='awaiting_manual_review', per_page=pagination.per_page) }}"
-               class="btn {{ 'btn-primary' if current_status == 'awaiting_manual_review' else 'btn-outline-secondary bg-white' }}">
+               class="btn task-filter-btn {{ 'btn-primary' if current_status == 'awaiting_manual_review' else 'btn-outline-secondary' }}">
                 待审核 <span class="badge {{ 'bg-white text-primary' if current_status == 'awaiting_manual_review' else 'bg-secondary' }} ms-1">{{ status_counts.awaiting_manual_review if status_counts else 0 }}</span>
             </a>
             <a href="{{ url_for('tasks', status='ready_for_upload', per_page=pagination.per_page) }}"
-               class="btn {{ 'btn-primary' if current_status == 'ready_for_upload' else 'btn-outline-secondary bg-white' }}">
+               class="btn task-filter-btn {{ 'btn-primary' if current_status == 'ready_for_upload' else 'btn-outline-secondary' }}">
                 准备上传 <span class="badge {{ 'bg-white text-primary' if current_status == 'ready_for_upload' else 'bg-secondary' }} ms-1">{{ status_counts.ready_for_upload if status_counts else 0 }}</span>
             </a>
             <a href="{{ url_for('tasks', status='completed', per_page=pagination.per_page) }}"
-               class="btn {{ 'btn-primary' if current_status == 'completed' else 'btn-outline-secondary bg-white' }}">
+               class="btn task-filter-btn {{ 'btn-primary' if current_status == 'completed' else 'btn-outline-secondary' }}">
                 已完成 <span class="badge {{ 'bg-white text-primary' if current_status == 'completed' else 'bg-secondary' }} ms-1">{{ status_counts.completed if status_counts else 0 }}</span>
             </a>
             <a href="{{ url_for('tasks', status='failed', per_page=pagination.per_page) }}"
-               class="btn {{ 'btn-primary' if current_status == 'failed' else 'btn-outline-secondary bg-white' }}">
+               class="btn task-filter-btn {{ 'btn-primary' if current_status == 'failed' else 'btn-outline-secondary' }}">
                 失败 <span class="badge {{ 'bg-white text-primary' if current_status == 'failed' else 'bg-secondary' }} ms-1">{{ status_counts.failed if status_counts else 0 }}</span>
             </a>
         </div>
@@ -559,6 +559,37 @@ tr.status-awaiting_manual_review td { background-color: rgba(255,193,7,0.05); }
 .modern-table .table-hover tbody tr:hover { background: rgba(13,110,253,0.04); }
 .modern-table .table { background: transparent; }
 .table-borderless>:not(caption)>*>* { border-bottom-width: 0; }
+
+/* 状态筛选按钮：取消 hover 效果，防止鼠标移入时文字变白或背景闪烁 */
+.task-filter-group .task-filter-btn {
+    transition: none !important;
+}
+.task-filter-group .task-filter-btn.btn-outline-secondary,
+.task-filter-group .task-filter-btn.btn-outline-secondary:hover,
+.task-filter-group .task-filter-btn.btn-outline-secondary:focus,
+.task-filter-group .task-filter-btn.btn-outline-secondary:active {
+    color: #6c757d !important;
+    background-color: #ffffff !important;
+    border-color: #6c757d !important;
+    box-shadow: none !important;
+}
+.task-filter-group .task-filter-btn.btn-primary,
+.task-filter-group .task-filter-btn.btn-primary:hover,
+.task-filter-group .task-filter-btn.btn-primary:focus,
+.task-filter-group .task-filter-btn.btn-primary:active {
+    color: #ffffff !important;
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    box-shadow: none !important;
+}
+
+/* 操作列紧凑图标按钮 */
+.task-action-icon-btn {
+    min-width: 32px !important;
+    width: 32px;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
 </style>
 {% endblock %}
 
@@ -600,6 +631,7 @@ tr.status-awaiting_manual_review td { background-color: rgba(255,193,7,0.05); }
 
     // 重新上传任务确认框
     function confirmReupload(taskId, taskTitle) {
+        document.querySelectorAll('.tooltip').forEach(el => el.remove());
         document.getElementById('reuploadTaskTitle').textContent = taskTitle;
         document.getElementById('reuploadTaskForm').action = "{{ url_for('reupload_task_route', task_id='TASK_ID') }}".replace('TASK_ID', taskId);
         new bootstrap.Modal(document.getElementById('reuploadTaskModal')).show();

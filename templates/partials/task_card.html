@@ -324,6 +324,9 @@
                 <button type="button" class="btn btn-sm btn-outline-success"
                         data-task-id="{{ task.id }}"
                         data-task-title="{{ display_title }}"
+                        title="重新上传"
+                        data-bs-toggle="tooltip"
+                        aria-label="重新上传"
                         onclick="confirmReupload(this.dataset.taskId, this.dataset.taskTitle)">
                     <i class="bi bi-arrow-repeat me-1"></i> 重新上传
                 </button>

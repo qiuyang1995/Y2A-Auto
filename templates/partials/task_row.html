@@ -344,11 +344,15 @@
                     </button>
                 </form>
             {% elif task.status == 'completed' %}
-                <button type="button" class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center task-action-btn"
+                <button type="button" class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center task-action-btn task-action-icon-btn"
                         data-task-id="{{ task.id }}"
                         data-task-title="{{ display_title }}"
+                        title="重新上传"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        aria-label="重新上传"
                         onclick="confirmReupload(this.dataset.taskId, this.dataset.taskTitle)">
-                    <i class="bi bi-arrow-repeat me-1"></i> 重新上传
+                    <i class="bi bi-arrow-repeat"></i>
                 </button>
             {% endif %}
             <a href="{{ url_for('edit_task', task_id=task.id) }}" class="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center task-action-btn">
