@@ -107,6 +107,40 @@ def _remove_redundant_original_url(text: str, original_url: str) -> str:
     return _normalize_multiline_text("\n".join(cleaned_lines))
 
 
+def _clean_repost_notices_and_urls(text: str, original_url: str = "") -> str:
+    """清理简介中的转载声明与原视频URL（用于自制模式或去重）"""
+    normalized = _normalize_multiline_text(text)
+    if not normalized:
+        return ""
+    visible_url = str(original_url or "").strip()
+
+    cleaned_lines = []
+    for raw_line in normalized.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            cleaned_lines.append("")
+            continue
+        # 移除原视频 URL
+        if visible_url and (line == visible_url or visible_url in line):
+            line = line.replace(visible_url, "").strip()
+            if not line:
+                continue
+        # 移除包含 youtube.com 或 youtu.be 的链接
+        if re.search(r"https?://(www\.)?(youtube\.com|youtu\.be)/\S+", line):
+            line = re.sub(r"https?://(www\.)?(youtube\.com|youtu\.be)/\S+", "", line).strip()
+            if not line:
+                continue
+        # 移除 "本视频转载自..." 声明行
+        if re.match(r"^本视频转载自.*", line):
+            continue
+        # 移除独立的 "原视频出处：..."、"原视频链接：..."、"原始上传时间：..."
+        if re.match(r"^(原视频(出处|链接|来源)|原始上传时间)[:：].*", line):
+            continue
+        cleaned_lines.append(line)
+
+    return _normalize_multiline_text("\n".join(cleaned_lines))
+
+
 def format_bilibili_description(
     base_desc: str,
     original_url: str = "",
@@ -114,7 +148,13 @@ def format_bilibili_description(
     original_upload_date: str = "",
     append_repost_notice: bool = True,
     max_len: int = BILIBILI_DESCRIPTION_LIMIT,
+    submit_as_repost: bool = True,
 ) -> str:
+    if not submit_as_repost:
+        # 自制模式：清理所有转载声明和原视频出处/URL，且不追加转载声明
+        clean_summary = _clean_repost_notices_and_urls(base_desc, original_url)
+        return _truncate_multiline_text(clean_summary, max_len)
+
     summary = _remove_redundant_original_url(base_desc, original_url)
     is_repost = bool(original_url or original_uploader or original_upload_date)
     if not is_repost or not append_repost_notice:
@@ -241,8 +281,12 @@ class BilibiliUploader:
             safe_title_limit = int(title_limit or BILIBILI_TITLE_LIMIT)
             safe_desc_limit = int(description_limit or BILIBILI_DESCRIPTION_LIMIT)
             safe_title = _compact_text(title or "", safe_title_limit)
+            if not submit_as_repost:
+                clean_desc = _clean_repost_notices_and_urls(description or "", youtube_url or "")
+            else:
+                clean_desc = _remove_redundant_original_url(description or "", youtube_url or "")
             safe_desc = _truncate_multiline_text(
-                _remove_redundant_original_url(description or "", youtube_url or ""),
+                clean_desc,
                 safe_desc_limit,
             )
             # Bilibili 标签校验与清洗：最多 10 个，每个最多 20 字符，过滤分隔符与特殊符号并去重

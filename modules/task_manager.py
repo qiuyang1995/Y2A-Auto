@@ -8355,17 +8355,24 @@ class TaskProcessor:
             except Exception as e:
                 task_logger.error(f"读取视频元数据失败: {str(e)}")
 
+        # bilibili 投稿模式：自制或转载
+        submit_as_repost = bool(self.config.get('BILIBILI_SUBMIT_AS_REPOST', False))
+
         # bilibili 转载页会单独展示 source，这里只保留说明文案和正文，避免 URL 重复出现。
+        # 当关闭转载标记（自制投稿）时，不追加转载声明与原视频出处，并清理已有出处信息。
         try:
             from modules.bilibili_uploader import format_bilibili_description
+
+            append_repost_notice = bool(self.config.get('UPLOAD_APPEND_REPOST_NOTICE', True)) and submit_as_repost
 
             description = format_bilibili_description(
                 base_desc=description,
                 original_url=original_url,
                 original_uploader=original_uploader,
                 original_upload_date=original_upload_date,
-                append_repost_notice=bool(self.config.get('UPLOAD_APPEND_REPOST_NOTICE', True)),
+                append_repost_notice=append_repost_notice,
                 max_len=effective_limits['description_limit'],
+                submit_as_repost=submit_as_repost,
             )
         except Exception as e:
             task_logger.warning(f"构建bilibili投稿简介失败，回退原简介: {e}")

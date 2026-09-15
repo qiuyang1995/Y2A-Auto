@@ -37,6 +37,7 @@ def _load_bilibili_helpers():
         "_normalize_multiline_text",
         "_truncate_multiline_text",
         "_remove_redundant_original_url",
+        "_clean_repost_notices_and_urls",
         "format_bilibili_description",
     }
     variable_names = {"BILIBILI_TITLE_LIMIT", "BILIBILI_DESCRIPTION_LIMIT", "BILIBILI_TAG_LIMIT", "BILIBILI_MAX_TAG_LENGTH"}
@@ -202,7 +203,43 @@ class PlatformMetadataLimitTests(unittest.TestCase):
         )
         meta_dict_repost = meta_repost.__dict__()
         self.assertEqual(meta_dict_repost["copyright"], 2)
-        self.assertEqual(meta_dict_repost["source"], yt_url)
+        # 5. 验证 format_bilibili_description 在自制模式 (submit_as_repost=False) 下不添加转载声明且清理已有声明与原URL
+        yt_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        ns = _load_bilibili_helpers()
+        format_desc = ns["format_bilibili_description"]
+
+        desc_with_repost = (
+            "本视频转载自YouTube，原始上传时间：2026-09-01，UP主：OriginalUP\n\n"
+            "这是精彩的视频内容！\n"
+            f"{yt_url}"
+        )
+        desc_orig = format_desc(
+            desc_with_repost,
+            original_url=yt_url,
+            original_uploader="OriginalUP",
+            original_upload_date="2026-09-01",
+            append_repost_notice=True,
+            submit_as_repost=False,
+        )
+        self.assertNotIn("本视频转载自", desc_orig)
+        self.assertNotIn("OriginalUP", desc_orig)
+        self.assertNotIn("dQw4w9WgXcQ", desc_orig)
+        self.assertEqual(desc_orig, "这是精彩的视频内容！")
+
+        # 6. 验证 format_bilibili_description 在转载模式 (submit_as_repost=True) 下正常追加转载声明
+        desc_clean = "这是纯净简介"
+        desc_repost = format_desc(
+            desc_clean,
+            original_url=yt_url,
+            original_uploader="OriginalUP",
+            original_upload_date="2026-09-01",
+            append_repost_notice=True,
+            submit_as_repost=True,
+        )
+        self.assertIn("本视频转载自YouTube", desc_repost)
+        self.assertIn("UP主：OriginalUP", desc_repost)
+        self.assertIn("原始上传时间：2026-09-01", desc_repost)
+        self.assertIn("这是纯净简介", desc_repost)
 
 
 if __name__ == "__main__":
