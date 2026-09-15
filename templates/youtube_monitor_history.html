@@ -458,7 +458,9 @@
                                 </button>
                                 {% endif %}
                                 <button type="button" class="btn btn-outline-danger btn-sm"
-                                        onclick="confirmSingleDelete(this, '{{ record.id }}', {{ record.video_title|tojson }})"
+                                        data-record-id="{{ record.id }}"
+                                        data-video-title="{{ record.video_title }}"
+                                        onclick="confirmSingleDelete(this)"
                                         title="删除记录">
                                     <i class="bi bi-trash"></i>
                                 </button>
@@ -1029,6 +1031,10 @@ function updateSelectedCount() {
 }
 
 function confirmSingleDelete(button, recordId, title) {
+    if (!recordId && button && button.dataset) {
+        recordId = button.dataset.recordId;
+        title = button.dataset.videoTitle;
+    }
     const displayName = title ? `"${title}"` : '该记录';
     window.showPopconfirm(button, {
         title: `确定要删除 ${displayName} 吗？`,

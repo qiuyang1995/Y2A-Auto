@@ -417,6 +417,21 @@ class YouTubeMonitor:
                         batch_count, order_by, filter_config_id, last_run_time, last_run_status, updated_time
                     ) VALUES (1, 0, 'daily_times', ?, 60, 2, 'view_count', 0, '', '', datetime('now', 'localtime'))
                 ''', (DEFAULT_AUTO_ENQUEUE_TIME_POINTS,))
+
+            # 监控过滤黑名单表（记录被删除或用户排除的视频，确保后续监控不再重复抓取）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS monitor_video_blacklist (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    config_id INTEGER,
+                    video_id TEXT NOT NULL,
+                    video_title TEXT,
+                    reason TEXT DEFAULT 'deleted',
+                    created_at TEXT DEFAULT (datetime('now', 'localtime')),
+                    UNIQUE(config_id, video_id)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_mv_blacklist_vid ON monitor_video_blacklist(video_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_mv_blacklist_vid_cfg ON monitor_video_blacklist(video_id, config_id)')
             
             conn.commit()
         
@@ -1739,8 +1754,37 @@ class YouTubeMonitor:
                 return (h / w) >= 1.2
         return False
     
+    def is_video_blacklisted(self, video_id: str, config_id: Optional[int] = None) -> bool:
+        """检查视频是否在黑名单中（因历史被删除等原因保留的过滤记录）"""
+        if not video_id:
+            return False
+        db_path = getattr(self, 'db_path', None)
+        if not db_path:
+            return False
+        try:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                if config_id is not None and int(config_id) > 0:
+                    cursor.execute(
+                        'SELECT id FROM monitor_video_blacklist WHERE video_id = ? AND (config_id = ? OR config_id IS NULL OR config_id = 0)',
+                        (video_id, int(config_id))
+                    )
+                else:
+                    cursor.execute(
+                        'SELECT id FROM monitor_video_blacklist WHERE video_id = ?',
+                        (video_id,)
+                    )
+                return cursor.fetchone() is not None
+        except Exception as e:
+            logger.warning(f"检查视频黑名单失败: {e}")
+            return False
+
     def _meets_criteria(self, video_info, config):
         """检查视频是否符合筛选条件"""
+        # 检查是否在黑名单中（被删除或过滤保留的视频）
+        if self.is_video_blacklisted(video_info.get('id'), config.get('id')):
+            return False
+
         # 检查开始日期
         if config.get('start_date'):
             try:
@@ -1833,11 +1877,21 @@ class YouTubeMonitor:
         return hours * 3600 + minutes * 60 + seconds
     
     def _is_video_processed(self, video_id, config_id):
-        """检查视频是否已经处理过"""
-        with sqlite3.connect(self.db_path) as conn:
+        """检查视频是否已经处理过或在黑名单中"""
+        db_path = getattr(self, 'db_path', None)
+        if not db_path:
+            return False
+        with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 'SELECT id FROM monitor_history WHERE video_id = ? AND config_id = ?',
+                (video_id, config_id)
+            )
+            if cursor.fetchone() is not None:
+                return True
+
+            cursor.execute(
+                'SELECT id FROM monitor_video_blacklist WHERE video_id = ? AND (config_id = ? OR config_id IS NULL OR config_id = 0)',
                 (video_id, config_id)
             )
             return cursor.fetchone() is not None
@@ -2799,11 +2853,20 @@ class YouTubeMonitor:
                 cursor = conn.cursor()
                 placeholders = ','.join('?' * len(clean_ids))
 
-                # 获取关联的 video_id 用于清理封面缓存
-                cursor.execute(f'SELECT video_id FROM monitor_history WHERE id IN ({placeholders})', clean_ids)
-                video_ids = [row[0] for row in cursor.fetchall() if row[0]]
+                # 获取关联的记录详情用于写入黑名单与清理封面缓存
+                cursor.execute(f'SELECT config_id, video_id, video_title FROM monitor_history WHERE id IN ({placeholders})', clean_ids)
+                records_to_delete = cursor.fetchall()
+                video_ids = [r[1] for r in records_to_delete if r[1]]
 
-                # 执行删除
+                # 将被删除的视频记录持久化写入黑名单（保留黑名单过滤数据，后续监控不再重复抓取）
+                for cfg_id, vid, vtitle in records_to_delete:
+                    if vid:
+                        cursor.execute('''
+                            INSERT OR IGNORE INTO monitor_video_blacklist (config_id, video_id, video_title, reason)
+                            VALUES (?, ?, ?, 'deleted')
+                        ''', (cfg_id, vid, vtitle or ''))
+
+                # 执行从监控历史中删除当前记录
                 cursor.execute(f'DELETE FROM monitor_history WHERE id IN ({placeholders})', clean_ids)
                 deleted_count = cursor.rowcount
                 conn.commit()
@@ -2817,7 +2880,7 @@ class YouTubeMonitor:
                     if to_remove_covers:
                         self._clear_cover_cache(to_remove_covers)
 
-                logger.info(f"成功删除 {deleted_count} 条监控历史记录: {clean_ids}")
+                logger.info(f"成功删除 {deleted_count} 条监控历史记录并保留黑名单过滤数据: {clean_ids}")
                 return True, f"成功删除 {deleted_count} 条记录"
         except Exception as e:
             logger.error(f"删除监控历史记录失败: {str(e)}")
