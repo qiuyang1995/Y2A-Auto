@@ -1482,8 +1482,69 @@ def parse_youtube_duration(duration_str):
     
     return hours * 3600 + minutes * 60 + seconds
 
+def format_duration(val, default='-'):
+    """格式化视频时长，支持秒数整数/浮点数、ISO 8601字符串(PT1H2M3S)等，输出 H:MM:SS 或 MM:SS"""
+    if val is None or val == '' or val == 0 or val == '0':
+        return default
+    
+    total_seconds = None
+    if isinstance(val, (int, float)):
+        total_seconds = int(val)
+    elif isinstance(val, str):
+        val = val.strip()
+        if not val or val == '-':
+            return default
+        if val.startswith('PT'):
+            total_seconds = parse_youtube_duration(val)
+        else:
+            try:
+                total_seconds = int(float(val))
+            except ValueError:
+                if ':' in val:
+                    return val
+                return default
+    
+    if total_seconds is None or total_seconds <= 0:
+        return default
+    
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    else:
+        return f"{minutes:02d}:{seconds:02d}"
+
+def format_filesize(val, default='-'):
+    """格式化文件大小，输入字节数，输出如 12.3 MB, 1.25 GB"""
+    if val is None or val == '' or val == 0 or val == '0':
+        return default
+    try:
+        size = float(val)
+    except (ValueError, TypeError):
+        if isinstance(val, str) and any(unit in val.upper() for unit in ['B', 'K', 'M', 'G', 'T']):
+            return val.strip()
+        return default
+    
+    if size <= 0:
+        return default
+    
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1024.0 or unit == 'TB':
+            if unit == 'B':
+                return f"{int(size)} {unit}"
+            elif size < 10.0:
+                return f"{size:.2f} {unit}"
+            else:
+                return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return default
+
 # 注册模板过滤器
 app.jinja_env.filters['parse_youtube_duration'] = parse_youtube_duration
+app.jinja_env.filters['format_duration'] = format_duration
+app.jinja_env.filters['format_filesize'] = format_filesize
 
 ALIYUN_LABEL_MAP = {
     "pornographic_adult": "疑似色情内容",

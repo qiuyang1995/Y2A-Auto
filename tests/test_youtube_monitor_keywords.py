@@ -257,26 +257,26 @@ class TestYouTubeMonitorKeywordsAndCover(unittest.TestCase):
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO monitor_history (config_id, video_id, video_title, channel_title, added_to_tasks)
-                VALUES (1, 'vid_manual_1', '直拍测试视频', '频道A', 0)
+                VALUES (1, 'vid_manual1', '直拍测试视频', '频道A', 0)
             """)
             conn.commit()
             conn.close()
 
             # Mock add_task 返回假任务ID 'task-uuid-12345'
             with patch('modules.youtube_monitor.add_task', return_value='task-uuid-12345'):
-                success, message = monitor.add_video_to_tasks_manually('vid_manual_1', 1)
+                success, message = monitor.add_video_to_tasks_manually('vid_manual1', 1)
                 self.assertTrue(success)
                 self.assertIn('task-uuid-12345', message)
 
             # 验证数据库中 added_to_tasks 已被置为 1
             conn = sqlite3.connect(test_db)
             cursor = conn.cursor()
-            cursor.execute("SELECT added_to_tasks FROM monitor_history WHERE video_id = 'vid_manual_1' AND config_id = 1")
+            cursor.execute("SELECT added_to_tasks FROM monitor_history WHERE video_id = 'vid_manual1' AND config_id = 1")
             self.assertEqual(cursor.fetchone()[0], 1)
             conn.close()
 
             # 再次添加同一视频，应被拦截提示已添加
-            success_repeat, message_repeat = monitor.add_video_to_tasks_manually('vid_manual_1', 1)
+            success_repeat, message_repeat = monitor.add_video_to_tasks_manually('vid_manual1', 1)
             self.assertFalse(success_repeat)
             self.assertIn('已经添加到任务队列', message_repeat)
         finally:

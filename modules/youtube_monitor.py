@@ -2258,11 +2258,24 @@ class YouTubeMonitor:
             
             columns = [description[0] for description in cursor.description]
             history = []
+            tasks_meta_map = {}
+            try:
+                from modules.task_manager import get_tasks_video_metadata_map
+                tasks_meta_map = get_tasks_video_metadata_map()
+            except Exception:
+                pass
+
             for row in cursor.fetchall():
                 record = dict(zip(columns, row))
+                vid = record.get('video_id', '')
                 if not record.get('thumbnail_url'):
-                    vid = record.get('video_id', '')
                     record['thumbnail_url'] = f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg" if vid else ''
+                if vid and vid in tasks_meta_map:
+                    tmeta = tasks_meta_map[vid]
+                    if tmeta.get('filesize') is not None:
+                        record['video_filesize'] = tmeta.get('filesize')
+                    if not record.get('duration') and tmeta.get('duration') is not None:
+                        record['duration'] = tmeta.get('duration')
                 history.append(record)
             
             return history
@@ -2459,10 +2472,23 @@ class YouTubeMonitor:
                 ''', (int(run_id),))
                 v_cols = [col[0] for col in cursor.description]
                 videos = [dict(zip(v_cols, r)) for r in cursor.fetchall()]
+                tasks_meta_map = {}
+                try:
+                    from modules.task_manager import get_tasks_video_metadata_map
+                    tasks_meta_map = get_tasks_video_metadata_map()
+                except Exception:
+                    pass
+
                 for v in videos:
+                    vid = v.get('video_id', '')
                     if not v.get('thumbnail_url'):
-                        vid = v.get('video_id', '')
                         v['thumbnail_url'] = f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg" if vid else ''
+                    if vid and vid in tasks_meta_map:
+                        tmeta = tasks_meta_map[vid]
+                        if tmeta.get('filesize') is not None:
+                            v['video_filesize'] = tmeta.get('filesize')
+                        if not v.get('duration') and tmeta.get('duration') is not None:
+                            v['duration'] = tmeta.get('duration')
 
                 return {
                     'run': run_data,
@@ -2588,11 +2614,24 @@ class YouTubeMonitor:
                 
                 columns = [description[0] for description in cursor.description]
                 records = []
+                tasks_meta_map = {}
+                try:
+                    from modules.task_manager import get_tasks_video_metadata_map
+                    tasks_meta_map = get_tasks_video_metadata_map()
+                except Exception:
+                    pass
+
                 for row in cursor.fetchall():
                     record = dict(zip(columns, row))
+                    vid = record.get('video_id', '')
                     if not record.get('thumbnail_url'):
-                        vid = record.get('video_id', '')
                         record['thumbnail_url'] = f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg" if vid else ''
+                    if vid and vid in tasks_meta_map:
+                        tmeta = tasks_meta_map[vid]
+                        if tmeta.get('filesize') is not None:
+                            record['video_filesize'] = tmeta.get('filesize')
+                        if not record.get('duration') and tmeta.get('duration') is not None:
+                            record['duration'] = tmeta.get('duration')
                     records.append(record)
                     
                 has_prev = page > 1

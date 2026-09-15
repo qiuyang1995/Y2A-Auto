@@ -1037,13 +1037,7 @@ def setup_task_logger(task_id):
 # 数据库操作
 def init_db():
     """初始化数据库，创建tasks表"""
-    conn = sqlite3.connect(DB_PATH, timeout=DB_CONNECT_TIMEOUT_SECONDS)
-    try:
-        conn.execute(f'PRAGMA busy_timeout = {DB_BUSY_TIMEOUT_MS}')
-        conn.execute('PRAGMA journal_mode = WAL')
-        conn.execute('PRAGMA synchronous = NORMAL')
-    except Exception:
-        pass
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     # 创建tasks表
@@ -1084,7 +1078,9 @@ def init_db():
         bilibili_upload_response TEXT,
         asr_warning_message TEXT,  -- ASR/VAD阶段的非致命警告（如vad_low_coverage），不影响上传流程
         subtitle_warning_message TEXT,  -- 字幕处理阶段的非致命警告（如烧录失败），不影响上传流程
-        auto_pipeline INTEGER DEFAULT 0  -- 是否走监控自动化流水线（下载->AI元数据->上传B站）
+        auto_pipeline INTEGER DEFAULT 0,  -- 是否走监控自动化流水线（下载->AI元数据->上传B站）
+        video_duration INTEGER,  -- 视频时长（秒）
+        video_filesize INTEGER  -- 视频文件大小（字节）
     )
     ''')
     
@@ -1165,6 +1161,16 @@ def init_db():
         if 'auto_pipeline' not in columns:
             cursor.execute("ALTER TABLE tasks ADD COLUMN auto_pipeline INTEGER DEFAULT 0")
             logger.info("数据库升级：添加auto_pipeline字段")
+            conn.commit()
+
+        if 'video_duration' not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN video_duration INTEGER")
+            logger.info("数据库升级：添加video_duration字段")
+            conn.commit()
+
+        if 'video_filesize' not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN video_filesize INTEGER")
+            logger.info("数据库升级：添加video_filesize字段")
             conn.commit()
 
         cursor.execute("PRAGMA table_info(tasks)")
@@ -1331,6 +1337,48 @@ def init_db():
                 conn.rollback()
                 logger.warning("数据库升级：ASR警告字段数据迁移失败: %s", _em)
 
+        # 历史任务时长与文件大小回填迁移：仅执行一次，避免重复扫描
+        cursor.execute(
+            "SELECT 1 FROM schema_migrations WHERE migration_key = ? LIMIT 1",
+            ('tasks_duration_filesize_backfill_v1',)
+        )
+        if cursor.fetchone() is None:
+            try:
+                cursor.execute("SELECT id, video_path_local, metadata_json_path_local, video_duration, video_filesize FROM tasks")
+                rows = cursor.fetchall()
+                for tid, vpath, mpath, vdur, vsize in rows:
+                    cur_dur = vdur
+                    cur_size = vsize
+                    if (cur_dur is None or cur_size is None) and mpath and os.path.exists(mpath):
+                        try:
+                            with open(mpath, 'r', encoding='utf-8') as f:
+                                meta = json.load(f)
+                                if cur_dur is None:
+                                    cur_dur = meta.get('duration')
+                                if cur_size is None:
+                                    cur_size = meta.get('filesize') or meta.get('filesize_approx')
+                        except Exception:
+                            pass
+                    if (cur_size is None) and vpath and os.path.exists(vpath):
+                        try:
+                            cur_size = os.path.getsize(vpath)
+                        except Exception:
+                            pass
+                    if cur_dur != vdur or cur_size != vsize:
+                        cursor.execute(
+                            "UPDATE tasks SET video_duration = ?, video_filesize = ? WHERE id = ?",
+                            (cur_dur, cur_size, tid)
+                        )
+                cursor.execute(
+                    "INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)",
+                    ('tasks_duration_filesize_backfill_v1',)
+                )
+                conn.commit()
+                logger.info("数据库升级：历史任务时长与文件大小回填迁移完成")
+            except Exception as _em:
+                conn.rollback()
+                logger.warning("数据库升级：历史任务时长与文件大小回填迁移失败: %s", _em)
+
         # 兼容历史任务：空 upload_target 默认回填 acfun
         cursor.execute("UPDATE tasks SET upload_target = 'acfun' WHERE upload_target IS NULL OR TRIM(upload_target) = ''")
         conn.commit()
@@ -1485,6 +1533,8 @@ def update_task(task_id, silent=False, **kwargs):
         'bilibili_upload_response': 'bilibili_upload_response = ?',
         'asr_warning_message': 'asr_warning_message = ?',
         'subtitle_warning_message': 'subtitle_warning_message = ?',
+        'video_duration': 'video_duration = ?',
+        'video_filesize': 'video_filesize = ?',
     }
 
     # 过滤掉不在白名单中的列
@@ -1586,6 +1636,83 @@ def update_task(task_id, silent=False, **kwargs):
     finally:
         conn.close()
 
+def _enrich_task_duration_size(task):
+    """确保 task 字典具备 video_duration 和 video_filesize（若数据库尚未持久化则从本地文件兜底读取）"""
+    if not task:
+        return task
+    dur = task.get('video_duration')
+    size = task.get('video_filesize')
+    mpath = task.get('metadata_json_path_local')
+    vpath = task.get('video_path_local')
+
+    if (dur is None or size is None) and mpath and os.path.exists(mpath):
+        try:
+            with open(mpath, 'r', encoding='utf-8') as f:
+                meta = json.load(f)
+                if dur is None:
+                    dur = meta.get('duration')
+                if size is None:
+                    size = meta.get('filesize') or meta.get('filesize_approx')
+        except Exception:
+            pass
+
+    if size is None and vpath and os.path.exists(vpath):
+        try:
+            size = os.path.getsize(vpath)
+        except Exception:
+            pass
+
+    task['video_duration'] = dur
+    task['video_filesize'] = size
+    return task
+
+def get_tasks_video_metadata_map():
+    """
+    获取所有任务对应 YouTube 视频的元数据映射 {video_id: {'duration': ..., 'filesize': ..., 'task_id': ...}}
+    供监控页面快速关联展示已入队/已下载视频的实际文件大小与时长
+    """
+    conn = get_db_connection()
+    video_map = {}
+    try:
+        cursor = conn.execute("""
+            SELECT id, youtube_url, video_path_local, metadata_json_path_local, video_duration, video_filesize
+            FROM tasks
+            WHERE youtube_url IS NOT NULL AND youtube_url != ''
+        """)
+        for tid, url, vpath, mpath, vdur, vsize in cursor.fetchall():
+            match = re.search(r'(?:v=|\/)([0-9A-Za-z_-]{11})', url or '')
+            vid = match.group(1) if match else None
+            if not vid:
+                continue
+            dur = vdur
+            size = vsize
+            if (dur is None or size is None) and mpath and os.path.exists(mpath):
+                try:
+                    with open(mpath, 'r', encoding='utf-8') as f:
+                        meta = json.load(f)
+                        if dur is None:
+                            dur = meta.get('duration')
+                        if size is None:
+                            size = meta.get('filesize') or meta.get('filesize_approx')
+                except Exception:
+                    pass
+            if size is None and vpath and os.path.exists(vpath):
+                try:
+                    size = os.path.getsize(vpath)
+                except Exception:
+                    pass
+            video_map[vid] = {
+                'task_id': tid,
+                'duration': dur,
+                'filesize': size,
+            }
+        return video_map
+    except Exception as e:
+        logger.error(f"获取任务视频元数据映射失败: {e}")
+        return {}
+    finally:
+        conn.close()
+
 def get_task(task_id):
     """
     获取任务信息
@@ -1602,6 +1729,8 @@ def get_task(task_id):
         cursor = conn.execute('SELECT * FROM tasks WHERE id = ?', (task_id,))
         task = cursor.fetchone()
         result = dict(task) if task else None
+        if result:
+            _enrich_task_duration_size(result)
         logger.debug(f"获取任务 {task_id} 结果: {result}")
         return result
     except Exception as e:
@@ -1620,7 +1749,7 @@ def get_all_tasks():
     conn = get_db_connection()
     try:
         cursor = conn.execute('SELECT * FROM tasks ORDER BY created_at DESC')
-        return [dict(row) for row in cursor.fetchall()]
+        return [_enrich_task_duration_size(dict(row)) for row in cursor.fetchall()]
     except Exception as e:
         logger.error(f"获取所有任务失败: {str(e)}")
         return []
@@ -1711,7 +1840,7 @@ def get_tasks_paginated(page=1, per_page=20, status='all'):
             f'SELECT * FROM tasks{where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?', 
             tuple(params + [per_page, offset])
         )
-        tasks = [dict(row) for row in cursor.fetchall()]
+        tasks = [_enrich_task_duration_size(dict(row)) for row in cursor.fetchall()]
         
         return {
             'tasks': tasks,
@@ -2896,22 +3025,37 @@ class TaskProcessor:
             metadata_path = result.get('metadata_path')
             video_title = ""
             video_description = ""
+            duration = None
+            filesize = None
             if metadata_path and os.path.exists(metadata_path):
                 try:
                     with open(metadata_path, 'r', encoding='utf-8') as f:
                         metadata = json.load(f)
                         video_title = metadata.get('title', '')
                         video_description = metadata.get('description', '')
+                        duration = metadata.get('duration')
+                        filesize = metadata.get('filesize') or metadata.get('filesize_approx')
                 except Exception as e:
                     task_logger.error(f"读取视频元数据失败: {str(e)}")
-            update_task(
-                task_id,
-                status='info_fetched',
-                video_title_original=video_title,
-                description_original=video_description,
-                cover_path_local=result.get('cover_path', ''),
-                metadata_json_path_local=metadata_path
-            )
+            
+            update_data = {
+                'status': 'info_fetched',
+                'video_title_original': video_title,
+                'description_original': video_description,
+                'cover_path_local': result.get('cover_path', ''),
+                'metadata_json_path_local': metadata_path
+            }
+            if duration is not None:
+                try:
+                    update_data['video_duration'] = int(duration)
+                except Exception:
+                    pass
+            if filesize is not None:
+                try:
+                    update_data['video_filesize'] = int(filesize)
+                except Exception:
+                    pass
+            update_task(task_id, **update_data)
         else:
             task_logger.error(f"视频信息采集失败: {result}")
             update_task(task_id, status=TASK_STATES['FAILED'], error_message=f"采集信息失败: {result}")
@@ -2998,11 +3142,18 @@ class TaskProcessor:
             # 获取当前任务信息
             task = get_task(task_id)
             
+            video_path = result.get('video_path', '')
             update_data = {
                 'status': TASK_STATES['DOWNLOADED'],
-                'video_path_local': result.get('video_path', ''),
+                'video_path_local': video_path,
                 'upload_progress': None  # 清除进度显示
             }
+
+            if video_path and os.path.exists(video_path):
+                try:
+                    update_data['video_filesize'] = int(os.path.getsize(video_path))
+                except Exception as e:
+                    task_logger.warning(f"获取视频文件大小失败: {e}")
             
             # 如果结果中包含元数据和封面信息，保存这些信息
             # 这是因为我们修改了download_video_data函数，使其在only_video=True时也能返回之前保存的元数据和封面
@@ -3012,6 +3163,19 @@ class TaskProcessor:
                     
                 if result.get('cover_path') and not task.get('cover_path_local'):
                     update_data['cover_path_local'] = result.get('cover_path')
+                
+                # 如果任务之前缺少时长且有元数据，尝试补充
+                if not task.get('video_duration'):
+                    mpath = result.get('metadata_path') or task.get('metadata_json_path_local')
+                    if mpath and os.path.exists(mpath):
+                        try:
+                            with open(mpath, 'r', encoding='utf-8') as f:
+                                meta = json.load(f)
+                                dur = meta.get('duration')
+                                if dur:
+                                    update_data['video_duration'] = int(dur)
+                        except Exception:
+                            pass
             else:
                 task_logger.warning("任务对象为 None，无法更新元数据和封面信息")
                 

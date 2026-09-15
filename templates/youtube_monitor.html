@@ -297,14 +297,21 @@
                         </td>
                         <td data-label="时间"><small>{{ record.run_time }}</small></td>
                         <td data-label="封面" class="text-center align-middle" style="width: 85px;">
-                            <img src="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}" 
-                                 alt="封面" 
-                                 class="monitor-cover-thumb rounded shadow-sm"
-                                 loading="lazy"
-                                 data-cover-url="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}"
-                                 data-video-title="{{ record.video_title }}"
-                                 data-youtube-url="https://www.youtube.com/watch?v={{ record.video_id }}"
-                                 title="点击放大查看封面">
+                            <div class="position-relative d-inline-block">
+                                <img src="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}" 
+                                     alt="封面" 
+                                     class="monitor-cover-thumb rounded shadow-sm"
+                                     loading="lazy"
+                                     data-cover-url="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}"
+                                     data-video-title="{{ record.video_title }}"
+                                     data-youtube-url="https://www.youtube.com/watch?v={{ record.video_id }}"
+                                     title="点击放大查看封面">
+                                {% if record.duration %}
+                                <span class="position-absolute bottom-0 end-0 badge bg-dark bg-opacity-75 text-white" style="font-size: 0.65rem; padding: 1px 3px; margin: 2px; border-radius: 3px; pointer-events: none; line-height: 1;">
+                                    {{ record.duration|format_duration }}
+                                </span>
+                                {% endif %}
+                            </div>
                         </td>
                         <td data-label="配置名称">{{ record.config_name }}</td>
                         <td data-label="视频标题">
@@ -317,6 +324,22 @@
                                     {% endif %}
                                 {% endif %}
                                 {{ record.video_title }}
+                            </div>
+                            <div class="mt-1 d-flex flex-wrap align-items-center gap-1">
+                                {% if record.duration %}
+                                <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.72rem; padding: 2px 5px;" title="视频时长">
+                                    <i class="bi bi-clock me-1"></i>{{ record.duration|format_duration }}
+                                </span>
+                                {% endif %}
+                                {% if record.video_filesize %}
+                                <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.72rem; padding: 2px 5px;" title="视频文件大小">
+                                    <i class="bi bi-file-earmark-play me-1"></i>{{ record.video_filesize|format_filesize }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.72rem; padding: 2px 5px;" title="未下载/大小未知">
+                                    <i class="bi bi-file-earmark me-1"></i>-
+                                </span>
+                                {% endif %}
                             </div>
                         </td>
                         <td data-label="频道">{{ record.channel_title }}</td>

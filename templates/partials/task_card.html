@@ -74,7 +74,7 @@
     <div class="card-body p-3">
         <div class="d-flex align-items-start justify-content-between gap-2">
             <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
-                <div class="flex-shrink-0">
+                <div class="flex-shrink-0 position-relative">
                     <img src="{{ url_for('get_task_cover', task_id=task.id) }}"
                          alt="封面"
                          class="task-cover-thumb rounded shadow-sm"
@@ -85,11 +85,30 @@
                          title="点击放大查看封面"
                          loading="lazy"
                          onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'72\' height=\'40\' viewBox=\'0 0 72 40\'><rect width=\'72\' height=\'40\' fill=\'%23212529\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'10\' fill=\'%23adb5bd\'>无封面</text></svg>';">
+                    {% if task.video_duration %}
+                    <span class="position-absolute bottom-0 end-0 badge bg-dark bg-opacity-75 text-white" style="font-size: 0.65rem; padding: 1px 3px; margin: 2px; border-radius: 3px; pointer-events: none; line-height: 1;">
+                        {{ task.video_duration|format_duration }}
+                    </span>
+                    {% endif %}
                 </div>
                 <div class="flex-grow-1 min-w-0">
                     <div class="task-title text-dark fw-bold fs-6 title-clamp title-clamp-3" title="{{ display_title }}">{{ display_title }}</div>
                     {% if task.video_title_translated and task.video_title_original %}
                         <div class="small text-muted text-truncate mt-1" title="原标题: {{ task.video_title_original }}"><i class="bi bi-translate me-1 text-primary"></i>原标题: {{ task.video_title_original }}</div>
+                    {% endif %}
+                    {% if task.video_duration or task.video_filesize %}
+                    <div class="mt-1 d-flex flex-wrap align-items-center gap-1">
+                        {% if task.video_duration %}
+                        <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.72rem; padding: 2px 5px;" title="视频时长">
+                            <i class="bi bi-clock me-1"></i>{{ task.video_duration|format_duration }}
+                        </span>
+                        {% endif %}
+                        {% if task.video_filesize %}
+                        <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.72rem; padding: 2px 5px;" title="视频文件大小">
+                            <i class="bi bi-file-earmark-play me-1"></i>{{ task.video_filesize|format_filesize }}
+                        </span>
+                        {% endif %}
+                    </div>
                     {% endif %}
                 </div>
             </div>

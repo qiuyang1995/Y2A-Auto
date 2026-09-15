@@ -369,7 +369,7 @@
                         <th>频道</th>
                         <th>观看数</th>
                         <th>点赞数</th>
-                        <th>时长</th>
+                        <th>时长 / 大小</th>
                         <th>状态</th>
                         <th>操作</th>
                     </tr>
@@ -387,14 +387,21 @@
                             {% endif %}
                         </td>
                         <td class="text-center align-middle" style="width: 85px;">
-                            <img src="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}" 
-                                 alt="封面" 
-                                 class="monitor-cover-thumb rounded shadow-sm"
-                                 loading="lazy"
-                                 data-cover-url="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}"
-                                 data-video-title="{{ record.video_title }}"
-                                 data-youtube-url="https://www.youtube.com/watch?v={{ record.video_id }}"
-                                 title="点击放大查看封面">
+                            <div class="position-relative d-inline-block">
+                                <img src="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}" 
+                                     alt="封面" 
+                                     class="monitor-cover-thumb rounded shadow-sm"
+                                     loading="lazy"
+                                     data-cover-url="{{ url_for('youtube_monitor_cover', video_id=record.video_id) }}"
+                                     data-video-title="{{ record.video_title }}"
+                                     data-youtube-url="https://www.youtube.com/watch?v={{ record.video_id }}"
+                                     title="点击放大查看封面">
+                                {% if record.duration %}
+                                <span class="position-absolute bottom-0 end-0 badge bg-dark bg-opacity-75 text-white" style="font-size: 0.65rem; padding: 1px 3px; margin: 2px; border-radius: 3px; pointer-events: none; line-height: 1;">
+                                    {{ record.duration|format_duration }}
+                                </span>
+                                {% endif %}
+                            </div>
                         </td>
                         <td>
                             <div class="fw-semibold small">{{ record.config_name or '默认' }}</div>
@@ -419,19 +426,16 @@
                         <td>{{ record.view_count|int }}</td>
                         <td>{{ record.like_count|int }}</td>
                         <td>
-                            {% set duration_seconds = record.duration|parse_youtube_duration %}
-                            {% if duration_seconds %}
-                                {% set hours = duration_seconds // 3600 %}
-                                {% set minutes = (duration_seconds % 3600) // 60 %}
-                                {% set seconds = duration_seconds % 60 %}
-                                {% if hours > 0 %}
-                                    {{ hours }}:{{ "%02d"|format(minutes) }}:{{ "%02d"|format(seconds) }}
-                                {% else %}
-                                    {{ minutes }}:{{ "%02d"|format(seconds) }}
-                                {% endif %}
-                            {% else %}
-                                {{ record.duration }}
-                            {% endif %}
+                            <div class="font-monospace small">
+                                <div><i class="bi bi-clock me-1 text-muted"></i>{{ record.duration|format_duration }}</div>
+                                <div class="mt-1">
+                                    {% if record.video_filesize %}
+                                    <span class="badge bg-light text-secondary border font-monospace"><i class="bi bi-file-earmark-play me-1"></i>{{ record.video_filesize|format_filesize }}</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-muted border font-monospace"><i class="bi bi-file-earmark me-1"></i>-</span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </td>
                         <td>
                             {% if record.added_to_tasks %}
@@ -630,6 +634,38 @@ function openRunDetails(runId) {
             }
             const run = res.data.run;
             const videos = res.data.videos || [];
+
+            function formatDurationJs(val) {
+                if (!val) return '';
+                if (typeof val === 'string' && val.startsWith('PT')) {
+                    const match = val.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+                    if (match) {
+                        const h = parseInt(match[1] || 0, 10);
+                        const m = parseInt(match[2] || 0, 10);
+                        const s = parseInt(match[3] || 0, 10);
+                        return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                    }
+                }
+                const sec = parseInt(val, 10);
+                if (isNaN(sec) || sec <= 0) return typeof val === 'string' ? val : '';
+                const h = Math.floor(sec / 3600);
+                const m = Math.floor((sec % 3600) / 60);
+                const s = sec % 60;
+                return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+
+            function formatFilesizeJs(bytes) {
+                if (!bytes) return '';
+                const num = parseFloat(bytes);
+                if (isNaN(num) || num <= 0) return '';
+                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                let n = num, i = 0;
+                while (n >= 1024 && i < units.length - 1) {
+                    n /= 1024;
+                    i++;
+                }
+                return `${n < 10 && i > 0 ? n.toFixed(2) : n.toFixed(1)} ${units[i]}`;
+            }
             
             let statusBadge = '';
             if (run.status === 'success') {
@@ -677,10 +713,17 @@ function openRunDetails(runId) {
                                 ${videos.map(v => `
                                     <tr id="modal-video-row-${v.id}">
                                         <td style="width: 60px;">
-                                            <img src="/youtube_monitor/cover/${v.video_id}" class="rounded" style="width: 54px; height: 32px; object-fit: cover;">
+                                            <div class="position-relative d-inline-block">
+                                                <img src="/youtube_monitor/cover/${v.video_id}" class="rounded" style="width: 54px; height: 32px; object-fit: cover;">
+                                                ${formatDurationJs(v.duration) ? `<span class="position-absolute bottom-0 end-0 badge bg-dark bg-opacity-75 text-white" style="font-size: 0.6rem; padding: 1px 2px; margin: 1px; border-radius: 2px; pointer-events: none; line-height: 1;">${formatDurationJs(v.duration)}</span>` : ''}
+                                            </div>
                                         </td>
                                         <td>
                                             <div class="text-truncate-300 fw-semibold small" title="${v.video_title}">${v.video_title}</div>
+                                            <div class="mt-1 d-flex flex-wrap align-items-center gap-1">
+                                                ${formatDurationJs(v.duration) ? `<span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.7rem; padding: 1px 4px;" title="视频时长"><i class="bi bi-clock me-1"></i>${formatDurationJs(v.duration)}</span>` : ''}
+                                                ${v.video_filesize ? `<span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.7rem; padding: 1px 4px;" title="视频文件大小"><i class="bi bi-file-earmark-play me-1"></i>${formatFilesizeJs(v.video_filesize)}</span>` : ''}
+                                            </div>
                                         </td>
                                         <td><small class="text-muted">${v.channel_title}</small></td>
                                         <td><small>${Number(v.view_count || 0).toLocaleString()}</small></td>
