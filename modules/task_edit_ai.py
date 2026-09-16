@@ -97,6 +97,10 @@ def _build_openai_config(config: Mapping[str, Any]) -> Dict[str, Any]:
         'OPENAI_FALLBACK_MODEL_NAME': config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
         'OPENAI_FALLBACK_BASE_URL': config.get('OPENAI_FALLBACK_BASE_URL', ''),
         'OPENAI_FALLBACK_API_KEY': config.get('OPENAI_FALLBACK_API_KEY', ''),
+        'OPENAI_BACKUP_MODEL_NAME': config.get('OPENAI_BACKUP_MODEL_NAME', ''),
+        'OPENAI_BACKUP_BASE_URL': config.get('OPENAI_BACKUP_BASE_URL', ''),
+        'OPENAI_BACKUP_API_KEY': config.get('OPENAI_BACKUP_API_KEY', ''),
+        'OPENAI_BACKUP_THINKING_ENABLED': _as_bool(config.get('OPENAI_BACKUP_THINKING_ENABLED', False)),
         'FIXED_PARTITION_ID': config.get('FIXED_PARTITION_ID', ''),
         'FIXED_PARTITION_ID_BILIBILI': config.get('FIXED_PARTITION_ID_BILIBILI', ''),
     }

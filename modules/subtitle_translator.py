@@ -127,6 +127,11 @@ class TranslationConfig:
     max_workers: int = 2  # 减少最大并发线程数以降低内存使用
     thinking_enabled: bool = False
     timeout_seconds: int = 600  # API请求超时秒数；思考模型输出可达64k token，建议不低于300
+    # 终极灾备兜底配置
+    backup_base_url: str = ""
+    backup_api_key: str = ""
+    backup_model_name: str = ""
+    backup_thinking_enabled: bool = False
     # Prompt 中心配置
     prompt_mode: str = "builtin"
     prompt_text: str = ""         # 字幕翻译主 Prompt 用户文本
@@ -382,6 +387,22 @@ class LLMRequester:
             
         except Exception as e:
             self.logger.error(f"初始化OpenAI客户端失败: {e}")
+
+        # 初始化灾备兜底客户端
+        self.backup_client = None
+        self.backup_model = str(self.openai_config.get('OPENAI_BACKUP_MODEL_NAME') or '').strip()
+        if self.backup_model:
+            try:
+                b_cfg = dict(self.openai_config)
+                b_cfg['OPENAI_MODEL_NAME'] = self.backup_model
+                if self.openai_config.get('OPENAI_BACKUP_BASE_URL'):
+                    b_cfg['OPENAI_BASE_URL'] = self.openai_config.get('OPENAI_BACKUP_BASE_URL')
+                if self.openai_config.get('OPENAI_BACKUP_API_KEY'):
+                    b_cfg['OPENAI_API_KEY'] = self.openai_config.get('OPENAI_BACKUP_API_KEY')
+                self.backup_client = get_openai_client(b_cfg)
+                self.logger.info(f"OpenAI兜底客户端初始化成功: {self.backup_model}")
+            except Exception as b_err:
+                self.logger.warning(f"初始化兜底客户端失败: {b_err}")
     
     def translate_batch(self, texts: List[str], target_language: str, batch_id: str = "") -> List[str]:
         """批量翻译文本，使用结构化JSON输出"""
@@ -442,6 +463,37 @@ class LLMRequester:
             return self._parse_structured_translation_result(message, len(texts), batch_id)
             
         except Exception as e:
+            if getattr(self, 'backup_client', None) and getattr(self, 'backup_model', None):
+                try:
+                    with self._log_lock:
+                        self.logger.warning(
+                            f"批次 {batch_id} 主模型翻译失败 ({e})，正在触发灾备兜底模型 {self.backup_model} 重试..."
+                        )
+                    backup_thinking = bool(self.openai_config.get('OPENAI_BACKUP_THINKING_ENABLED', False))
+                    response = openai_chat_create_with_thinking_control(
+                        client=self.backup_client,
+                        create_kwargs={
+                            "model": self.backup_model,
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            "max_tokens": 4096,
+                            "response_format": {"type": "json_object"},
+                        },
+                        thinking_enabled=backup_thinking,
+                        logger=self.logger,
+                        scene_name='subtitle_translate_batch_backup',
+                    )
+                    if not response.choices or len(response.choices) == 0:
+                        with self._log_lock:
+                            self.logger.warning(f"批次 {batch_id}: 兜底API返回空的choices列表")
+                        return [""] * len(texts)
+                    message = response.choices[0].message
+                    return self._parse_structured_translation_result(message, len(texts), batch_id)
+                except Exception as b_err:
+                    with self._log_lock:
+                        self.logger.error(f"批次 {batch_id} 灾备兜底模型翻译亦失败: {b_err}")
             with self._log_lock:
                 self.logger.error(f"批次 {batch_id} 翻译请求失败: {e}")
                 import traceback
@@ -496,6 +548,37 @@ class LLMRequester:
             message = response.choices[0].message
             return self._parse_structured_translation_result(message, len(texts), batch_id)
         except Exception as e:
+            if getattr(self, 'backup_client', None) and getattr(self, 'backup_model', None):
+                try:
+                    with self._log_lock:
+                        self.logger.warning(
+                            f"严格模式批次 {batch_id} 主模型翻译失败 ({e})，正在触发灾备兜底模型 {self.backup_model} 重试..."
+                        )
+                    backup_thinking = bool(self.openai_config.get('OPENAI_BACKUP_THINKING_ENABLED', False))
+                    response = openai_chat_create_with_thinking_control(
+                        client=self.backup_client,
+                        create_kwargs={
+                            "model": self.backup_model,
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            "max_tokens": 4096,
+                            "response_format": {"type": "json_object"},
+                        },
+                        thinking_enabled=backup_thinking,
+                        logger=self.logger,
+                        scene_name='subtitle_translate_batch_strict_backup',
+                    )
+                    if not response.choices or len(response.choices) == 0:
+                        with self._log_lock:
+                            self.logger.warning(f"严格模式批次 {batch_id}: 兜底API返回空的choices列表")
+                        return [""] * len(texts)
+                    message = response.choices[0].message
+                    return self._parse_structured_translation_result(message, len(texts), batch_id)
+                except Exception as b_err:
+                    with self._log_lock:
+                        self.logger.error(f"严格模式批次 {batch_id} 灾备兜底模型翻译亦失败: {b_err}")
             with self._log_lock:
                 self.logger.error(f"严格模式批次 {batch_id} 翻译失败: {e}")
             raise
@@ -608,6 +691,10 @@ class SubtitleTranslator:
             'OPENAI_MODEL_NAME': config.model_name or 'gpt-3.5-turbo',
             'OPENAI_THINKING_ENABLED': str(config.thinking_enabled).strip().lower() in ('true', '1', 'on', 'yes'),
             'OPENAI_TIMEOUT_SECONDS': config.timeout_seconds,
+            'OPENAI_BACKUP_BASE_URL': getattr(config, 'backup_base_url', ''),
+            'OPENAI_BACKUP_API_KEY': getattr(config, 'backup_api_key', ''),
+            'OPENAI_BACKUP_MODEL_NAME': getattr(config, 'backup_model_name', ''),
+            'OPENAI_BACKUP_THINKING_ENABLED': getattr(config, 'backup_thinking_enabled', False),
             # Prompt 中心配置（快照，避免热修改影响进行中的翻译）
             'PROMPT_MODE': getattr(config, 'prompt_mode', 'builtin'),
             'PROMPT_TEXT': getattr(config, 'prompt_text', ''),
@@ -1165,6 +1252,10 @@ def create_translator_from_config(app_config: Dict, task_id: Optional[str] = Non
             max_workers=max_workers,
             thinking_enabled=app_config.get('SUBTITLE_OPENAI_THINKING_ENABLED', False),
             timeout_seconds=int(app_config.get('OPENAI_TIMEOUT_SECONDS', 600)),
+            backup_base_url=app_config.get('OPENAI_BACKUP_BASE_URL', ''),
+            backup_api_key=app_config.get('OPENAI_BACKUP_API_KEY', ''),
+            backup_model_name=app_config.get('OPENAI_BACKUP_MODEL_NAME', ''),
+            backup_thinking_enabled=app_config.get('OPENAI_BACKUP_THINKING_ENABLED', False),
             prompt_mode=prompt_mode,
             prompt_text=prompt_text,
             prompt_strict_mode=prompt_strict_mode,

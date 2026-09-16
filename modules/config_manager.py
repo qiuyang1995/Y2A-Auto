@@ -157,6 +157,10 @@ DEFAULT_CONFIG = {
     "OPENAI_FALLBACK_MODEL_NAME": "",  # 备用模型名，如 gemini-2.0-flash / gpt-4o-mini
     "OPENAI_FALLBACK_BASE_URL": "",  # 备用接口 Base URL
     "OPENAI_FALLBACK_API_KEY": "",  # 备用 API Key
+    "OPENAI_BACKUP_BASE_URL": "",  # 终极兜底接口 Base URL（如主模型及备选链全部失败后调用）
+    "OPENAI_BACKUP_API_KEY": "",  # 终极兜底 API Key
+    "OPENAI_BACKUP_MODEL_NAME": "",  # 终极兜底模型名，如 deepseek-chat / gpt-4o-mini
+    "OPENAI_BACKUP_THINKING_ENABLED": False,  # 终极兜底模型启用思考模式
     "SUBTITLE_OPENAI_BASE_URL": "",
     # 字幕翻译可单独指定 API Key 与 模型名；为空则分别回退到 OPENAI_API_KEY 与 OPENAI_MODEL_NAME
     "SUBTITLE_OPENAI_API_KEY": "",

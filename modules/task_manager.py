@@ -3363,6 +3363,10 @@ class TaskProcessor:
             'OPENAI_FALLBACK_MODEL_NAME': self.config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
             'OPENAI_FALLBACK_BASE_URL': self.config.get('OPENAI_FALLBACK_BASE_URL', ''),
             'OPENAI_FALLBACK_API_KEY': self.config.get('OPENAI_FALLBACK_API_KEY', ''),
+            'OPENAI_BACKUP_MODEL_NAME': self.config.get('OPENAI_BACKUP_MODEL_NAME', ''),
+            'OPENAI_BACKUP_BASE_URL': self.config.get('OPENAI_BACKUP_BASE_URL', ''),
+            'OPENAI_BACKUP_API_KEY': self.config.get('OPENAI_BACKUP_API_KEY', ''),
+            'OPENAI_BACKUP_THINKING_ENABLED': self.config.get('OPENAI_BACKUP_THINKING_ENABLED', False),
             # 可选：允许用户配置固定分区ID，确保一次命中
             'FIXED_PARTITION_ID': self.config.get('FIXED_PARTITION_ID', ''),
         }
@@ -3467,6 +3471,10 @@ class TaskProcessor:
             'OPENAI_FALLBACK_MODEL_NAME': self.config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
             'OPENAI_FALLBACK_BASE_URL': self.config.get('OPENAI_FALLBACK_BASE_URL', ''),
             'OPENAI_FALLBACK_API_KEY': self.config.get('OPENAI_FALLBACK_API_KEY', ''),
+            'OPENAI_BACKUP_MODEL_NAME': self.config.get('OPENAI_BACKUP_MODEL_NAME', ''),
+            'OPENAI_BACKUP_BASE_URL': self.config.get('OPENAI_BACKUP_BASE_URL', ''),
+            'OPENAI_BACKUP_API_KEY': self.config.get('OPENAI_BACKUP_API_KEY', ''),
+            'OPENAI_BACKUP_THINKING_ENABLED': self.config.get('OPENAI_BACKUP_THINKING_ENABLED', False),
         }
         generated = generate_bilibili_title_description(
             source_metadata,
@@ -7449,6 +7457,10 @@ class TaskProcessor:
             'OPENAI_FALLBACK_MODEL_NAME': self.config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
             'OPENAI_FALLBACK_BASE_URL': self.config.get('OPENAI_FALLBACK_BASE_URL', ''),
             'OPENAI_FALLBACK_API_KEY': self.config.get('OPENAI_FALLBACK_API_KEY', ''),
+            'OPENAI_BACKUP_MODEL_NAME': self.config.get('OPENAI_BACKUP_MODEL_NAME', ''),
+            'OPENAI_BACKUP_BASE_URL': self.config.get('OPENAI_BACKUP_BASE_URL', ''),
+            'OPENAI_BACKUP_API_KEY': self.config.get('OPENAI_BACKUP_API_KEY', ''),
+            'OPENAI_BACKUP_THINKING_ENABLED': self.config.get('OPENAI_BACKUP_THINKING_ENABLED', False),
             'FIXED_PARTITION_ID': self.config.get('FIXED_PARTITION_ID', ''),
         }
         
@@ -7509,6 +7521,10 @@ class TaskProcessor:
             'OPENAI_FALLBACK_MODEL_NAME': self.config.get('OPENAI_FALLBACK_MODEL_NAME', ''),
             'OPENAI_FALLBACK_BASE_URL': self.config.get('OPENAI_FALLBACK_BASE_URL', ''),
             'OPENAI_FALLBACK_API_KEY': self.config.get('OPENAI_FALLBACK_API_KEY', ''),
+            'OPENAI_BACKUP_MODEL_NAME': self.config.get('OPENAI_BACKUP_MODEL_NAME', ''),
+            'OPENAI_BACKUP_BASE_URL': self.config.get('OPENAI_BACKUP_BASE_URL', ''),
+            'OPENAI_BACKUP_API_KEY': self.config.get('OPENAI_BACKUP_API_KEY', ''),
+            'OPENAI_BACKUP_THINKING_ENABLED': self.config.get('OPENAI_BACKUP_THINKING_ENABLED', False),
             'FIXED_PARTITION_ID': self.config.get('FIXED_PARTITION_ID', ''),
             'FIXED_PARTITION_ID_BILIBILI': self.config.get('FIXED_PARTITION_ID_BILIBILI', ''),
             'RECOMMEND_PARTITION_WITH_COVER': self.config.get('RECOMMEND_PARTITION_WITH_COVER', False),

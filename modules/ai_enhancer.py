@@ -1124,15 +1124,27 @@ def _request_chat_completion(
 
     cfg = dict(openai_config or {})
     fallback_model = str(cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
-    if not fallback_model:
+    backup_model_str = str(cfg.get('OPENAI_BACKUP_MODEL_NAME') or '').strip()
+    need_disk_fallback = ('OPENAI_FALLBACK_MODEL_NAME' not in cfg and not fallback_model)
+    need_disk_backup = ('OPENAI_BACKUP_MODEL_NAME' not in cfg and not backup_model_str)
+    if need_disk_fallback or need_disk_backup:
         try:
             from .config_manager import load_config
             disk_cfg = load_config() or {}
-            fallback_model = str(disk_cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
-            if not cfg.get('OPENAI_FALLBACK_BASE_URL') and disk_cfg.get('OPENAI_FALLBACK_BASE_URL'):
-                cfg['OPENAI_FALLBACK_BASE_URL'] = disk_cfg.get('OPENAI_FALLBACK_BASE_URL')
-            if not cfg.get('OPENAI_FALLBACK_API_KEY') and disk_cfg.get('OPENAI_FALLBACK_API_KEY'):
-                cfg['OPENAI_FALLBACK_API_KEY'] = disk_cfg.get('OPENAI_FALLBACK_API_KEY')
+            if need_disk_fallback:
+                fallback_model = str(disk_cfg.get('OPENAI_FALLBACK_MODEL_NAME') or '').strip()
+                if not cfg.get('OPENAI_FALLBACK_BASE_URL') and disk_cfg.get('OPENAI_FALLBACK_BASE_URL'):
+                    cfg['OPENAI_FALLBACK_BASE_URL'] = disk_cfg.get('OPENAI_FALLBACK_BASE_URL')
+                if not cfg.get('OPENAI_FALLBACK_API_KEY') and disk_cfg.get('OPENAI_FALLBACK_API_KEY'):
+                    cfg['OPENAI_FALLBACK_API_KEY'] = disk_cfg.get('OPENAI_FALLBACK_API_KEY')
+            if need_disk_backup:
+                backup_model_str = str(disk_cfg.get('OPENAI_BACKUP_MODEL_NAME') or '').strip()
+                if not cfg.get('OPENAI_BACKUP_BASE_URL') and disk_cfg.get('OPENAI_BACKUP_BASE_URL'):
+                    cfg['OPENAI_BACKUP_BASE_URL'] = disk_cfg.get('OPENAI_BACKUP_BASE_URL')
+                if not cfg.get('OPENAI_BACKUP_API_KEY') and disk_cfg.get('OPENAI_BACKUP_API_KEY'):
+                    cfg['OPENAI_BACKUP_API_KEY'] = disk_cfg.get('OPENAI_BACKUP_API_KEY')
+                if 'OPENAI_BACKUP_THINKING_ENABLED' not in cfg and 'OPENAI_BACKUP_THINKING_ENABLED' in disk_cfg:
+                    cfg['OPENAI_BACKUP_THINKING_ENABLED'] = disk_cfg.get('OPENAI_BACKUP_THINKING_ENABLED')
         except Exception:
             pass
 
@@ -1293,9 +1305,91 @@ def _request_chat_completion(
                         )
 
         if response is None:
+            # 检查是否配置了最终灾备兜底模型 (Disaster Recovery Fallback)
+            backup_candidates = _parse_model_candidates(backup_model_str)
+            if backup_candidates:
+                backup_base_url = cfg.get('OPENAI_BACKUP_BASE_URL') or cfg.get('OPENAI_BASE_URL', '')
+                backup_api_key = cfg.get('OPENAI_BACKUP_API_KEY') or cfg.get('OPENAI_API_KEY', '')
+                backup_thinking = bool(cfg.get('OPENAI_BACKUP_THINKING_ENABLED', False))
+
+                for b_idx, b_model in enumerate(backup_candidates):
+                    if logger_obj:
+                        logger_obj.warning(
+                            "主模型及备用模型链均已尝试失败 [%s]，正在触发最终灾备兜底模型 [%d/%d]: %s (Base URL: %s) | scene=%s",
+                            '; '.join(model_failures),
+                            b_idx + 1,
+                            len(backup_candidates),
+                            b_model,
+                            backup_base_url or '默认',
+                            scene_name,
+                        )
+
+                    b_cfg = dict(cfg)
+                    b_cfg['OPENAI_MODEL_NAME'] = b_model
+                    if backup_base_url:
+                        b_cfg['OPENAI_BASE_URL'] = backup_base_url
+                    if backup_api_key:
+                        b_cfg['OPENAI_API_KEY'] = backup_api_key
+                    b_client = get_openai_client(b_cfg)
+
+                    b_create_kwargs = {
+                        "model": b_model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_message_content},
+                        ],
+                        "temperature": temperature,
+                    }
+                    if max_tokens is not None:
+                        b_create_kwargs["max_tokens"] = max(max_tokens, 2048)
+                    if response_format is not None:
+                        b_create_kwargs["response_format"] = response_format
+
+                    try:
+                        response = openai_chat_create_with_thinking_control(
+                            client=b_client,
+                            create_kwargs=b_create_kwargs,
+                            thinking_enabled=backup_thinking,
+                            logger=logger_obj,
+                            scene_name=f"{scene_name}_backup_{b_model}",
+                            max_retries=3,
+                        )
+                        if logger_obj:
+                            logger_obj.info(
+                                "最终灾备兜底模型 [%s] 调用成功！已成功挽救 AI 请求 | scene=%s",
+                                b_model,
+                                scene_name,
+                            )
+                        break
+                    except Exception as b_exc:
+                        last_exc = b_exc
+                        b_err_text = safe_str(b_exc)
+                        if 'location' in b_err_text.lower() or 'precondition' in b_err_text.lower():
+                            b_reason = '400 代理地区不支持'
+                        elif 'perday' in b_err_text.lower() or 'generaterequestsperday' in b_err_text.lower():
+                            b_reason = '429 今日配额已耗尽'
+                        elif '429' in b_err_text:
+                            b_reason = '429 频率受限'
+                        elif '503' in b_err_text:
+                            b_reason = '503 模型繁忙'
+                        elif '404' in b_err_text:
+                            b_reason = '404 模型不存在'
+                        else:
+                            b_reason = b_exc.__class__.__name__
+                        model_failures.append(f"兜底:{b_model}({b_reason})")
+                        if logger_obj:
+                            logger_obj.warning(
+                                "最终灾备兜底模型 [%s] 调用失败（原因: %s: %s） | scene=%s",
+                                b_model,
+                                b_exc.__class__.__name__,
+                                b_err_text,
+                                scene_name,
+                            )
+
+        if response is None:
             if model_failures:
                 summary_text = '; '.join(model_failures)
-                raise RuntimeError(f"所有备选模型均调用失败 [{summary_text}]，最终错误: {safe_str(last_exc)}") from last_exc
+                raise RuntimeError(f"所有备选模型及最终兜底模型均调用失败 [{summary_text}]，最终错误: {safe_str(last_exc)}") from last_exc
             raise last_exc
         if logger_obj:
             choices = list(getattr(response, 'choices', None) or [])

@@ -814,7 +814,7 @@ def _perform_settings_save(form_data: dict, uploads: dict, operation_id: str | N
             'BILIBILI_SUBMIT_AS_REPOST',
             'GENERATE_TAGS', 'YOUTUBE_UPLOADER_AS_FIRST_TAG', 'RECOMMEND_PARTITION',
             'RECOMMEND_PARTITION_WITH_COVER', 'CONTENT_MODERATION_ENABLED',
-            'OPENAI_THINKING_ENABLED', 'SUBTITLE_OPENAI_THINKING_ENABLED', 'SUBTITLE_QC_THINKING_ENABLED',
+            'OPENAI_THINKING_ENABLED', 'OPENAI_BACKUP_THINKING_ENABLED', 'SUBTITLE_OPENAI_THINKING_ENABLED', 'SUBTITLE_QC_THINKING_ENABLED',
             'LOG_CLEANUP_ENABLED', 'SUBTITLE_TRANSLATION_ENABLED', 'SUBTITLE_EMBED_IN_VIDEO',
             'SUBTITLE_KEEP_ORIGINAL', 'YOUTUBE_AUTO_GENERATED_SUBTITLES_ENABLED',
             'YOUTUBE_PROXY_ENABLED', 'YOUTUBE_API_PROXY_ENABLED', 'password_protection_enabled',
@@ -3107,6 +3107,12 @@ def test_ai_model_connection():
         base_url = input_url or saved_config.get('OPENAI_BASE_URL', '')
         model_name = input_model or saved_config.get('OPENAI_MODEL_NAME', 'gpt-4o-mini')
         thinking_enabled = input_thinking if input_thinking is not None else saved_config.get('OPENAI_THINKING_ENABLED', False)
+
+    elif target_section == 'backup_openai':
+        api_key = input_key or saved_config.get('OPENAI_BACKUP_API_KEY') or saved_config.get('OPENAI_API_KEY', '')
+        base_url = input_url or saved_config.get('OPENAI_BACKUP_BASE_URL') or saved_config.get('OPENAI_BASE_URL', '')
+        model_name = input_model or saved_config.get('OPENAI_BACKUP_MODEL_NAME') or 'gpt-4o-mini'
+        thinking_enabled = input_thinking if input_thinking is not None else saved_config.get('OPENAI_BACKUP_THINKING_ENABLED', False)
 
     elif target_section == 'subtitle_openai':
         api_key = input_key or saved_config.get('SUBTITLE_OPENAI_API_KEY') or saved_config.get('OPENAI_API_KEY', '')

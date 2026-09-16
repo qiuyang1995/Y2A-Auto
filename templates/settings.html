@@ -771,6 +771,47 @@
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                        <div class="col-12 mt-2">
+                                                            <div class="border-top pt-3">
+                                                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                                                    <label class="form-label fw-bold mb-0 text-secondary">
+                                                                        <i class="bi bi-life-preserver me-1 text-warning"></i>最终灾备兜底模型 (Disaster Recovery Fallback)
+                                                                    </label>
+                                                                    <div class="d-flex align-items-center gap-2">
+                                                                        <span id="test-result-backup_openai"></span>
+                                                                        <button type="button" class="btn btn-sm btn-outline-warning shadow-sm" onclick="testAIModelConnection('backup_openai', this)">
+                                                                            <i class="bi bi-plug-fill me-1"></i>测试连接
+                                                                        </button>
+                                                                        <span class="settings-status-badge {{ 'is-success' if config.get('OPENAI_BACKUP_MODEL_NAME') and (config.get('OPENAI_BACKUP_API_KEY') or config.get('OPENAI_API_KEY')) else 'is-neutral' }}">
+                                                                            {{ '已配置兜底' if config.get('OPENAI_BACKUP_MODEL_NAME') else '未配置 (可选)' }}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <p class="text-muted small mb-2">
+                                                                    当主模型及备用模型链的所有请求和重试全部失败后（如因地区限制 400/403、服务宕机或配额耗尽），系统将自动调用此兜底模型（如 DeepSeek、OpenAI 等）作为最后一道防线保障任务顺利完成。
+                                                                </p>
+                                                                <div class="row g-2">
+                                                                    <div class="col-md-4">
+                                                                        <label for="openai-backup-model" class="form-label text-muted small">兜底模型名称 (支持逗号分隔)</label>
+                                                                        <input type="text" id="openai-backup-model" name="OPENAI_BACKUP_MODEL_NAME" value="{{ config.get('OPENAI_BACKUP_MODEL_NAME', '') }}" class="form-control form-control-sm" placeholder="如 deepseek-chat 或 gpt-4o-mini">
+                                                                    </div>
+                                                                    <div class="col-md-4">
+                                                                        <label for="openai-backup-url" class="form-label text-muted small">兜底 Base URL (可选)</label>
+                                                                        <input type="text" id="openai-backup-url" name="OPENAI_BACKUP_BASE_URL" value="{{ config.get('OPENAI_BACKUP_BASE_URL', '') }}" class="form-control form-control-sm" placeholder="留空则沿用主 Base URL">
+                                                                    </div>
+                                                                    <div class="col-md-4">
+                                                                        <label for="openai-backup-key" class="form-label text-muted small">兜底 API 密钥 (可选)</label>
+                                                                        <input type="password" id="openai-backup-key" name="OPENAI_BACKUP_API_KEY" value="{{ config.get('OPENAI_BACKUP_API_KEY', '') }}" class="form-control form-control-sm" placeholder="留空则沿用主 API 密钥">
+                                                                    </div>
+                                                                    <div class="col-12 mt-1">
+                                                                        <div class="form-check form-switch">
+                                                                            <input class="form-check-input" type="checkbox" id="openai-backup-thinking-enabled" name="OPENAI_BACKUP_THINKING_ENABLED" {% if config.get('OPENAI_BACKUP_THINKING_ENABLED', False) %}checked{% endif %}>
+                                                                            <label class="form-check-label text-muted small" for="openai-backup-thinking-enabled">兜底模型启用思考模式</label>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -3547,7 +3588,7 @@ document.addEventListener('DOMContentLoaded', function () {
 window.testAIModelConnection = function (sectionName, btnElement) {
     if (!sectionName || !btnElement) return;
 
-    const resultContainer = document.getElementById('test-result-' + sectionName);
+    let resultContainer = document.getElementById('test-result-' + sectionName);
     const originalBtnContent = btnElement.innerHTML;
 
     let urlInputId, keyInputId, modelInputId, thinkingInputId;
@@ -3556,6 +3597,11 @@ window.testAIModelConnection = function (sectionName, btnElement) {
         keyInputId = 'openai-key';
         modelInputId = 'openai-model';
         thinkingInputId = 'openai-thinking-enabled';
+    } else if (sectionName === 'backup_openai') {
+        urlInputId = 'openai-backup-url';
+        keyInputId = 'openai-backup-key';
+        modelInputId = 'openai-backup-model';
+        thinkingInputId = 'openai-backup-thinking-enabled';
     } else if (sectionName === 'subtitle_openai') {
         urlInputId = 'subtitle-openai-url';
         keyInputId = 'subtitle-openai-key';
