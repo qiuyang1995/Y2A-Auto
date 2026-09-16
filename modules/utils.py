@@ -313,39 +313,92 @@ def _mask_base_url(base_url):
 
 def _is_thinking_param_unsupported_error(exc):
     text = safe_str(exc).lower()
+    # 排除与思考参数无关的地理位置、区域、网络、配额或鉴权错误，避免误判
+    if any(k in text for k in ('location', 'region', 'country', 'geoblock', 'blocked', 'quota', 'credit', 'unauthorized', 'permission', 'failed_precondition')):
+        return False
+
     signals = (
         'unknown parameter',
-        'unrecognized',
-        'unsupported',
+        'unrecognized parameter',
+        'unrecognized request argument',
+        'unsupported parameter',
+        'parameter is unsupported',
         'invalid parameter',
         'extra_body',
-        'thinking',
         'reasoning_effort',
+        'thinking',
         'not permitted',
         'invalid json payload received',
     )
     return any(sig in text for sig in signals)
 
 
-def _invoke_chat_create_with_rate_limit_retry(client, kwargs, logger=None, max_retries=2):
-    """底层支持短时间 429 配额限制自动避让重试。"""
+def _invoke_chat_create_with_rate_limit_retry(
+    client,
+    kwargs,
+    logger=None,
+    max_retries=5,
+    is_thinking_probe=False,
+):
+    """底层调用 AI 接口，支持失败时自动重试，每次重试间隔 5-10s，最多重试 max_retries 次（默认 5 次）。
+    如果是思考参数试探请求且模型确实不支持思考参数，则立即抛出异常以便快速降级，不进行重试。
+    """
+    import random
+    import time
+    import re
+    import logging
+
+    log = logger or logging.getLogger('ai_client')
     attempts = 0
     while True:
         try:
             return client.chat.completions.create(**kwargs)
         except Exception as exc:
+            # 若处于思考参数试探阶段且明确是不支持思考参数，立即向上抛出以触发降级，不浪费时间重试
+            if is_thinking_probe and _is_thinking_param_unsupported_error(exc):
+                raise
+
             err_text = safe_str(exc)
-            is_429 = '429' in err_text or 'RateLimitError' in type(exc).__name__ or 'RESOURCE_EXHAUSTED' in err_text
-            if is_429 and attempts < max_retries:
-                attempts += 1
-                import time, re
+            exc_name = type(exc).__name__
+
+            # 若是每日配额耗尽（如 Google Free Tier 每日 20 次限制: GenerateRequestsPerDay），重试必定失败，立即向上抛出以快速触发模型故障转移
+            if 'perday' in err_text.lower() or 'generaterequestsperday' in err_text.lower():
+                log.warning(
+                    "模型已耗尽今日免费配额 (PerDay Quota Exceeded)，跳过本地重试，立即触发备用模型切换: %s: %s",
+                    exc_name,
+                    err_text[:120],
+                )
+                raise
+
+            attempts += 1
+
+            if attempts <= max_retries:
+                # 随机 5-10 秒等待时间，防止固定间隔重试以及多任务并发重试冲突
+                wait_sec = round(random.uniform(5.0, 10.0), 2)
+                # 若服务端明确返回了 429 retry-after 时间且更长，则在合理范围内采用该时间
                 match = re.search(r'retry\s+(?:in\s+)?(\d+(?:\.\d+)?)\s*s', err_text, re.IGNORECASE)
-                wait_sec = float(match.group(1)) if match else 3.0
-                if wait_sec <= 15.0:
-                    if logger:
-                        logger.warning("触发 API 频率限制 (429)，自动休眠等待 %.1f 秒后进行重试 (次 %d)...", wait_sec, attempts)
-                    time.sleep(wait_sec)
-                    continue
+                if match:
+                    header_wait = float(match.group(1))
+                    if header_wait <= 15.0:
+                        wait_sec = max(wait_sec, header_wait)
+
+                log.warning(
+                    "调用 AI 接口失败 (原因: %s: %s)，将在 %.1f 秒后进行第 %d/%d 次重试...",
+                    exc_name,
+                    err_text,
+                    wait_sec,
+                    attempts,
+                    max_retries,
+                )
+                time.sleep(wait_sec)
+                continue
+
+            log.error(
+                "调用 AI 接口已达最大重试次数 (%d次)，最终失败: %s: %s",
+                max_retries,
+                exc_name,
+                err_text,
+            )
             raise
 
 
@@ -355,10 +408,13 @@ def openai_chat_create_with_thinking_control(
     thinking_enabled=False,
     logger=None,
     scene_name='unknown',
+    max_retries=5,
 ):
-    """统一 chat.completions 请求，支持“尝试关闭思考 + 自动降级 + 429避让”策略。"""
+    """统一 chat.completions 请求，支持“尝试关闭思考 + 自动降级 + 自动重试”策略。"""
     if _coerce_bool(thinking_enabled, default=False):
-        return _invoke_chat_create_with_rate_limit_retry(client, create_kwargs, logger=logger)
+        return _invoke_chat_create_with_rate_limit_retry(
+            client, create_kwargs, logger=logger, max_retries=max_retries, is_thinking_probe=False
+        )
 
     model_name = safe_str((create_kwargs or {}).get('model'), default='unknown').strip()
     endpoint_label = _mask_base_url(getattr(client, 'base_url', None))
@@ -367,7 +423,9 @@ def openai_chat_create_with_thinking_control(
 
     unsupported_key = f"{endpoint_label}:{model_name}"
     if unsupported_key in _KNOWN_UNSUPPORTED_THINKING_PARAM:
-        return _invoke_chat_create_with_rate_limit_retry(client, create_kwargs, logger=logger)
+        return _invoke_chat_create_with_rate_limit_retry(
+            client, create_kwargs, logger=logger, max_retries=max_retries, is_thinking_probe=False
+        )
 
     is_gemini = 'googleapis.com' in client_base_url or 'gemini' in model_lower
     is_openai_reasoning = any(k in model_lower for k in ('o1-', 'o3-', 'o4-')) or model_lower in ('o1', 'o3', 'o4')
@@ -390,7 +448,9 @@ def openai_chat_create_with_thinking_control(
         disabled_kwargs['extra_body'] = extra_body
 
     try:
-        return _invoke_chat_create_with_rate_limit_retry(client, disabled_kwargs, logger=logger)
+        return _invoke_chat_create_with_rate_limit_retry(
+            client, disabled_kwargs, logger=logger, max_retries=max_retries, is_thinking_probe=True
+        )
     except Exception as exc:
         if not _is_thinking_param_unsupported_error(exc):
             raise
@@ -413,5 +473,7 @@ def openai_chat_create_with_thinking_control(
                 logger.debug(
                     "thinking 控制参数不受支持，继续普通请求"
                 )
-        return _invoke_chat_create_with_rate_limit_retry(client, create_kwargs, logger=logger)
+        return _invoke_chat_create_with_rate_limit_retry(
+            client, create_kwargs, logger=logger, max_retries=max_retries, is_thinking_probe=False
+        )
 

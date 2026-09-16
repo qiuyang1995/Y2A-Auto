@@ -1174,6 +1174,7 @@ def _request_chat_completion(
     primary_model = candidates[0]
     response = None
     last_exc = None
+    model_failures: List[str] = []
     request_start = time.time()
 
     try:
@@ -1230,12 +1231,14 @@ def _request_chat_completion(
                         )
 
             try:
+                model_retries = 5 if idx == 0 else 2
                 response = openai_chat_create_with_thinking_control(
                     client=active_client,
                     create_kwargs=create_kwargs,
                     thinking_enabled=thinking_enabled,
                     logger=logger_obj,
                     scene_name=f"{scene_name}_{current_model}",
+                    max_retries=model_retries,
                 )
                 # 调用成功，清理可能存在的冷却记录
                 if current_model in _MODEL_EXHAUSTED_COOLDOWN_MAP:
@@ -1245,6 +1248,21 @@ def _request_chat_completion(
                 last_exc = exc
                 err_text = safe_str(exc)
                 now_ts = time.time()
+
+                if 'location' in err_text.lower() or 'precondition' in err_text.lower():
+                    reason_short = '400 代理地区不支持'
+                elif 'perday' in err_text.lower() or 'generaterequestsperday' in err_text.lower():
+                    reason_short = '429 今日配额已耗尽'
+                elif '429' in err_text:
+                    reason_short = '429 频率受限'
+                elif '503' in err_text:
+                    reason_short = '503 模型繁忙'
+                elif '404' in err_text:
+                    reason_short = '404 模型不存在'
+                else:
+                    reason_short = exc.__class__.__name__
+                model_failures.append(f"{current_model}({reason_short})")
+
                 if (
                     'PerDay' in err_text or
                     'generate_content_free_tier_requests' in err_text or
@@ -1268,15 +1286,16 @@ def _request_chat_completion(
                 else:
                     if logger_obj:
                         logger_obj.warning(
-                            "所有备选模型 (%s) 均尝试失败。最后失败模型 %s，错误: %s: %s | scene=%s",
+                            "所有备选模型 (%s) 均尝试失败。各模型原因: [%s] | scene=%s",
                             ', '.join(models_to_try),
-                            current_model,
-                            exc.__class__.__name__,
-                            err_text,
+                            '; '.join(model_failures),
                             scene_name,
                         )
 
         if response is None:
+            if model_failures:
+                summary_text = '; '.join(model_failures)
+                raise RuntimeError(f"所有备选模型均调用失败 [{summary_text}]，最终错误: {safe_str(last_exc)}") from last_exc
             raise last_exc
         if logger_obj:
             choices = list(getattr(response, 'choices', None) or [])
