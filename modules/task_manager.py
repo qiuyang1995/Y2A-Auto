@@ -8627,6 +8627,17 @@ class TaskProcessor:
 
         cookie_file_exists = os.path.exists(bilibili_cookies_path)
         if not cookie_file_exists:
+            # 尝试从 CookieCloud 自动同步一次
+            try:
+                from .cookiecloud import try_cookiecloud_platform_sync, PLATFORM_BILIBILI
+                if self.config.get("COOKIECLOUD_ENABLED") and self.config.get("COOKIECLOUD_BILIBILI_ENABLED"):
+                    task_logger.info("Bilibili Cookies 文件不存在，尝试从 CookieCloud 自动拉取...")
+                    try_cookiecloud_platform_sync(self.config, PLATFORM_BILIBILI.key)
+                    cookie_file_exists = os.path.exists(bilibili_cookies_path)
+            except Exception as e:
+                task_logger.warning(f"尝试从 CookieCloud 恢复 Cookies 异常: {e}")
+
+        if not cookie_file_exists:
             task_logger.error(f"Bilibili Cookies文件不存在: {bilibili_cookies_path}")
             update_task(
                 task_id,
@@ -8637,6 +8648,18 @@ class TaskProcessor:
             return
 
         is_valid, error_msg = validate_cookies(bilibili_cookies_path, "Bilibili")
+        if not is_valid:
+            # 格式校验不通过时也尝试从 CookieCloud 重新同步一次
+            try:
+                from .cookiecloud import try_cookiecloud_platform_sync, PLATFORM_BILIBILI
+                if self.config.get("COOKIECLOUD_ENABLED") and self.config.get("COOKIECLOUD_BILIBILI_ENABLED"):
+                    task_logger.info("Bilibili Cookies 格式损坏，尝试从 CookieCloud 重新拉取...")
+                    sync_ok, _ = try_cookiecloud_platform_sync(self.config, PLATFORM_BILIBILI.key)
+                    if sync_ok:
+                        is_valid, error_msg = validate_cookies(bilibili_cookies_path, "Bilibili")
+            except Exception:
+                pass
+
         if not is_valid:
             task_logger.error(f"Bilibili Cookies文件验证失败: {error_msg}")
             update_task(

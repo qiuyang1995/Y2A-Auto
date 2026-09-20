@@ -95,7 +95,17 @@
     "라잇썸": "LIGHTSUM",
     "LIGHTSUM": "LIGHTSUM",
     "김채현": "金采炫",
-    "케플러": "Kep1er"
+    "케플러": "Kep1er",
+    "엔믹스": "NMIXX",
+    "릴리": "LILY",
+    "해원": "HAEWON",
+    "설윤": "SULLYOON",
+    "배이": "BAE",
+    "지우": "JIWOO",
+    "규진": "KYUJIN",
+    "JIHYUN": "JIHYUN",
+    "LIRI": "LIRI",
+    "HEART OF WOMAN": "HEART OF WOMAN"
   },
   "records": {
     "장원영": {
@@ -142,40 +152,52 @@
     "미야오": {
       "standard_name": "MEOVV",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "THEBLACKLABEL 女团 MEOVV 官方英文名称",
       "first_seen": "2026-09-12 04:17:45",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-20 17:05:49",
+      "occurrences": 3,
       "sample_titles": [
+        "260916 미야오 MEOVV 'Hit 'Em' 4K 60P 직캠 @협성대 축제 by DaftTaengk",
+        "260918 미야오(MEOVV) MEOW+띠로리+BURNING UP+Hit 'Em @인하대 4K 직캠 (MEOVV FANCAM)",
         "260823 미야오 안나 직캠 'HANDS UP' (MEOVV ANNA FanCam) @2026TIMA"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=4gdU7tetwEs",
+        "https://www.youtube.com/watch?v=q6DZ2lLsdT0",
         "https://www.youtube.com/watch?v=JaqbDbctfJI"
       ],
       "task_ids": [
+        "c2868eff-21d4-4fa5-adde-ee6d0a6ba759_edit",
+        "284d87c4-a5b5-4407-ab1d-414c89ddb55c_edit",
         "daccd8c9-657d-49c7-a460-1422924510b6"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "THEBLACKLABEL 女团 MEOVV 官方英文名称"
+      ]
     },
     "MEOVV": {
       "standard_name": "MEOVV",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "女团 MEOVV 官方英文名称",
       "first_seen": "2026-09-12 04:17:45",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-20 17:05:49",
+      "occurrences": 3,
       "sample_titles": [
+        "260916 미야오 MEOVV 'Hit 'Em' 4K 60P 직캠 @협성대 축제 by DaftTaengk",
+        "260918 미야오(MEOVV) MEOW+띠로리+BURNING UP+Hit 'Em @인하대 4K 직캠 (MEOVV FANCAM)",
         "260823 미야오 안나 직캠 'HANDS UP' (MEOVV ANNA FanCam) @2026TIMA"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=4gdU7tetwEs",
+        "https://www.youtube.com/watch?v=q6DZ2lLsdT0",
         "https://www.youtube.com/watch?v=JaqbDbctfJI"
       ],
       "task_ids": [
+        "c2868eff-21d4-4fa5-adde-ee6d0a6ba759_edit",
+        "284d87c4-a5b5-4407-ab1d-414c89ddb55c_edit",
         "daccd8c9-657d-49c7-a460-1422924510b6"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 MEOVV 官方英文名称"
+      ]
     },
     "이나경": {
       "standard_name": "李娜炅",
@@ -532,33 +554,33 @@
     "트리플에스": {
       "standard_name": "tripleS",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "Modhaus 女团 tripleS 官方英文名称",
       "first_seen": "2026-09-14 09:07:45",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 18,
+      "last_seen": "2026-09-20 15:16:31",
+      "occurrences": 19,
       "sample_titles": [
+        "260919 트리플에스 김숨냥 Baby Flower 직캠 4K60p tripleS fancam 더팩트뮤직어워즈 TMA",
         "260917 트리플에스 tripleS - 럽2럽 Love2Love | 김채원 Kim ChaeWon 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
         "260917 트리플에스 tripleS - 베이비 플라워 Baby Flower | 마유 Mayu 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
         "260915 트리플에스 tripleS - Girls Never Die | 김채원 Kim ChaeWon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
-        "[4K 60P 직캠] 20260909 트리플에스(tripleS) 김수민 \"Love2Love\" @ 성결대학교 축제",
-        "[4K 60P 직캠] 20260909 트리플에스(tripleS) 윤서연 \"Girls Never Die\" @ 성결대학교 축제"
+        "[4K 60P 직캠] 20260909 트리플에스(tripleS) 김수민 \"Love2Love\" @ 성결대학교 축제"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=EH3dTRAU-sM",
         "https://www.youtube.com/watch?v=MVsqMXphlpw",
         "https://www.youtube.com/watch?v=UOQkOe1eMpY",
         "https://www.youtube.com/watch?v=B94qf6A7Uts",
-        "https://www.youtube.com/watch?v=bIBlGiYiH_E",
-        "https://www.youtube.com/watch?v=p6mYg7i3Rds"
+        "https://www.youtube.com/watch?v=bIBlGiYiH_E"
       ],
       "task_ids": [
+        "4e361770-b421-4143-9fbf-bfd4d2e4e58f_edit",
         "20d88556-935f-4671-824d-011a4d3dfe26",
         "08d2028a-0289-4588-9f0c-d8a12605b7ad",
         "83e428db-bed1-44b3-85e0-e17b75de33c7",
-        "802980ec-9585-43c3-9892-912c33583c0d",
-        "8565a073-76be-4610-918b-58375b31a1ad"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "Modhaus 女团 tripleS 官方英文名称"
+        "802980ec-9585-43c3-9892-912c33583c0d"
+      ]
     },
     "tripleS": {
       "standard_name": "tripleS",
@@ -1301,33 +1323,33 @@
     "오드유스": {
       "standard_name": "ODD YOUTH",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "TOP Media 女团 ODD YOUTH 官方英文名称",
       "first_seen": "2026-09-17 05:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 7,
+      "last_seen": "2026-09-20 14:22:26",
+      "occurrences": 8,
       "sample_titles": [
+        "260919 ODD YOUTH (오드유스) - I Like You (써머) 직캠 [인천 청소년문화대축제]",
         "260917 오드유스 ODD YOUTH - 댓츠미 THAT'S ME | 가로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
         "260917 오드유스 ODD YOUTH - 캔트고백 can't go back | 마야 MYAH 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
         "오드유스 써머 ( KARA - 미스터 ) 화성의과학대학교 축제 직캠 OddYouth Fancam 260908",
-        "260908 오드유스 ODD YOUTH - Happy 세팅실패 | 써머 SUMMER 세로 직캠 | 화성의과학대학 축제 화락제 [KPOP FanCam 4K]",
-        "260911 오드유스 ODD YOUTH - 댓츠미 THAT'S ME | 가로 직캠 | 한국전통문화대학교 축제 동심 [KPOP FanCam 4K]"
+        "260908 오드유스 ODD YOUTH - Happy 세팅실패 | 써머 SUMMER 세로 직캠 | 화성의과학대학 축제 화락제 [KPOP FanCam 4K]"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=MUh_Uxv29i8",
         "https://www.youtube.com/watch?v=wcmqOIRcQ8E",
         "https://www.youtube.com/watch?v=a6OBOTuzKIk",
         "https://www.youtube.com/watch?v=axk_kaKF-3M",
-        "https://www.youtube.com/watch?v=efq4qebMSPA",
-        "https://www.youtube.com/watch?v=JkJXVt0J0oY"
+        "https://www.youtube.com/watch?v=efq4qebMSPA"
       ],
       "task_ids": [
+        "d15c1401-80d4-44bd-bb54-80b59a12aea9_edit",
         "20d330cb-541f-40b2-8abe-f2bc71972c02",
         "87ad5cda-8f1f-49cc-96ae-c98214cd6c5a",
         "677ffca9-54f6-495e-bf25-5e8f20bf49ad",
-        "7f735510-c8c7-4f86-be61-07a8de4ec41a",
-        "9d68e163-cee2-4679-bd69-b8a9835f0be1"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "TOP Media 女团 ODD YOUTH 官方英文名称"
+        "7f735510-c8c7-4f86-be61-07a8de4ec41a"
+      ]
     },
     "ODD YOUTH": {
       "standard_name": "ODD YOUTH",
@@ -1363,24 +1385,27 @@
     "김수민": {
       "standard_name": "金秀珉",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "tripleS S6 成员 金秀珉（Kim SooMin）官方汉字正名",
       "first_seen": "2026-09-17 06:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-20 15:16:31",
+      "occurrences": 3,
       "sample_titles": [
+        "260919 트리플에스 김숨냥 Baby Flower 직캠 4K60p tripleS fancam 더팩트뮤직어워즈 TMA",
         "[4K 60P 직캠] 20260909 트리플에스(tripleS) 김수민 \"Love2Love\" @ 성결대학교 축제",
         "260909 트리플에스 김수민 Baby Flower 직캠 4K60p tripleS fancam"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=EH3dTRAU-sM",
         "https://www.youtube.com/watch?v=bIBlGiYiH_E",
         "https://www.youtube.com/watch?v=d9zai1JGQYM"
       ],
       "task_ids": [
+        "4e361770-b421-4143-9fbf-bfd4d2e4e58f_edit",
         "802980ec-9585-43c3-9892-912c33583c0d",
         "73de741e-d960-456d-83f7-13335f8c19d2"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "tripleS S6 成员 金秀珉（Kim SooMin）官方汉字正名"
+      ]
     },
     "fromis9": {
       "standard_name": "fromis_9",
@@ -1404,27 +1429,30 @@
     "써머": {
       "standard_name": "Summer",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "ODD YOUTH 成员 Summer（써머，本名李恩书）官方艺名",
       "first_seen": "2026-09-17 09:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 3,
+      "last_seen": "2026-09-20 14:22:26",
+      "occurrences": 4,
       "sample_titles": [
+        "260919 ODD YOUTH (오드유스) - I Like You (써머) 직캠 [인천 청소년문화대축제]",
         "오드유스 써머 ( KARA - 미스터 ) 화성의과학대학교 축제 직캠 OddYouth Fancam 260908",
         "260908 오드유스 ODD YOUTH - Happy 세팅실패 | 써머 SUMMER 세로 직캠 | 화성의과학대학 축제 화락제 [KPOP FanCam 4K]",
         "오드유스 써머 ( Happy + That's Me ) 화성의과학대학교 축제 직캠 OddYouth Fancam 260908"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=MUh_Uxv29i8",
         "https://www.youtube.com/watch?v=axk_kaKF-3M",
         "https://www.youtube.com/watch?v=efq4qebMSPA",
         "https://www.youtube.com/watch?v=vv3o8W72EJc"
       ],
       "task_ids": [
+        "d15c1401-80d4-44bd-bb54-80b59a12aea9_edit",
         "677ffca9-54f6-495e-bf25-5e8f20bf49ad",
         "7f735510-c8c7-4f86-be61-07a8de4ec41a",
         "c424d78a-6129-498a-a714-21b468261c66"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "ODD YOUTH 成员 Summer（써머，本名李恩书）官方艺名"
+      ]
     },
     "OddYouth": {
       "standard_name": "ODD YOUTH",
@@ -2286,6 +2314,196 @@
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:02:48",
       "audit_evidence": "WAKEONE 女团 Kep1er 官方英文名称"
+    },
+    "엔믹스": {
+      "standard_name": "NMIXX",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 14:11:55",
+      "last_seen": "2026-09-20 14:11:55",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=HKUHUKqrbz4"
+      ],
+      "task_ids": [
+        "5f1667a4-27ec-4c42-b19d-7f9c2aff0c6e_edit"
+      ]
+    },
+    "릴리": {
+      "standard_name": "LILY",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 14:11:55",
+      "last_seen": "2026-09-20 14:11:55",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=HKUHUKqrbz4"
+      ],
+      "task_ids": [
+        "5f1667a4-27ec-4c42-b19d-7f9c2aff0c6e_edit"
+      ]
+    },
+    "해원": {
+      "standard_name": "HAEWON",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 14:11:55",
+      "last_seen": "2026-09-20 14:11:55",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=HKUHUKqrbz4"
+      ],
+      "task_ids": [
+        "5f1667a4-27ec-4c42-b19d-7f9c2aff0c6e_edit"
+      ]
+    },
+    "설윤": {
+      "standard_name": "SULLYOON",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 14:11:55",
+      "last_seen": "2026-09-20 14:11:55",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=HKUHUKqrbz4"
+      ],
+      "task_ids": [
+        "5f1667a4-27ec-4c42-b19d-7f9c2aff0c6e_edit"
+      ]
+    },
+    "배이": {
+      "standard_name": "BAE",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 14:11:55",
+      "last_seen": "2026-09-20 14:11:55",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=HKUHUKqrbz4"
+      ],
+      "task_ids": [
+        "5f1667a4-27ec-4c42-b19d-7f9c2aff0c6e_edit"
+      ]
+    },
+    "지우": {
+      "standard_name": "JIWOO",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 14:11:55",
+      "last_seen": "2026-09-20 14:11:55",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=HKUHUKqrbz4"
+      ],
+      "task_ids": [
+        "5f1667a4-27ec-4c42-b19d-7f9c2aff0c6e_edit"
+      ]
+    },
+    "규진": {
+      "standard_name": "KYUJIN",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 14:11:55",
+      "last_seen": "2026-09-20 14:11:55",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=HKUHUKqrbz4"
+      ],
+      "task_ids": [
+        "5f1667a4-27ec-4c42-b19d-7f9c2aff0c6e_edit"
+      ]
+    },
+    "JIHYUN": {
+      "standard_name": "JIHYUN",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 15:08:11",
+      "last_seen": "2026-09-20 15:08:11",
+      "occurrences": 1,
+      "sample_titles": [
+        "260911 | HEART OF WOMAN  하트오브우먼 | 지현 JIHYUN 세로 직캠 |  Told U So | 서울 세계청소년 5s 하키대회 | 4K60P"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=QgZeBgOTqp0"
+      ],
+      "task_ids": [
+        "87e2737e-8859-4bf1-82f2-95fa247d2433_edit"
+      ]
+    },
+    "LIRI": {
+      "standard_name": "LIRI",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 16:06:46",
+      "last_seen": "2026-09-20 16:06:46",
+      "occurrences": 1,
+      "sample_titles": [
+        "260911 | HEART OF WOMAN  하트오브우먼 | 리리 LIRI 세로 직캠 |  ALIVE | 서울 세계청소년 5s 하키대회 | 4K60P"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=zs9dBNcLcBk"
+      ],
+      "task_ids": [
+        "3e5eee57-f91d-4278-9966-7bfb7441228e_edit"
+      ]
+    },
+    "HEART OF WOMAN": {
+      "standard_name": "HEART OF WOMAN",
+      "manual_verified": false,
+      "audit_status": "pending",
+      "audit_timestamp": null,
+      "audit_evidence": "",
+      "first_seen": "2026-09-20 16:06:46",
+      "last_seen": "2026-09-20 16:06:46",
+      "occurrences": 1,
+      "sample_titles": [
+        "260911 | HEART OF WOMAN  하트오브우먼 | 리리 LIRI 세로 직캠 |  ALIVE | 서울 세계청소년 5s 하키대회 | 4K60P"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=zs9dBNcLcBk"
+      ],
+      "task_ids": [
+        "3e5eee57-f91d-4278-9966-7bfb7441228e_edit"
+      ]
     }
   }
 }

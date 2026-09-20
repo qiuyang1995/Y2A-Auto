@@ -46,6 +46,46 @@ def setup_task_logger(task_id):
     return logger
 
 
+def _ensure_valid_bilibili_credential(cookie_file: str, task_logger=None):
+    """加载并验证 B 站凭据；若校验失败且配置了 CookieCloud，则尝试自动拉取最新凭据并重新校验。"""
+    credential = load_credential_from_file(cookie_file)
+    credential_ok, credential_msg = validate_credential_remote(credential)
+    if credential_ok:
+        return True, credential, credential_msg
+
+    # 校验失败时，若配置了 CookieCloud，尝试自动从 CookieCloud 拉取最新凭据
+    try:
+        from .config_manager import load_config
+        from .cookiecloud import try_cookiecloud_platform_sync, PLATFORM_BILIBILI
+        config = load_config()
+        if config.get("COOKIECLOUD_ENABLED") and config.get("COOKIECLOUD_BILIBILI_ENABLED"):
+            if task_logger:
+                task_logger.info(
+                    "本地 Bilibili Cookie 校验未通过 (%s)，尝试从 CookieCloud 自动拉取最新凭据...",
+                    credential_msg,
+                )
+            sync_ok, sync_info = try_cookiecloud_platform_sync(config, PLATFORM_BILIBILI.key)
+            if sync_ok:
+                if task_logger:
+                    task_logger.info("已从 CookieCloud 同步最新 Bilibili Cookie，重新校验登录态...")
+                credential = load_credential_from_file(cookie_file)
+                credential_ok, credential_msg = validate_credential_remote(credential)
+                if credential_ok:
+                    if task_logger:
+                        task_logger.info("通过 CookieCloud 同步后，Bilibili 登录态校验通过！")
+                    return True, credential, credential_msg
+                elif task_logger:
+                    task_logger.warning("CookieCloud 同步后的 Cookie 仍未通过远程校验: %s", credential_msg)
+            elif task_logger:
+                task_logger.warning("从 CookieCloud 同步 Bilibili Cookie 失败: %s", sync_info)
+    except Exception as exc:
+        if task_logger:
+            task_logger.warning("尝试通过 CookieCloud 自动修复 B 站登录态异常: %s", exc)
+
+    return False, credential, credential_msg
+
+
+
 def _compact_text(text: str, max_len: int) -> str:
     text = (text or "").strip()
     text = re.sub(r"\s+", " ", text)
@@ -273,10 +313,11 @@ class BilibiliUploader:
             if not os.path.exists(cover_file_path):
                 return False, f"封面文件不存在: {cover_file_path}"
 
-            credential = load_credential_from_file(self.cookie_file)
-            credential_ok, credential_msg = validate_credential_remote(credential)
+            credential_ok, credential, credential_msg = _ensure_valid_bilibili_credential(
+                self.cookie_file, self.logger
+            )
             if not credential_ok:
-                return False, f"Bilibili登录态无效: {credential_msg}。请在设置页重新扫码登录后重试上传。"
+                return False, f"Bilibili登录态无效: {credential_msg}。请在设置页重新扫码登录或检查 CookieCloud 同步后重试上传。"
 
             safe_title_limit = int(title_limit or BILIBILI_TITLE_LIMIT)
             safe_desc_limit = int(description_limit or BILIBILI_DESCRIPTION_LIMIT)
@@ -493,6 +534,19 @@ class BilibiliUploader:
             pretty_error = _format_bilibili_exception(e)
             if _is_bilibili_http_406(e):
                 pretty_error = _bilibili_406_hint()
+            # 若接口返回账号未登录(-101)，触发一次从 CookieCloud 刷新最新凭据
+            if getattr(e, 'code', None) == -101 or "-101" in str(e):
+                self.log("Bilibili 接口返回 -101 (账号未登录)，尝试从 CookieCloud 自动刷新凭据...")
+                try:
+                    from .config_manager import load_config
+                    from .cookiecloud import try_cookiecloud_platform_sync, PLATFORM_BILIBILI
+                    config = load_config()
+                    if config.get("COOKIECLOUD_ENABLED") and config.get("COOKIECLOUD_BILIBILI_ENABLED"):
+                        sync_ok, sync_info = try_cookiecloud_platform_sync(config, PLATFORM_BILIBILI.key)
+                        if sync_ok:
+                            self.log("已成功从 CookieCloud 拉取并刷新最新 Bilibili Cookie！")
+                except Exception as exc:
+                    self.log(f"尝试从 CookieCloud 刷新凭据异常: {exc}")
             self.log(f"bilibili上传异常: {pretty_error}")
             return False, f"bilibili上传异常: {pretty_error}"
         except Exception as e:

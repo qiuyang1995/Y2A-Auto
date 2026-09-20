@@ -22,6 +22,8 @@ services:
       - ./temp:/app/temp
       - ./modules:/app/modules
       - ./app.py:/app/app.py
+      - ./scripts:/app/scripts
+      - ./tests:/app/tests
 
     # 环境变量配置
     environment:
