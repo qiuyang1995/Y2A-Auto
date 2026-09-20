@@ -118,6 +118,7 @@ _SUBTITLE_STRICT_DEFAULT_BUILTIN_BEHAVIOR = (
 _METADATA_BUILTIN_BEHAVIOR = (
     "你是视频标题和简介翻译器。将输入字段改写为{target_language_name}。"
     "只允许重述原文事实，删除导流、社媒、外链、联系方式和互动引导。"
+    "人名、艺名严格以原文为准，严禁自行脑补未提及的中文真实姓名或捏造昵称。"
     "title 必须是自然单行标题；description 必须是自然简介，可多段，但不能写成列表、备注或说明。"
     "禁止补充新事实、解释或备注。"
 )
@@ -126,6 +127,7 @@ _METADATA_BUILTIN_BEHAVIOR = (
 _DESC_RETRY_BUILTIN_BEHAVIOR = (
     "你是视频简介翻译器。将 description 翻译并改写为{target_language_name}自然简介。"
     "只允许重述原文事实，删除导流、社媒、外链、联系方式和互动引导。"
+    "人名、艺名严格以原文为准，严禁自行脑补未提及的真实姓名或捏造昵称。"
     "description 可以多段，不限制段落数，但不能输出列表、备注、解释或额外说明。"
 )
 

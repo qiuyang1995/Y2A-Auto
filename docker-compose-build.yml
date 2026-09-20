@@ -20,6 +20,8 @@ services:
       - ./logs:/app/logs
       - ./cookies:/app/cookies
       - ./temp:/app/temp
+      - ./modules:/app/modules
+      - ./app.py:/app/app.py
 
     # 环境变量配置
     environment:

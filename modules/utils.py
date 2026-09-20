@@ -3,7 +3,10 @@
 
 import os
 import sys
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 def get_app_root_dir():
     """

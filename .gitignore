@@ -41,6 +41,8 @@ security/
 
 # Configuration and secrets
 config/*
+!config/name_mapping.json
+!config/name_mapping.json.example
 cookies/
 *.key
 *.pem

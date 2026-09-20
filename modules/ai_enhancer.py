@@ -91,7 +91,7 @@ BILIBILI_TITLE_DESCRIPTION_PROMPT = """你是一个熟悉 B 站内容生态的�
 
 内容处理原则：
 1) 原始标题、描述、标签、章节等元数据如果包含韩文或英文，先理解并尽量翻译成自然中文，不要直接照抄整段外文；
-2) 人名、团名、歌曲名、节目名可以保留常用官方写法，必要时少量保留用户熟悉的英文或韩文原名；
+2) 人名与专有名词规范：严格以原文出现或上下文给出的名称为准（如原文只有英文或艺名如 'J'，请直接使用该艺名或保留原名，切勿自行推测、音译或脑补艺人的中文真实姓名，严禁捏造未提及的昵称）。若上下文提供了【已知人名/专有名词映射参考】，必须严格遵循映射表中的标准规范名称；
 3) 标题清晰、可检索、不过度夸张，尽量保留人物、团体、事件、舞台、歌曲、版本、画质等核心信息；
 4) 简介准确概括内容，补充原始元数据中确实存在的活动、时间、版本、画质等关键信息，最后可给出简短互动引导；
 5) 不要编造上下文中不存在的事实，不要添加无法从原始视频信息中确认的内容。
@@ -101,7 +101,7 @@ BILIBILI_TITLE_DESCRIPTION_PROMPT = """你是一个熟悉 B 站内容生态的�
 - 简介主体必须是中文，建议 120-220 字，且不得超过上下文给出的 description_limit；
 - 不要在第一行出现搬运说明；
 - 必须且只能返回一个合法 JSON 对象，不要使用 Markdown 代码块，不要添加解释；
-- JSON 格式严格为：{"title":"生成的中文标题","description":"生成的中文简介"}。
+- JSON 格式严格为：{"title":"生成的中文标题","description":"生成的中文简介","names":[{"original":"原文人名","standard":"规范名称"}]}（若无特定人物，names 可为空数组）。
 """
 
 UNIFIED_BILIBILI_METADATA_SYSTEM_PROMPT = """你现在是一位资深 Bilibili 内容优化编辑，熟悉 B 站标题、简介、标签写法与搜索推荐逻辑。
@@ -109,6 +109,10 @@ UNIFIED_BILIBILI_METADATA_SYSTEM_PROMPT = """你现在是一位资深 Bilibili �
 请基于“用户消息中提供的上下文信息 + 下面给出的视频链接”进行改写，不要声明“无法访问链接/无法提供帮助”，也不要输出任何免责声明。
 
 生成 B 站优化内容（必须中文）：
+
+**人名与专有名词规范**
+- 严格以原文给出的名称为准（如原文只有英文或艺名如 'J'，标题和简介中请直接使用该艺名或保留原名，切勿自行推测、音译或脑补艺人的中文真实姓名，严禁捏造未提及的中文昵称）。
+- 若上下文中提供了【已知人名/专有名词映射参考】，必须严格遵循映射表中的标准规范名称。
 
 **标题（Title）**  
 - 长度 18-32 个中文字符（含标点/表情）。  
@@ -142,6 +146,9 @@ UNIFIED_BILIBILI_METADATA_SYSTEM_PROMPT = """你现在是一位资深 Bilibili �
 
 **标签**  
 [空格分隔的标签]
+
+**人名**
+[识别到的人物或艺人，格式：原文名称 => 规范名称，每行一个；若无或无特定人物则填写 无]
 """
 
 # yt-dlp 的 metadata.json 会携带每种格式、缩略图和字幕轨道的完整下载 URL。
@@ -902,7 +909,10 @@ def _compact_current_metadata(current_metadata: Mapping[str, Any]) -> Dict[str, 
 
 def _parse_bilibili_title_description_text(text: str) -> Optional[Dict[str, Any]]:
     """兼容各种格式返回（如键名变异的 JSON、Markdown 分段、混合包裹文本）。"""
+    from .name_mapping_manager import parse_names_from_ai_text
+
     raw_str = safe_str(text)
+    extracted_names: List[Tuple[str, str]] = []
 
     # 1. 尝试检测文本中可能存在的任何 JSON 字典
     try:
@@ -910,12 +920,28 @@ def _parse_bilibili_title_description_text(text: str) -> Optional[Dict[str, Any]
         if isinstance(parsed_dict, dict):
             title_keys = ('title', 'video_title', 'bilibili_title', 'new_title', 'generated_title', '标题', '中文标题')
             desc_keys = ('description', 'video_description', 'bilibili_description', 'desc', 'intro', 'generated_description', '简介', '中文简介', '描述')
+            name_keys = ('names', 'name', 'entities', '人名', '人物', '实体')
 
             t_val = next((str(parsed_dict[k]).strip() for k in title_keys if k in parsed_dict and parsed_dict[k]), '')
             d_val = next((str(parsed_dict[k]).strip() for k in desc_keys if k in parsed_dict and parsed_dict[k]), '')
+            raw_names = next((parsed_dict[k] for k in name_keys if k in parsed_dict and parsed_dict[k]), None)
+            if isinstance(raw_names, list):
+                for item in raw_names:
+                    if isinstance(item, dict):
+                        orig = safe_str(item.get('original') or item.get('orig') or item.get('name') or item.get('原名')).strip()
+                        std = safe_str(item.get('standard') or item.get('std') or item.get('target') or item.get('规范名') or item.get('标准名')).strip()
+                        if orig and std and std not in ('无', 'none'):
+                            extracted_names.append((orig, std))
+                    elif isinstance(item, str):
+                        extracted_names.extend(parse_names_from_ai_text(item))
+            elif isinstance(raw_names, str):
+                extracted_names.extend(parse_names_from_ai_text(raw_names))
 
             if t_val or d_val:
-                return {'title': t_val, 'description': d_val}
+                res = {'title': t_val, 'description': d_val}
+                if extracted_names:
+                    res['names'] = extracted_names
+                return res
     except Exception:
         pass
 
@@ -924,12 +950,13 @@ def _parse_bilibili_title_description_text(text: str) -> Optional[Dict[str, Any]
     current_key = None
     heading_re = re.compile(
         r'^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?'
-        r'(标题|title|bilibili_title|video_title|简介|描述|description|desc|intro)\s*(?:(?:[:：])\s*(.*))?\s*$',
+        r'(标题|title|bilibili_title|video_title|简介|描述|description|desc|intro|人名|人物|实体|names|name)\s*(?:(?:[:：])\s*(.*))?\s*$',
         re.IGNORECASE,
     )
     key_map = {
         '标题': 'title', 'title': 'title', 'bilibili_title': 'title', 'video_title': 'title',
         '简介': 'description', '描述': 'description', 'description': 'description', 'desc': 'description', 'intro': 'description',
+        '人名': 'names', '人物': 'names', '实体': 'names', 'names': 'names', 'name': 'names',
     }
     for raw_line in raw_str.replace('```json', '').replace('```', '').splitlines():
         normalized_line = raw_line.replace('**', '').replace('__', '')
@@ -944,13 +971,22 @@ def _parse_bilibili_title_description_text(text: str) -> Optional[Dict[str, Any]
 
     title = '\n'.join(sections.get('title', [])).strip().strip('"“”')
     description = '\n'.join(sections.get('description', [])).strip().strip('"“”')
+    names_text = '\n'.join(sections.get('names', [])).strip()
+    if names_text:
+        extracted_names.extend(parse_names_from_ai_text(names_text))
+
     if title or description:
-        return {'title': title, 'description': description}
+        res = {'title': title, 'description': description}
+        if extracted_names:
+            res['names'] = extracted_names
+        return res
     return None
 
 
 def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]:
     """解析模型返回的统一 B 站 4 字段元数据（兼容 Markdown 分段与各种格式的 JSON）。"""
+    from .name_mapping_manager import parse_names_from_ai_text
+
     raw_str = safe_str(text).strip()
     if not raw_str:
         return None
@@ -962,6 +998,8 @@ def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]
         if len(lines) >= 2 and lines[-1].strip().startswith('```'):
             clean_text = '\n'.join(lines[1:-1]).strip()
 
+    extracted_names: List[Tuple[str, str]] = []
+
     # 1. 优先尝试 JSON 提取
     try:
         parsed_dict = extract_json_from_text(clean_text, expected_type=dict)
@@ -970,11 +1008,13 @@ def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]
             desc_keys = ('description', 'video_description', 'bilibili_description', 'desc', 'intro', 'generated_description', '简介', '中文简介', '描述')
             part_keys = ('partition', 'zone', 'category', 'subpartition', 'bilibili_partition', '分区', '分类', '投稿分区', '推荐分区')
             tags_keys = ('tags', 'video_tags', 'bilibili_tags', '标签', '视频标签')
+            name_keys = ('names', 'name', 'entities', '人名', '人物', '实体')
 
             t_val = next((str(parsed_dict[k]).strip() for k in title_keys if k in parsed_dict and parsed_dict[k]), '')
             d_val = next((str(parsed_dict[k]).strip() for k in desc_keys if k in parsed_dict and parsed_dict[k]), '')
             p_val = next((str(parsed_dict[k]).strip() for k in part_keys if k in parsed_dict and parsed_dict[k]), '')
             raw_tags = next((parsed_dict[k] for k in tags_keys if k in parsed_dict and parsed_dict[k]), [])
+            raw_names = next((parsed_dict[k] for k in name_keys if k in parsed_dict and parsed_dict[k]), None)
 
             if isinstance(raw_tags, str):
                 parsed_tags = [t.strip().lstrip('#') for t in re.split(r'[\s,，、\n]+', raw_tags) if t.strip().lstrip('#')]
@@ -983,12 +1023,25 @@ def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]
             else:
                 parsed_tags = []
 
+            if isinstance(raw_names, list):
+                for item in raw_names:
+                    if isinstance(item, dict):
+                        orig = safe_str(item.get('original') or item.get('orig') or item.get('name') or item.get('原名')).strip()
+                        std = safe_str(item.get('standard') or item.get('std') or item.get('target') or item.get('规范名') or item.get('标准名')).strip()
+                        if orig and std and std not in ('无', 'none'):
+                            extracted_names.append((orig, std))
+                    elif isinstance(item, str):
+                        extracted_names.extend(parse_names_from_ai_text(item))
+            elif isinstance(raw_names, str):
+                extracted_names.extend(parse_names_from_ai_text(raw_names))
+
             if t_val or d_val:
                 return {
                     'title': t_val,
                     'description': d_val,
                     'partition': p_val,
                     'tags': parsed_tags,
+                    'names': extracted_names,
                 }
     except Exception:
         pass
@@ -997,7 +1050,7 @@ def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]
     sections: Dict[str, List[str]] = {}
     current_key = None
     heading_re = re.compile(
-        r'^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?:\*\*)?(标题|title|简介|描述|description|desc|分区|分类|partition|zone|标签|tags|tag)(?:\*\*)?\s*(?:(?:[:：])\s*(.*))?\s*$',
+        r'^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?:\*\*)?(标题|title|简介|描述|description|desc|分区|分类|partition|zone|标签|tags|tag|人名|人物|实体|names|name)(?:\*\*)?\s*(?:(?:[:：])\s*(.*))?\s*$',
         re.IGNORECASE,
     )
     key_map = {
@@ -1005,6 +1058,7 @@ def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]
         '简介': 'description', '描述': 'description', 'description': 'description', 'desc': 'description',
         '分区': 'partition', '分类': 'partition', 'partition': 'partition', 'zone': 'partition',
         '标签': 'tags', 'tags': 'tags', 'tag': 'tags',
+        '人名': 'names', '人物': 'names', '实体': 'names', 'names': 'names', 'name': 'names',
     }
 
     for raw_line in clean_text.splitlines():
@@ -1023,6 +1077,9 @@ def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]
     partition = '\n'.join(sections.get('partition', [])).strip().strip('"“”')
     raw_tags_str = '\n'.join(sections.get('tags', [])).strip()
     tags = [t.strip().lstrip('#') for t in re.split(r'[\s,，、\n]+', raw_tags_str) if t.strip().lstrip('#')]
+    raw_names_str = '\n'.join(sections.get('names', [])).strip()
+    if raw_names_str:
+        extracted_names.extend(parse_names_from_ai_text(raw_names_str))
 
     # 过滤可能遗留的模板占位符
     if '[生成的标题]' in title:
@@ -1047,6 +1104,7 @@ def _parse_unified_bilibili_metadata_text(text: str) -> Optional[Dict[str, Any]]
             'description': description,
             'partition': partition,
             'tags': dedup_tags,
+            'names': extracted_names,
         }
     return None
 
@@ -1575,14 +1633,25 @@ def generate_bilibili_title_description(
         'current_metadata': _compact_current_metadata(current_metadata or {}),
     }
 
+    from .name_mapping_manager import get_mapping_prompt_text, record_name_mappings
+
+    src_meta = source_metadata or {}
+    cur_meta = current_metadata or {}
+    src_title = str(src_meta.get('title') or cur_meta.get('video_title_original') or '')
+    src_desc = str(src_meta.get('description') or cur_meta.get('description_original') or '')
+    video_url = str(src_meta.get('webpage_url') or cur_meta.get('youtube_url') or src_meta.get('url') or '')
+
+    mapping_ref = get_mapping_prompt_text(src_title, src_desc)
+    mapping_section = f"\n\n{mapping_ref}" if mapping_ref else ""
+
     user_prompt_text = (
         "请根据以下给出的原始视频元数据与当前任务信息，生成用于 B 站投稿的中文标题和中文简介。\n\n"
         f"【生成限制】\n"
         f"- 标题字符上限: {payload['title_limit']} 字\n"
         f"- 简介字符上限: {payload['description_limit']} 字\n\n"
         "【输入元数据】\n"
-        f"{json.dumps(payload, ensure_ascii=False, default=safe_str)}\n\n"
-        '请严格仅返回包含 "title" 和 "description" 两个字段的 JSON 对象！'
+        f"{json.dumps(payload, ensure_ascii=False, default=safe_str)}{mapping_section}\n\n"
+        '请严格返回包含 "title" 和 "description"（及可选 "names"）字段的 JSON 对象！'
     )
 
     try:
@@ -1630,10 +1699,24 @@ def generate_bilibili_title_description(
             'success': False,
             'error_message': f"AI 返回结果缺少{'、'.join(missing_fields)}",
         }
+
+    extracted_names = (parsed or {}).get('names') or []
+    if extracted_names:
+        try:
+            record_name_mappings(
+                extracted_names,
+                original_title=src_title,
+                video_url=video_url,
+                task_id=task_id or '',
+            )
+        except Exception as e:
+            logger.warning("自动记录人名映射失败: %s", e)
+
     return {
         'success': True,
         'title': title,
         'description': description,
+        'names': extracted_names,
     }
 
 
@@ -3378,9 +3461,17 @@ def generate_bilibili_metadata_unified(
     if cur.get('description_current'):
         user_prompt_lines.append(f"- 当前已输入简介：{cur.get('description_current')}")
 
+    from .name_mapping_manager import get_mapping_prompt_text, record_name_mappings
+    mapping_ref = get_mapping_prompt_text(orig_title, orig_desc)
+    if mapping_ref:
+        user_prompt_lines.extend([
+            "",
+            mapping_ref,
+        ])
+
     user_prompt_lines.extend([
         "",
-        "请严格按指定格式输出 4 个字段（标题、简介、分区、标签）：",
+        "请严格按指定格式输出 4 个字段（标题、简介、分区、标签，以及可选的人名）：",
     ])
     user_content = '\n'.join(user_prompt_lines)
 
@@ -3422,6 +3513,18 @@ def generate_bilibili_metadata_unified(
     raw_desc = parsed.get('description', '')
     raw_partition = parsed.get('partition', '')
     tags = parsed.get('tags', [])
+    extracted_names = parsed.get('names', [])
+
+    if extracted_names:
+        try:
+            record_name_mappings(
+                extracted_names,
+                original_title=orig_title,
+                video_url=video_url,
+                task_id=task_id or '',
+            )
+        except Exception as e:
+            logger.warning("自动记录人名映射失败: %s", e)
 
     title = _normalize_whitespace(safe_str(raw_title)).replace('\n', ' ').strip()
     description = _normalize_whitespace(safe_str(raw_desc)).strip()
@@ -3459,6 +3562,7 @@ def generate_bilibili_metadata_unified(
             'bilibili': partition_selection,
         },
         'tags': tags,
+        'names': extracted_names,
         'raw_response': raw_text,
     }
 
