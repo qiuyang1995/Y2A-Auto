@@ -17,7 +17,7 @@
     "하츠투하츠": "Hearts2Hearts",
     "Hearts2Hearts": "Hearts2Hearts",
     "카르멘": "Carmen",
-    "김채원": "金彩源",
+    "김채원": "金采湲",
     "트리플에스": "tripleS",
     "tripleS": "tripleS",
     "민주": "朴慜柱",
@@ -499,10 +499,10 @@
       "audit_evidence": "Hearts2Hearts 成员 Carmen（카르멘）官方艺名"
     },
     "김채원": {
-      "standard_name": "金彩源",
+      "standard_name": "金采湲",
       "manual_verified": true,
       "first_seen": "2026-09-14 09:07:45",
-      "last_seen": "2026-09-20 14:02:48",
+      "last_seen": "2026-09-20 14:08:48",
       "occurrences": 5,
       "sample_titles": [
         "260917 트리플에스 tripleS - 럽2럽 Love2Love | 김채원 Kim ChaeWon 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
@@ -526,8 +526,8 @@
         "5b663420-c03b-4598-8c18-5bd93c8f006e"
       ],
       "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "关联任务样本为 tripleS 成员 S21 Kim ChaeWon（金彩源），官方汉字正名 金彩源"
+      "audit_timestamp": "2026-09-20 14:08:48",
+      "audit_evidence": "tripleS 成员 金采湲（编号 S21，Kim Chae-won）官方汉字正名"
     },
     "트리플에스": {
       "standard_name": "tripleS",
