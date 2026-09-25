@@ -97,15 +97,51 @@
     "김채현": "金采炫",
     "케플러": "Kep1er",
     "엔믹스": "NMIXX",
-    "릴리": "LILY",
-    "해원": "HAEWON",
-    "설윤": "SULLYOON",
+    "릴리": "Lily",
+    "해원": "吴海嫄",
+    "설윤": "薛仑娥",
     "배이": "BAE",
-    "지우": "JIWOO",
-    "규진": "KYUJIN",
+    "지우": "金智佑",
+    "규진": "张圭珍",
     "JIHYUN": "JIHYUN",
     "LIRI": "LIRI",
-    "HEART OF WOMAN": "HEART OF WOMAN"
+    "HEART OF WOMAN": "HEART OF WOMAN",
+    "곽연지": "郭姸知",
+    "리리 LIRI": "LIRI",
+    "비비": "吕柯薇",
+    "서진": "杨书赈",
+    "서희": "崔栖喜",
+    "혜린": "赵暳潾",
+    "이유": "李晏",
+    "류인 LIUYIN": "LIUYIN",
+    "볼빨간사춘기": "脸红的思春期",
+    "안지영": "安智煐",
+    "NAYOUNG": "金娜英",
+    "JUHYEON": "李珠贤",
+    "수인": "SOOIN",
+    "CLASS": "CLASS:y",
+    "홍혜주": "洪惠珠",
+    "HONG HYEJU": "洪惠珠",
+    "이즈나": "izna",
+    "김채연": "金采嬿",
+    "유사랑": "柳莎朗",
+    "CHAEI": "CHAEI",
+    "ke1per": "Kep1er",
+    "초원 (CHOWON)": "韩霄瑗",
+    "LEE NAGYUNG": "李娜炅",
+    "김유연": "金琉然",
+    "leenakyung": "李娜炅",
+    "권은비 KWONEUNBI": "权恩妃",
+    "시진": "诗真",
+    "코다브릿지": "CODA BRIDGE",
+    "마이카": "MAIKA（杉村舞华）",
+    "방지민 / JEEMIN": "方智玟",
+    "나린": "NARIN",
+    "방지민": "方智玟",
+    "JEEMIN": "方智玟",
+    "선유": "金璇猷",
+    "아인 AYNE": "AYNE",
+    "BAEK JIHEON": "白知宪"
   },
   "records": {
     "장원영": {
@@ -133,21 +169,24 @@
     "안나": {
       "standard_name": "Anna（田中杏奈）",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "MEOVV 日本籍成员 田中杏奈（Anna Tanaka）官方本名与艺名",
       "first_seen": "2026-09-12 04:17:45",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-20 22:08:33",
+      "occurrences": 2,
       "sample_titles": [
+        "260917 MEOVV 미야오 안나 - MEOW 미야오 (가천대 축제) 직캠 fancam by zam",
         "260823 미야오 안나 직캠 'HANDS UP' (MEOVV ANNA FanCam) @2026TIMA"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=y6fuGm4ehUY",
         "https://www.youtube.com/watch?v=JaqbDbctfJI"
       ],
       "task_ids": [
+        "2a3257b1-df3a-46d1-aa06-0972e8d147e3_edit",
         "daccd8c9-657d-49c7-a460-1422924510b6"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "MEOVV 日本籍成员 田中杏奈（Anna Tanaka）官方本名与艺名"
+      ]
     },
     "미야오": {
       "standard_name": "MEOVV",
@@ -156,22 +195,28 @@
       "audit_timestamp": "2026-09-20 14:02:48",
       "audit_evidence": "THEBLACKLABEL 女团 MEOVV 官方英文名称",
       "first_seen": "2026-09-12 04:17:45",
-      "last_seen": "2026-09-20 17:05:49",
-      "occurrences": 3,
+      "last_seen": "2026-09-24 22:39:33",
+      "occurrences": 8,
       "sample_titles": [
-        "260916 미야오 MEOVV 'Hit 'Em' 4K 60P 직캠 @협성대 축제 by DaftTaengk",
-        "260918 미야오(MEOVV) MEOW+띠로리+BURNING UP+Hit 'Em @인하대 4K 직캠 (MEOVV FANCAM)",
-        "260823 미야오 안나 직캠 'HANDS UP' (MEOVV ANNA FanCam) @2026TIMA"
+        "260916 미야오(MEOVV) MEOW+띠로리+In my hands+BURNING UP+Hit 'Em+HANDS UP @협성대 4K 직캠 (MEOVV FANCAM)",
+        "260917 MEOVV 미야오 나린 - 띠로리 DDI RO RI (가천대 축제) 직캠 fancam by zam",
+        "260917 MEOVV 미야오 수인 - Hit 'Em 힛엠 (가천대 축제) 직캠 fancam by zam",
+        "260917 MEOVV 미야오 안나 - MEOW 미야오 (가천대 축제) 직캠 fancam by zam",
+        "260916 미야오 MEOVV 'Hit 'Em' 4K 60P 직캠 @협성대 축제 by DaftTaengk"
       ],
       "sample_urls": [
-        "https://www.youtube.com/watch?v=4gdU7tetwEs",
-        "https://www.youtube.com/watch?v=q6DZ2lLsdT0",
-        "https://www.youtube.com/watch?v=JaqbDbctfJI"
+        "https://www.youtube.com/watch?v=zWPxy8Gd92g",
+        "https://www.youtube.com/watch?v=ruZi18_wOVU",
+        "https://www.youtube.com/watch?v=JdJxYAKd_eE",
+        "https://www.youtube.com/watch?v=y6fuGm4ehUY",
+        "https://www.youtube.com/watch?v=4gdU7tetwEs"
       ],
       "task_ids": [
-        "c2868eff-21d4-4fa5-adde-ee6d0a6ba759_edit",
-        "284d87c4-a5b5-4407-ab1d-414c89ddb55c_edit",
-        "daccd8c9-657d-49c7-a460-1422924510b6"
+        "5ea589bb-9372-4dd5-9f77-f50d937cc94d_edit",
+        "de24d4d8-920c-4305-84cd-bd885572d690_edit",
+        "602fd311-0a58-42bd-a912-8a11678c64b7_edit",
+        "2a3257b1-df3a-46d1-aa06-0972e8d147e3_edit",
+        "c2868eff-21d4-4fa5-adde-ee6d0a6ba759_edit"
       ]
     },
     "MEOVV": {
@@ -181,116 +226,122 @@
       "audit_timestamp": "2026-09-20 14:02:48",
       "audit_evidence": "女团 MEOVV 官方英文名称",
       "first_seen": "2026-09-12 04:17:45",
-      "last_seen": "2026-09-20 17:05:49",
-      "occurrences": 3,
+      "last_seen": "2026-09-24 22:39:33",
+      "occurrences": 7,
       "sample_titles": [
+        "260916 미야오(MEOVV) MEOW+띠로리+In my hands+BURNING UP+Hit 'Em+HANDS UP @협성대 4K 직캠 (MEOVV FANCAM)",
+        "260917 MEOVV 미야오 수인 - Hit 'Em 힛엠 (가천대 축제) 직캠 fancam by zam",
+        "260917 MEOVV 미야오 안나 - MEOW 미야오 (가천대 축제) 직캠 fancam by zam",
         "260916 미야오 MEOVV 'Hit 'Em' 4K 60P 직캠 @협성대 축제 by DaftTaengk",
-        "260918 미야오(MEOVV) MEOW+띠로리+BURNING UP+Hit 'Em @인하대 4K 직캠 (MEOVV FANCAM)",
-        "260823 미야오 안나 직캠 'HANDS UP' (MEOVV ANNA FanCam) @2026TIMA"
+        "260918 미야오(MEOVV) MEOW+띠로리+BURNING UP+Hit 'Em @인하대 4K 직캠 (MEOVV FANCAM)"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=zWPxy8Gd92g",
+        "https://www.youtube.com/watch?v=JdJxYAKd_eE",
+        "https://www.youtube.com/watch?v=y6fuGm4ehUY",
         "https://www.youtube.com/watch?v=4gdU7tetwEs",
-        "https://www.youtube.com/watch?v=q6DZ2lLsdT0",
-        "https://www.youtube.com/watch?v=JaqbDbctfJI"
+        "https://www.youtube.com/watch?v=q6DZ2lLsdT0"
       ],
       "task_ids": [
+        "5ea589bb-9372-4dd5-9f77-f50d937cc94d_edit",
+        "602fd311-0a58-42bd-a912-8a11678c64b7_edit",
+        "2a3257b1-df3a-46d1-aa06-0972e8d147e3_edit",
         "c2868eff-21d4-4fa5-adde-ee6d0a6ba759_edit",
-        "284d87c4-a5b5-4407-ab1d-414c89ddb55c_edit",
-        "daccd8c9-657d-49c7-a460-1422924510b6"
+        "284d87c4-a5b5-4407-ab1d-414c89ddb55c_edit"
       ]
     },
     "이나경": {
       "standard_name": "李娜炅",
       "manual_verified": true,
-      "first_seen": "2026-09-12 04:22:06",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 5,
-      "sample_titles": [
-        "[4K 60P 직캠] 20260916 프로미스나인(fromis_9) 이나경 \"LIKE YOU BETTER+DM+Vitamin ME\" @ 가천대학교 축제",
-        "[4K CAM] 260916 프로미스나인 이나경 fromis_9 LEE NAGYUNG 인하대 축제 직캠",
-        "260905 프로미스나인 이나경 Cold Blood 직캠 4K60p fromis_9 fancam",
-        "260817 프로미스나인 이나경 Vitamin Me 직캠 4K60p fromis_9 fancam",
-        "260904 프로미스나인 이나경 Vitamin ME 직캠 4K60p fromis_9 fancam"
-      ],
-      "sample_urls": [
-        "https://www.youtube.com/watch?v=lb4Elk3STQY",
-        "https://www.youtube.com/watch?v=8HavW_HgzAs",
-        "https://www.youtube.com/watch?v=cwe4odCmWqk",
-        "https://www.youtube.com/watch?v=c3eIS4bWl1E",
-        "https://www.youtube.com/watch?v=sVoFjd6jadw"
-      ],
-      "task_ids": [
-        "a04ace10-6a43-4fb4-947d-32b066cff5f7",
-        "0b6c1b96-0727-485c-b6e0-c342a906b0f6",
-        "0b257767-771c-493c-9a61-10b86e66da0d",
-        "3db407d9-f881-4e1c-9aa9-75e1d92fcc88",
-        "a0e06856-9982-4e6c-a8e6-85174e4d0df9"
-      ],
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "fromis_9 成员 李娜炅（Lee Na-gyung）官方汉字正名"
+      "audit_evidence": "fromis_9 成员 李娜炅（Lee Na-gyung）官方汉字正名",
+      "first_seen": "2026-09-12 04:22:06",
+      "last_seen": "2026-09-23 19:10:24",
+      "occurrences": 7,
+      "sample_titles": [
+        "[4K CAM] 260921 프로미스나인 이나경 fromis_9 LEE NAGYUNG 명지대 축제 'LIKE YOU BETTER' /'Vitamin ME' 직캠",
+        "[4K CAM] 260921 프로미스나인 이나경 fromis_9 LEE NAGYUNG 명지대 축제 'WE GO' 직캠",
+        "[4K 60P 직캠] 20260916 프로미스나인(fromis_9) 이나경 \"LIKE YOU BETTER+DM+Vitamin ME\" @ 가천대학교 축제",
+        "[4K CAM] 260916 프로미스나인 이나경 fromis_9 LEE NAGYUNG 인하대 축제 직캠",
+        "260905 프로미스나인 이나경 Cold Blood 직캠 4K60p fromis_9 fancam"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=1jP3hm1x1wU",
+        "https://www.youtube.com/watch?v=MhRRxq_Pd_k",
+        "https://www.youtube.com/watch?v=lb4Elk3STQY",
+        "https://www.youtube.com/watch?v=8HavW_HgzAs",
+        "https://www.youtube.com/watch?v=cwe4odCmWqk"
+      ],
+      "task_ids": [
+        "71dd5b84-07f7-4330-98bf-b495bf97203d_edit",
+        "10646657-0010-4e3c-89a0-d799ce29f6b1_edit",
+        "a04ace10-6a43-4fb4-947d-32b066cff5f7",
+        "0b6c1b96-0727-485c-b6e0-c342a906b0f6",
+        "0b257767-771c-493c-9a61-10b86e66da0d"
+      ]
     },
     "프로미스나인": {
       "standard_name": "fromis_9",
       "manual_verified": true,
-      "first_seen": "2026-09-12 04:22:06",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 13,
-      "sample_titles": [
-        "260916 fromis_9(프로미스나인) - Supersonic 이채영 fancam (인하대 축제)",
-        "[4K 60P 직캠] 20260916 프로미스나인(fromis_9) 이나경 \"LIKE YOU BETTER+DM+Vitamin ME\" @ 가천대학교 축제",
-        "프로미스나인 백지헌 직캠 'WE GO' fromis_9 JIHEON｜가천대 축제 260916",
-        "프로미스나인 박지원 직캠 'Vitamin ME' fromis_9 JIWON｜가천대 축제 260916",
-        "[4K 60P 직캠] 20260916 프로미스나인(fromis_9) 송하영 \"Supersonic+WE GO\" @ 가천대학교 축제"
-      ],
-      "sample_urls": [
-        "https://www.youtube.com/watch?v=SojO2Vc7k0k",
-        "https://www.youtube.com/watch?v=lb4Elk3STQY",
-        "https://www.youtube.com/watch?v=hzYoOYh7Sxo",
-        "https://www.youtube.com/watch?v=lAv9sR90j94",
-        "https://www.youtube.com/watch?v=yiciPW4jsdQ"
-      ],
-      "task_ids": [
-        "0fc0a51d-543b-48f1-ace7-ddac960c19bd",
-        "a04ace10-6a43-4fb4-947d-32b066cff5f7",
-        "c46d95f4-be6f-4b62-9921-b80c7a2c6855",
-        "56ef4a3a-b7dd-4682-85aa-b6341c43dfcb",
-        "e9195d39-1c6e-4274-b189-27628c653ed6"
-      ],
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 fromis_9 官方英文名称"
+      "audit_evidence": "女团 fromis_9 官方英文名称",
+      "first_seen": "2026-09-12 04:22:06",
+      "last_seen": "2026-09-25 22:05:27",
+      "occurrences": 22,
+      "sample_titles": [
+        "[4K CAM] 260916 프로미스나인 백지헌 fromis_9 BAEK JIHEON 가천대 축제 'Vitamin ME' 직캠",
+        "프로미스나인[Fromis_9] \"Supersonic\" \"Like you better\" \"Vitamin me\" \"We go\"  [4k직캠] @인하대축제 260916",
+        "260916 프로미스나인(fromis_9) 송하영 8K 직캠 - LIKE YOU BETTER (가천대학교 축제)",
+        "[4K] fromis_9(프로미스나인) - LIKE YOU BETTER 이채영 fancam (260921 명지대학교 자연캠 축제)",
+        "[4K CAM] 260921 프로미스나인 이나경 fromis_9 LEE NAGYUNG 명지대 축제 'LIKE YOU BETTER' /'Vitamin ME' 직캠"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=t18PN6PDBwY",
+        "https://www.youtube.com/watch?v=z2lThXTS_GI",
+        "https://www.youtube.com/watch?v=cQ4IDQ3TTAY",
+        "https://www.youtube.com/watch?v=jo33kHMBVHE",
+        "https://www.youtube.com/watch?v=1jP3hm1x1wU"
+      ],
+      "task_ids": [
+        "d0626e6c-56ce-40e2-99c5-5a9de5d967b6_edit",
+        "a8d50375-85b2-4972-b5c8-7bdd6262f9e1_edit",
+        "0a04b630-f746-4fca-851d-4d352da6fced_edit",
+        "1af6add2-e47d-4382-a999-a08d0b3ae642_edit",
+        "71dd5b84-07f7-4330-98bf-b495bf97203d_edit"
+      ]
     },
     "fromis_9": {
       "standard_name": "fromis_9",
       "manual_verified": true,
-      "first_seen": "2026-09-12 04:22:06",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 12,
-      "sample_titles": [
-        "260916 fromis_9(프로미스나인) - Supersonic 이채영 fancam (인하대 축제)",
-        "[4K 60P 직캠] 20260916 프로미스나인(fromis_9) 이나경 \"LIKE YOU BETTER+DM+Vitamin ME\" @ 가천대학교 축제",
-        "프로미스나인 백지헌 직캠 'WE GO' fromis_9 JIHEON｜가천대 축제 260916",
-        "프로미스나인 박지원 직캠 'Vitamin ME' fromis_9 JIWON｜가천대 축제 260916",
-        "[4K 60P 직캠] 20260916 프로미스나인(fromis_9) 송하영 \"Supersonic+WE GO\" @ 가천대학교 축제"
-      ],
-      "sample_urls": [
-        "https://www.youtube.com/watch?v=SojO2Vc7k0k",
-        "https://www.youtube.com/watch?v=lb4Elk3STQY",
-        "https://www.youtube.com/watch?v=hzYoOYh7Sxo",
-        "https://www.youtube.com/watch?v=lAv9sR90j94",
-        "https://www.youtube.com/watch?v=yiciPW4jsdQ"
-      ],
-      "task_ids": [
-        "0fc0a51d-543b-48f1-ace7-ddac960c19bd",
-        "a04ace10-6a43-4fb4-947d-32b066cff5f7",
-        "c46d95f4-be6f-4b62-9921-b80c7a2c6855",
-        "56ef4a3a-b7dd-4682-85aa-b6341c43dfcb",
-        "e9195d39-1c6e-4274-b189-27628c653ed6"
-      ],
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 fromis_9 官方英文名称"
+      "audit_evidence": "女团 fromis_9 官方英文名称",
+      "first_seen": "2026-09-12 04:22:06",
+      "last_seen": "2026-09-25 22:05:27",
+      "occurrences": 16,
+      "sample_titles": [
+        "[4K CAM] 260916 프로미스나인 백지헌 fromis_9 BAEK JIHEON 가천대 축제 'Vitamin ME' 직캠",
+        "[4K CAM] 260921 프로미스나인 이나경 fromis_9 LEE NAGYUNG 명지대 축제 'WE GO' 직캠",
+        "[4K] fromis_9(프로미스나인) - Vitamin ME 이채영 fancam (260921 명지대학교 자연캠 축제)",
+        "[1열 4K]260916 프로미스나인(fromis_9) - Supersonic 직캠(fancam)[2026 가천대학교 무한전야 : UTOPIA]",
+        "260916 fromis_9(프로미스나인) - Supersonic 이채영 fancam (인하대 축제)"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=t18PN6PDBwY",
+        "https://www.youtube.com/watch?v=MhRRxq_Pd_k",
+        "https://www.youtube.com/watch?v=uUojdKsqrSU",
+        "https://www.youtube.com/watch?v=kakAjq9setI",
+        "https://www.youtube.com/watch?v=SojO2Vc7k0k"
+      ],
+      "task_ids": [
+        "d0626e6c-56ce-40e2-99c5-5a9de5d967b6_edit",
+        "10646657-0010-4e3c-89a0-d799ce29f6b1_edit",
+        "50038921-ae22-4ef0-97cf-09499a10c995_edit",
+        "744d0e00-6d78-4e01-9fc0-bdb6b88c2b49_edit",
+        "0fc0a51d-543b-48f1-ace7-ddac960c19bd"
+      ]
     },
     "나경": {
       "standard_name": "李娜炅",
@@ -376,24 +427,27 @@
     "백지헌": {
       "standard_name": "白知宪",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "fromis_9 成员 白知宪（Baek Ji-heon）官方汉字正名",
       "first_seen": "2026-09-14 07:38:21",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-25 22:05:27",
+      "occurrences": 3,
       "sample_titles": [
+        "[4K CAM] 260916 프로미스나인 백지헌 fromis_9 BAEK JIHEON 가천대 축제 'Vitamin ME' 직캠",
         "프로미스나인 백지헌 직캠 'WE GO' fromis_9 JIHEON｜가천대 축제 260916",
         "260905 프로미스나인 백지헌 Blue Heart 직캠 4K60p fromis_9 fancam"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=t18PN6PDBwY",
         "https://www.youtube.com/watch?v=hzYoOYh7Sxo",
         "https://www.youtube.com/watch?v=_xoqcPOylic"
       ],
       "task_ids": [
+        "d0626e6c-56ce-40e2-99c5-5a9de5d967b6_edit",
         "c46d95f4-be6f-4b62-9921-b80c7a2c6855",
         "e00b5015-f331-41ed-91ee-e8077e6b87be"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "fromis_9 成员 白知宪（Baek Ji-heon）官方汉字正名"
+      ]
     },
     "리즈": {
       "standard_name": "Liz",
@@ -523,33 +577,33 @@
     "김채원": {
       "standard_name": "金采湲",
       "manual_verified": true,
-      "first_seen": "2026-09-14 09:07:45",
-      "last_seen": "2026-09-20 14:08:48",
-      "occurrences": 5,
-      "sample_titles": [
-        "260917 트리플에스 tripleS - 럽2럽 Love2Love | 김채원 Kim ChaeWon 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "260915 트리플에스 tripleS - Girls Never Die | 김채원 Kim ChaeWon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
-        "260915 트리플에스 김채원 Baby Flower 직캠 4K60p tripleS fancam",
-        "260910 트리플에스 김채원 Baby Flower 직캠 4K60p tripleS fancam",
-        "260910 트리플에스 김채원 Rising, Love2Love, 깨어, Girls Never Die 직캠 4K60p tripleS fancam"
-      ],
-      "sample_urls": [
-        "https://www.youtube.com/watch?v=MVsqMXphlpw",
-        "https://www.youtube.com/watch?v=B94qf6A7Uts",
-        "https://www.youtube.com/watch?v=iXy8CX4EDGo",
-        "https://www.youtube.com/watch?v=_TkmoXjvc6k",
-        "https://www.youtube.com/watch?v=AmlZVzG7F7U"
-      ],
-      "task_ids": [
-        "20d88556-935f-4671-824d-011a4d3dfe26",
-        "83e428db-bed1-44b3-85e0-e17b75de33c7",
-        "df7965f0-551b-4aaf-8a49-218dc0c43e67",
-        "eb9d12a9-6f62-45a3-9fba-528c1b9094d0",
-        "5b663420-c03b-4598-8c18-5bd93c8f006e"
-      ],
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:08:48",
-      "audit_evidence": "tripleS 成员 金采湲（编号 S21，Kim Chae-won）官方汉字正名"
+      "audit_evidence": "tripleS 成员 金采湲（编号 S21，Kim Chae-won）官方汉字正名",
+      "first_seen": "2026-09-14 09:07:45",
+      "last_seen": "2026-09-25 20:01:47",
+      "occurrences": 7,
+      "sample_titles": [
+        "260920 iHeartRadio Music festival LE SSERAFIM 'Saki' Performance | 르세라핌 직캠",
+        "260915 트리플에스 tripleS - 깨어 Are You Alive | 김채원 Kim ChaeWon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
+        "260917 트리플에스 tripleS - 럽2럽 Love2Love | 김채원 Kim ChaeWon 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
+        "260915 트리플에스 tripleS - Girls Never Die | 김채원 Kim ChaeWon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
+        "260915 트리플에스 김채원 Baby Flower 직캠 4K60p tripleS fancam"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=KXJQeMXSJ3s",
+        "https://www.youtube.com/watch?v=9VPq76s8UEU",
+        "https://www.youtube.com/watch?v=MVsqMXphlpw",
+        "https://www.youtube.com/watch?v=B94qf6A7Uts",
+        "https://www.youtube.com/watch?v=iXy8CX4EDGo"
+      ],
+      "task_ids": [
+        "979b55c8-703a-4fa1-8d6e-422ce0b520ef_edit",
+        "b8c832f9-996e-4ab9-9853-6398383a73a9_edit",
+        "20d88556-935f-4671-824d-011a4d3dfe26",
+        "83e428db-bed1-44b3-85e0-e17b75de33c7",
+        "df7965f0-551b-4aaf-8a49-218dc0c43e67"
+      ]
     },
     "트리플에스": {
       "standard_name": "tripleS",
@@ -558,60 +612,60 @@
       "audit_timestamp": "2026-09-20 14:02:48",
       "audit_evidence": "Modhaus 女团 tripleS 官方英文名称",
       "first_seen": "2026-09-14 09:07:45",
-      "last_seen": "2026-09-20 15:16:31",
-      "occurrences": 19,
+      "last_seen": "2026-09-23 18:01:20",
+      "occurrences": 26,
       "sample_titles": [
-        "260919 트리플에스 김숨냥 Baby Flower 직캠 4K60p tripleS fancam 더팩트뮤직어워즈 TMA",
-        "260917 트리플에스 tripleS - 럽2럽 Love2Love | 김채원 Kim ChaeWon 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "260917 트리플에스 tripleS - 베이비 플라워 Baby Flower | 마유 Mayu 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "260915 트리플에스 tripleS - Girls Never Die | 김채원 Kim ChaeWon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
-        "[4K 60P 직캠] 20260909 트리플에스(tripleS) 김수민 \"Love2Love\" @ 성결대학교 축제"
+        "260915 트리플에스 tripleS - 베이비 플라워 Baby Flower | 김유연 Kim YooYeon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
+        "260920 tripleS (트리플에스) - Baby Flower (김채연) 직캠 [안양춤축제 _ 평촌중앙공원]",
+        "260920 tripleS (트리플에스) - Girls Never Die (김채연) 직캠 [안양춤축제 _ 평촌중앙공원]",
+        "260920 트리플에스 tripleS 'Girls Never Die' 4K 60P 직캠 @안양춤축제 by DaftTaengk",
+        "260915 트리플에스 tripleS - 깨어 Are You Alive | 김채원 Kim ChaeWon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]"
       ],
       "sample_urls": [
-        "https://www.youtube.com/watch?v=EH3dTRAU-sM",
-        "https://www.youtube.com/watch?v=MVsqMXphlpw",
-        "https://www.youtube.com/watch?v=UOQkOe1eMpY",
-        "https://www.youtube.com/watch?v=B94qf6A7Uts",
-        "https://www.youtube.com/watch?v=bIBlGiYiH_E"
+        "https://www.youtube.com/watch?v=coP5q3LNMDo",
+        "https://www.youtube.com/watch?v=M5U-wIg3OJs",
+        "https://www.youtube.com/watch?v=uIxdf6DXXqE",
+        "https://www.youtube.com/watch?v=zNeo9flnhRM",
+        "https://www.youtube.com/watch?v=9VPq76s8UEU"
       ],
       "task_ids": [
-        "4e361770-b421-4143-9fbf-bfd4d2e4e58f_edit",
-        "20d88556-935f-4671-824d-011a4d3dfe26",
-        "08d2028a-0289-4588-9f0c-d8a12605b7ad",
-        "83e428db-bed1-44b3-85e0-e17b75de33c7",
-        "802980ec-9585-43c3-9892-912c33583c0d"
+        "83a6afc3-0860-4c41-adfd-a6b424914ffe_edit",
+        "37abd64f-02e5-4029-bfa7-d0bc86e6e08d_edit",
+        "ce2f4f5d-c8d3-46f9-86f6-5925dc052062_edit",
+        "c0864b9b-4656-445a-9b30-d7bedbc37ebe_edit",
+        "b8c832f9-996e-4ab9-9853-6398383a73a9_edit"
       ]
     },
     "tripleS": {
       "standard_name": "tripleS",
       "manual_verified": true,
-      "first_seen": "2026-09-14 09:07:45",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 18,
-      "sample_titles": [
-        "260917 트리플에스 tripleS - 럽2럽 Love2Love | 김채원 Kim ChaeWon 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "260917 트리플에스 tripleS - 베이비 플라워 Baby Flower | 마유 Mayu 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "260915 트리플에스 tripleS - Girls Never Die | 김채원 Kim ChaeWon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
-        "[4K 60P 직캠] 20260909 트리플에스(tripleS) 김수민 \"Love2Love\" @ 성결대학교 축제",
-        "[4K 60P 직캠] 20260909 트리플에스(tripleS) 윤서연 \"Girls Never Die\" @ 성결대학교 축제"
-      ],
-      "sample_urls": [
-        "https://www.youtube.com/watch?v=MVsqMXphlpw",
-        "https://www.youtube.com/watch?v=UOQkOe1eMpY",
-        "https://www.youtube.com/watch?v=B94qf6A7Uts",
-        "https://www.youtube.com/watch?v=bIBlGiYiH_E",
-        "https://www.youtube.com/watch?v=p6mYg7i3Rds"
-      ],
-      "task_ids": [
-        "20d88556-935f-4671-824d-011a4d3dfe26",
-        "08d2028a-0289-4588-9f0c-d8a12605b7ad",
-        "83e428db-bed1-44b3-85e0-e17b75de33c7",
-        "802980ec-9585-43c3-9892-912c33583c0d",
-        "8565a073-76be-4610-918b-58375b31a1ad"
-      ],
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 tripleS 官方英文名称"
+      "audit_evidence": "女团 tripleS 官方英文名称",
+      "first_seen": "2026-09-14 09:07:45",
+      "last_seen": "2026-09-25 18:04:36",
+      "occurrences": 23,
+      "sample_titles": [
+        "260920 tripleS(트리플에스) '깨어' (서연 직캠) 안양춤축제 평촌중앙공원",
+        "260915 트리플에스 tripleS - 베이비 플라워 Baby Flower | 김유연 Kim YooYeon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
+        "260920 트리플에스 tripleS 'Girls Never Die' 4K 60P 직캠 @안양춤축제 by DaftTaengk",
+        "260915 트리플에스 tripleS - 깨어 Are You Alive | 김채원 Kim ChaeWon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]",
+        "260919 트리플에스 김숨냥 Baby Flower 직캠 4K60p tripleS fancam 더팩트뮤직어워즈 TMA"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=snpm6VHl_i4",
+        "https://www.youtube.com/watch?v=coP5q3LNMDo",
+        "https://www.youtube.com/watch?v=zNeo9flnhRM",
+        "https://www.youtube.com/watch?v=9VPq76s8UEU",
+        "https://www.youtube.com/watch?v=EH3dTRAU-sM"
+      ],
+      "task_ids": [
+        "359b46ce-29ee-44aa-b5b3-78b481669521_edit",
+        "83a6afc3-0860-4c41-adfd-a6b424914ffe_edit",
+        "c0864b9b-4656-445a-9b30-d7bedbc37ebe_edit",
+        "b8c832f9-996e-4ab9-9853-6398383a73a9_edit",
+        "4e361770-b421-4143-9fbf-bfd4d2e4e58f_edit"
+      ]
     },
     "민주": {
       "standard_name": "朴慜柱",
@@ -732,52 +786,58 @@
     "최예나": {
       "standard_name": "崔叡娜",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "歌手 崔叡娜（Choi Ye-na）官方汉字正名",
       "first_seen": "2026-09-15 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 3,
+      "last_seen": "2026-09-23 22:18:26",
+      "occurrences": 4,
       "sample_titles": [
+        "260919 최예나 캐치 캐치 직캠 4K60p YENA fancam 더팩트뮤직어워즈 TMA",
         "260911 최예나 YENA - 캐치 캐치 CatchCatch | 아이즈원 세로 직캠 | 한국전통문화대학교 축제 동심 [KPOP FanCam 4K]",
         "260910 최예나 YENA '네모네모 NEMONEMO' 4K 60P 직캠 @중부대 축제 by DaftTaengk",
         "260910 최예나 YENA '캐치 캐치 Catch Catch' 4K 60P 직캠 @중부대 축제 by DaftTaengk"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=Yiee2u_W1gk",
         "https://www.youtube.com/watch?v=JppETfOsku4",
         "https://www.youtube.com/watch?v=jTWbC9ny7L8",
         "https://www.youtube.com/watch?v=QcUyQLS4z4k"
       ],
       "task_ids": [
+        "62f074ac-0524-4a5c-bdfb-bb6d9560f183_edit",
         "d51861f1-f0d7-4a9d-8684-7006c90c1c14",
         "14199299-a7e5-492c-a21b-a5c2836ec46d",
         "15f4d12d-3e4c-4ef2-8a0f-42322a723364"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "歌手 崔叡娜（Choi Ye-na）官方汉字正名"
+      ]
     },
     "YENA": {
       "standard_name": "崔叡娜",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "歌手 崔叡娜（YENA）官方汉字正名",
       "first_seen": "2026-09-15 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 3,
+      "last_seen": "2026-09-23 22:18:26",
+      "occurrences": 4,
       "sample_titles": [
+        "260919 최예나 캐치 캐치 직캠 4K60p YENA fancam 더팩트뮤직어워즈 TMA",
         "260911 최예나 YENA - 캐치 캐치 CatchCatch | 아이즈원 세로 직캠 | 한국전통문화대학교 축제 동심 [KPOP FanCam 4K]",
         "260910 최예나 YENA '네모네모 NEMONEMO' 4K 60P 직캠 @중부대 축제 by DaftTaengk",
         "260910 최예나 YENA '캐치 캐치 Catch Catch' 4K 60P 직캠 @중부대 축제 by DaftTaengk"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=Yiee2u_W1gk",
         "https://www.youtube.com/watch?v=JppETfOsku4",
         "https://www.youtube.com/watch?v=jTWbC9ny7L8",
         "https://www.youtube.com/watch?v=QcUyQLS4z4k"
       ],
       "task_ids": [
+        "62f074ac-0524-4a5c-bdfb-bb6d9560f183_edit",
         "d51861f1-f0d7-4a9d-8684-7006c90c1c14",
         "14199299-a7e5-492c-a21b-a5c2836ec46d",
         "15f4d12d-3e4c-4ef2-8a0f-42322a723364"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "歌手 崔叡娜（YENA）官方汉字正名"
+      ]
     },
     "이서": {
       "standard_name": "李瑞",
@@ -1064,33 +1124,33 @@
     "클라씨": {
       "standard_name": "CLASS:y",
       "manual_verified": true,
-      "first_seen": "2026-09-15 16:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 7,
-      "sample_titles": [
-        "260912 CLASSy(클라씨) '눈물이 난 채로 걷는 게 나다운 거라서' (리원 직캠) 파주 K-컬처 페스티벌",
-        "260912 클라씨 CLASS:y - Psycho and Beautiful | 원지민 WON JIMIN 세로 직캠 | 감곡 k-컬처 페스티벌 [KPOP FanCam 4K]",
-        "260912 CLASS:y(클라씨) “CLASSY“ (보은 직캠) 파주 K-컬처 페스티벌",
-        "CLASS:y(클라씨) “Psycho and Beautiful“ (보은 직캠) 감곡 K-컬처 페스티벌",
-        "260912 클라씨 CLASS:y - 틱틱붐 Tick Tick Boom | 박보은 PARK BOEUN 세로 직캠 | 감곡 k-컬처 페스티벌 [KPOP FanCam 4K]"
-      ],
-      "sample_urls": [
-        "https://www.youtube.com/watch?v=nuaQvdFCTvQ",
-        "https://www.youtube.com/watch?v=lIumGaXVJ2E",
-        "https://www.youtube.com/watch?v=q3Cghk24D3I",
-        "https://www.youtube.com/watch?v=mfyvkfBtxOg",
-        "https://www.youtube.com/watch?v=pWB67hNuceE"
-      ],
-      "task_ids": [
-        "5edd98ed-a790-46dc-9c4e-f2ac2ad17037",
-        "c53621a7-a5b4-4d61-a9a3-075df94ce465",
-        "44b7297a-3e58-4676-a6f3-63dfeb4784d6",
-        "4631e7f4-b6e8-4d6d-ba63-9f096de07330",
-        "b4d9f739-5fdd-4702-b394-63458956b91c"
-      ],
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 CLASS:y 官方英文名称"
+      "audit_evidence": "女团 CLASS:y 官方英文名称",
+      "first_seen": "2026-09-15 16:00:00",
+      "last_seen": "2026-09-25 19:04:22",
+      "occurrences": 11,
+      "sample_titles": [
+        "260920 CLASSy(클라씨) '눈물이 난 채로 걷는 게 나다운 거라서' (선유 직캠) 안양춤축제 삼덕공원",
+        "260920 클라씨 CLASS:y - SHUT DOWN + Tear drop | 가로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - 셧다운 SHUT DOWN | 홍혜주 HONG HYEJU 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260912 CLASSy(클라씨) '눈물이 난 채로 걷는 게 나다운 거라서' (리원 직캠) 파주 K-컬처 페스티벌"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=dxbDIKEOAXk",
+        "https://www.youtube.com/watch?v=U38FNO7Gn7E",
+        "https://www.youtube.com/watch?v=3oaX17s4OQI",
+        "https://www.youtube.com/watch?v=NkvQZiiBveM",
+        "https://www.youtube.com/watch?v=nuaQvdFCTvQ"
+      ],
+      "task_ids": [
+        "c33b561b-c28f-4c4c-b7c3-bbe233460f68_edit",
+        "f27c9ea6-def6-4b4f-a397-a4f5f9b019a3_edit",
+        "c2731035-158f-4708-8fe3-20987c8945b8_edit",
+        "f1d85190-427c-4372-bfa7-ab5d0848b1cf_edit",
+        "5edd98ed-a790-46dc-9c4e-f2ac2ad17037"
+      ]
     },
     "CLASS:y": {
       "standard_name": "CLASS:y",
@@ -1126,24 +1186,27 @@
     "서연": {
       "standard_name": "尹舒姸",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "关联任务样本为 tripleS S1 成员 尹舒姸（Yoon SeoYeon）官方汉字正名",
       "first_seen": "2026-09-16 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-25 18:04:36",
+      "occurrences": 3,
       "sample_titles": [
+        "260920 tripleS(트리플에스) '깨어' (서연 직캠) 안양춤축제 평촌중앙공원",
         "[4K 60P 직캠] 20260909 트리플에스(tripleS) 윤서연 \"Girls Never Die\" @ 성결대학교 축제",
         "260909 tripleS(트리플에스) 'Girls Never Die' (서연 직캠) 성결대학교 축제"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=snpm6VHl_i4",
         "https://www.youtube.com/watch?v=p6mYg7i3Rds",
         "https://www.youtube.com/watch?v=tQh_0RAAX3o"
       ],
       "task_ids": [
+        "359b46ce-29ee-44aa-b5b3-78b481669521_edit",
         "8565a073-76be-4610-918b-58375b31a1ad",
         "5589affd-4469-4d55-be73-d525316e6047"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "关联任务样本为 tripleS S1 成员 尹舒姸（Yoon SeoYeon）官方汉字正名"
+      ]
     },
     "휘서": {
       "standard_name": "Hwiseo",
@@ -1327,60 +1390,60 @@
       "audit_timestamp": "2026-09-20 14:02:48",
       "audit_evidence": "TOP Media 女团 ODD YOUTH 官方英文名称",
       "first_seen": "2026-09-17 05:00:00",
-      "last_seen": "2026-09-20 14:22:26",
-      "occurrences": 8,
+      "last_seen": "2026-09-24 18:10:50",
+      "occurrences": 11,
       "sample_titles": [
+        "260919 ODD YOUTH (오드유스) - THAT'S ME (마이카) 직캠 [인천 청소년문화대축제]",
+        "오드유스 써머 ( 멘트 모음 ) 공주대학교 천안캠퍼스 축제 직캠 ODDYOUTH Fancam 260917",
         "260919 ODD YOUTH (오드유스) - I Like You (써머) 직캠 [인천 청소년문화대축제]",
         "260917 오드유스 ODD YOUTH - 댓츠미 THAT'S ME | 가로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "260917 오드유스 ODD YOUTH - 캔트고백 can't go back | 마야 MYAH 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "오드유스 써머 ( KARA - 미스터 ) 화성의과학대학교 축제 직캠 OddYouth Fancam 260908",
-        "260908 오드유스 ODD YOUTH - Happy 세팅실패 | 써머 SUMMER 세로 직캠 | 화성의과학대학 축제 화락제 [KPOP FanCam 4K]"
+        "260917 오드유스 ODD YOUTH - 캔트고백 can't go back | 마야 MYAH 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=xtPoEYj8heY",
+        "https://www.youtube.com/watch?v=B4VGP5-FMt4",
         "https://www.youtube.com/watch?v=MUh_Uxv29i8",
         "https://www.youtube.com/watch?v=wcmqOIRcQ8E",
-        "https://www.youtube.com/watch?v=a6OBOTuzKIk",
-        "https://www.youtube.com/watch?v=axk_kaKF-3M",
-        "https://www.youtube.com/watch?v=efq4qebMSPA"
+        "https://www.youtube.com/watch?v=a6OBOTuzKIk"
       ],
       "task_ids": [
+        "30f4b331-8065-4e87-801e-734b744d03ab_edit",
+        "be5078da-44c7-4e68-b721-bba9ad6d123e_edit",
         "d15c1401-80d4-44bd-bb54-80b59a12aea9_edit",
         "20d330cb-541f-40b2-8abe-f2bc71972c02",
-        "87ad5cda-8f1f-49cc-96ae-c98214cd6c5a",
-        "677ffca9-54f6-495e-bf25-5e8f20bf49ad",
-        "7f735510-c8c7-4f86-be61-07a8de4ec41a"
+        "87ad5cda-8f1f-49cc-96ae-c98214cd6c5a"
       ]
     },
     "ODD YOUTH": {
       "standard_name": "ODD YOUTH",
       "manual_verified": true,
-      "first_seen": "2026-09-17 05:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 5,
-      "sample_titles": [
-        "260917 오드유스 ODD YOUTH - 댓츠미 THAT'S ME | 가로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "260917 오드유스 ODD YOUTH - 캔트고백 can't go back | 마야 MYAH 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
-        "260908 오드유스 ODD YOUTH - Happy 세팅실패 | 써머 SUMMER 세로 직캠 | 화성의과학대학 축제 화락제 [KPOP FanCam 4K]",
-        "260911 오드유스 ODD YOUTH - 댓츠미 THAT'S ME | 가로 직캠 | 한국전통문화대학교 축제 동심 [KPOP FanCam 4K]",
-        "260911 오드유스 ODD YOUTH - 댓츠미 THAT'S ME | 마야 MYAH 세로 직캠 | 한국전통문화대학교 축제 동심 [KPOP FanCam 4K]"
-      ],
-      "sample_urls": [
-        "https://www.youtube.com/watch?v=wcmqOIRcQ8E",
-        "https://www.youtube.com/watch?v=a6OBOTuzKIk",
-        "https://www.youtube.com/watch?v=efq4qebMSPA",
-        "https://www.youtube.com/watch?v=JkJXVt0J0oY",
-        "https://www.youtube.com/watch?v=eUxagPV7GHs"
-      ],
-      "task_ids": [
-        "20d330cb-541f-40b2-8abe-f2bc71972c02",
-        "87ad5cda-8f1f-49cc-96ae-c98214cd6c5a",
-        "7f735510-c8c7-4f86-be61-07a8de4ec41a",
-        "9d68e163-cee2-4679-bd69-b8a9835f0be1",
-        "a2135020-c30d-4ff2-965c-6600ba0b21f3"
-      ],
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 ODD YOUTH 官方英文名称"
+      "audit_evidence": "女团 ODD YOUTH 官方英文名称",
+      "first_seen": "2026-09-17 05:00:00",
+      "last_seen": "2026-09-24 18:10:50",
+      "occurrences": 7,
+      "sample_titles": [
+        "260919 ODD YOUTH (오드유스) - THAT'S ME (마이카) 직캠 [인천 청소년문화대축제]",
+        "260919 ODD YOUTH (오드유스) - I Like You (써머) 직캠 [인천 청소년문화대축제]",
+        "260917 오드유스 ODD YOUTH - 댓츠미 THAT'S ME | 가로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
+        "260917 오드유스 ODD YOUTH - 캔트고백 can't go back | 마야 MYAH 세로 직캠 | 공주대학교 천안공과대학 축제 청춘열차 [KPOP FanCam 4K]",
+        "260908 오드유스 ODD YOUTH - Happy 세팅실패 | 써머 SUMMER 세로 직캠 | 화성의과학대학 축제 화락제 [KPOP FanCam 4K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=xtPoEYj8heY",
+        "https://www.youtube.com/watch?v=MUh_Uxv29i8",
+        "https://www.youtube.com/watch?v=wcmqOIRcQ8E",
+        "https://www.youtube.com/watch?v=a6OBOTuzKIk",
+        "https://www.youtube.com/watch?v=efq4qebMSPA"
+      ],
+      "task_ids": [
+        "30f4b331-8065-4e87-801e-734b744d03ab_edit",
+        "d15c1401-80d4-44bd-bb54-80b59a12aea9_edit",
+        "20d330cb-541f-40b2-8abe-f2bc71972c02",
+        "87ad5cda-8f1f-49cc-96ae-c98214cd6c5a",
+        "7f735510-c8c7-4f86-be61-07a8de4ec41a"
+      ]
     },
     "김수민": {
       "standard_name": "金秀珉",
@@ -1389,8 +1452,8 @@
       "audit_timestamp": "2026-09-20 14:02:48",
       "audit_evidence": "tripleS S6 成员 金秀珉（Kim SooMin）官方汉字正名",
       "first_seen": "2026-09-17 06:00:00",
-      "last_seen": "2026-09-20 15:16:31",
-      "occurrences": 3,
+      "last_seen": "2026-09-20 17:41:01",
+      "occurrences": 4,
       "sample_titles": [
         "260919 트리플에스 김숨냥 Baby Flower 직캠 4K60p tripleS fancam 더팩트뮤직어워즈 TMA",
         "[4K 60P 직캠] 20260909 트리플에스(tripleS) 김수민 \"Love2Love\" @ 성결대학교 축제",
@@ -1433,21 +1496,24 @@
       "audit_timestamp": "2026-09-20 14:02:48",
       "audit_evidence": "ODD YOUTH 成员 Summer（써머，本名李恩书）官方艺名",
       "first_seen": "2026-09-17 09:00:00",
-      "last_seen": "2026-09-20 14:22:26",
-      "occurrences": 4,
+      "last_seen": "2026-09-22 23:37:44",
+      "occurrences": 6,
       "sample_titles": [
+        "오드유스 써머 ( 멘트 모음 ) 공주대학교 천안캠퍼스 축제 직캠 ODDYOUTH Fancam 260917",
         "260919 ODD YOUTH (오드유스) - I Like You (써머) 직캠 [인천 청소년문화대축제]",
         "오드유스 써머 ( KARA - 미스터 ) 화성의과학대학교 축제 직캠 OddYouth Fancam 260908",
         "260908 오드유스 ODD YOUTH - Happy 세팅실패 | 써머 SUMMER 세로 직캠 | 화성의과학대학 축제 화락제 [KPOP FanCam 4K]",
         "오드유스 써머 ( Happy + That's Me ) 화성의과학대학교 축제 직캠 OddYouth Fancam 260908"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=B4VGP5-FMt4",
         "https://www.youtube.com/watch?v=MUh_Uxv29i8",
         "https://www.youtube.com/watch?v=axk_kaKF-3M",
         "https://www.youtube.com/watch?v=efq4qebMSPA",
         "https://www.youtube.com/watch?v=vv3o8W72EJc"
       ],
       "task_ids": [
+        "be5078da-44c7-4e68-b721-bba9ad6d123e_edit",
         "d15c1401-80d4-44bd-bb54-80b59a12aea9_edit",
         "677ffca9-54f6-495e-bf25-5e8f20bf49ad",
         "7f735510-c8c7-4f86-be61-07a8de4ec41a",
@@ -1457,62 +1523,77 @@
     "OddYouth": {
       "standard_name": "ODD YOUTH",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "规范女团拼写为官方名称 ODD YOUTH",
       "first_seen": "2026-09-17 09:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-22 23:37:44",
+      "occurrences": 3,
       "sample_titles": [
+        "오드유스 써머 ( 멘트 모음 ) 공주대학교 천안캠퍼스 축제 직캠 ODDYOUTH Fancam 260917",
         "오드유스 써머 ( KARA - 미스터 ) 화성의과학대학교 축제 직캠 OddYouth Fancam 260908",
         "오드유스 써머 ( Happy + That's Me ) 화성의과학대학교 축제 직캠 OddYouth Fancam 260908"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=B4VGP5-FMt4",
         "https://www.youtube.com/watch?v=axk_kaKF-3M",
         "https://www.youtube.com/watch?v=vv3o8W72EJc"
       ],
       "task_ids": [
+        "be5078da-44c7-4e68-b721-bba9ad6d123e_edit",
         "677ffca9-54f6-495e-bf25-5e8f20bf49ad",
         "c424d78a-6129-498a-a714-21b468261c66"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "规范女团拼写为官方名称 ODD YOUTH"
+      ]
     },
     "형서": {
       "standard_name": "明炯瑞",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "CLASS:y 成员 明炯瑞（Myung Hyung-seo）官方汉字正名",
       "first_seen": "2026-09-17 10:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-22 13:54:59",
+      "occurrences": 4,
       "sample_titles": [
+        "260920 클라씨 CLASS:y - SHUT DOWN + Tear drop | 가로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - 셧다운 SHUT DOWN | 홍혜주 HONG HYEJU 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
         "260912 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 감곡 k-컬처 페스티벌 [KPOP FanCam 4K]"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=U38FNO7Gn7E",
+        "https://www.youtube.com/watch?v=3oaX17s4OQI",
+        "https://www.youtube.com/watch?v=NkvQZiiBveM",
         "https://www.youtube.com/watch?v=OvIVW_IczMo"
       ],
       "task_ids": [
+        "f27c9ea6-def6-4b4f-a397-a4f5f9b019a3_edit",
+        "c2731035-158f-4708-8fe3-20987c8945b8_edit",
+        "f1d85190-427c-4372-bfa7-ab5d0848b1cf_edit",
         "46fbf11a-0d0e-4391-ba70-8ce06f7e0cdc"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "CLASS:y 成员 明炯瑞（Myung Hyung-seo）官方汉字正名"
+      ]
     },
     "명형서": {
       "standard_name": "明炯瑞",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "CLASS:y 成员 明炯瑞（Myung Hyung-seo）官方汉字正名",
       "first_seen": "2026-09-17 10:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-22 12:06:55",
+      "occurrences": 2,
       "sample_titles": [
+        "260920 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
         "260912 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 감곡 k-컬처 페스티벌 [KPOP FanCam 4K]"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=3oaX17s4OQI",
         "https://www.youtube.com/watch?v=OvIVW_IczMo"
       ],
       "task_ids": [
+        "c2731035-158f-4708-8fe3-20987c8945b8_edit",
         "46fbf11a-0d0e-4391-ba70-8ce06f7e0cdc"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "CLASS:y 成员 明炯瑞（Myung Hyung-seo）官方汉字正名"
+      ]
     },
     "리이나": {
       "standard_name": "RIINA",
@@ -1593,27 +1674,33 @@
     "보은": {
       "standard_name": "朴甫檼",
       "manual_verified": true,
-      "first_seen": "2026-09-17 15:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 3,
-      "sample_titles": [
-        "260912 CLASS:y(클라씨) “CLASSY“ (보은 직캠) 파주 K-컬처 페스티벌",
-        "CLASS:y(클라씨) “Psycho and Beautiful“ (보은 직캠) 감곡 K-컬처 페스티벌",
-        "260912 클라씨 CLASS:y - 틱틱붐 Tick Tick Boom | 박보은 PARK BOEUN 세로 직캠 | 감곡 k-컬처 페스티벌 [KPOP FanCam 4K]"
-      ],
-      "sample_urls": [
-        "https://www.youtube.com/watch?v=q3Cghk24D3I",
-        "https://www.youtube.com/watch?v=mfyvkfBtxOg",
-        "https://www.youtube.com/watch?v=pWB67hNuceE"
-      ],
-      "task_ids": [
-        "44b7297a-3e58-4676-a6f3-63dfeb4784d6",
-        "4631e7f4-b6e8-4d6d-ba63-9f096de07330",
-        "b4d9f739-5fdd-4702-b394-63458956b91c"
-      ],
       "audit_status": "verified",
       "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "CLASS:y 成员 朴甫檼（Park Bo-eun）官方汉字正名"
+      "audit_evidence": "CLASS:y 成员 朴甫檼（Park Bo-eun）官方汉字正名",
+      "first_seen": "2026-09-17 15:00:00",
+      "last_seen": "2026-09-22 13:54:59",
+      "occurrences": 6,
+      "sample_titles": [
+        "260920 클라씨 CLASS:y - SHUT DOWN + Tear drop | 가로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - 셧다운 SHUT DOWN | 홍혜주 HONG HYEJU 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260912 CLASS:y(클라씨) “CLASSY“ (보은 직캠) 파주 K-컬처 페스티벌",
+        "CLASS:y(클라씨) “Psycho and Beautiful“ (보은 직캠) 감곡 K-컬처 페스티벌"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=U38FNO7Gn7E",
+        "https://www.youtube.com/watch?v=3oaX17s4OQI",
+        "https://www.youtube.com/watch?v=NkvQZiiBveM",
+        "https://www.youtube.com/watch?v=q3Cghk24D3I",
+        "https://www.youtube.com/watch?v=mfyvkfBtxOg"
+      ],
+      "task_ids": [
+        "f27c9ea6-def6-4b4f-a397-a4f5f9b019a3_edit",
+        "c2731035-158f-4708-8fe3-20987c8945b8_edit",
+        "f1d85190-427c-4372-bfa7-ab5d0848b1cf_edit",
+        "44b7297a-3e58-4676-a6f3-63dfeb4784d6",
+        "4631e7f4-b6e8-4d6d-ba63-9f096de07330"
+      ]
     },
     "박보은": {
       "standard_name": "朴甫檼",
@@ -1637,40 +1724,46 @@
     "르세라핌": {
       "standard_name": "LE SSERAFIM",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "SOURCE MUSIC 女团 LE SSERAFIM 官方英文名称",
       "first_seen": "2026-09-18 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-25 20:01:47",
+      "occurrences": 2,
       "sample_titles": [
+        "260920 iHeartRadio Music festival LE SSERAFIM 'Saki' Performance | 르세라핌 직캠",
         "[MPD직캠] 르세라핌 직캠 8K 'Made My Night' (LE SSERAFIM FanCam) | @MCOUNTDOWN_2026.9.17"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=KXJQeMXSJ3s",
         "https://www.youtube.com/watch?v=SjiqjYKSK2A"
       ],
       "task_ids": [
+        "979b55c8-703a-4fa1-8d6e-422ce0b520ef_edit",
         "1bcb4cd3-566c-4e64-97e3-dcf41306d520"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "SOURCE MUSIC 女团 LE SSERAFIM 官方英文名称"
+      ]
     },
     "LE SSERAFIM": {
       "standard_name": "LE SSERAFIM",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "女团 LE SSERAFIM 官方英文名称",
       "first_seen": "2026-09-18 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-25 20:01:47",
+      "occurrences": 2,
       "sample_titles": [
+        "260920 iHeartRadio Music festival LE SSERAFIM 'Saki' Performance | 르세라핌 직캠",
         "[MPD직캠] 르세라핌 직캠 8K 'Made My Night' (LE SSERAFIM FanCam) | @MCOUNTDOWN_2026.9.17"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=KXJQeMXSJ3s",
         "https://www.youtube.com/watch?v=SjiqjYKSK2A"
       ],
       "task_ids": [
+        "979b55c8-703a-4fa1-8d6e-422ce0b520ef_edit",
         "1bcb4cd3-566c-4e64-97e3-dcf41306d520"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 LE SSERAFIM 官方英文名称"
+      ]
     },
     "유하": {
       "standard_name": "Yuha",
@@ -1713,89 +1806,92 @@
     "도아": {
       "standard_name": "DoA",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "We;Na 成员 DoA（도아，本名林瑛瑞 Lim Young-seo）官方艺名",
       "first_seen": "2026-09-18 13:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 3,
+      "last_seen": "2026-09-24 12:06:47",
+      "occurrences": 4,
       "sample_titles": [
+        "We;Na (위나) 도아 'Pretty Girl' 직캠 @ 서울함 공원 | 260919 | 4K60p",
         "260919 위나 We;Na 도아 - Keep Going On 킵고잉온 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
         "260919 위나 We;Na (리더) 도아 - Baby Sep 베이비스텝 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
         "We;Na (위나) 도아 'It′s Me + Magnetic' 직캠 | 260911 | 4K60p"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=W5wQ3pAqF-A",
         "https://www.youtube.com/watch?v=1URAePbmZs0",
         "https://www.youtube.com/watch?v=YC5tAtaxbvY",
         "https://www.youtube.com/watch?v=YbL9JwUc798"
       ],
       "task_ids": [
+        "d24263bc-fec2-439a-9715-3cd8bfa5522f_edit",
         "b0a63e7b-84b9-4fa1-bbcd-d07c00e50064",
         "3e616037-eeb3-4fd7-85d2-40d37bf7b7b0",
         "50804528-0ddb-4bda-abd2-18070967ce0f"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "We;Na 成员 DoA（도아，本名林瑛瑞 Lim Young-seo）官方艺名"
+      ]
     },
     "위나": {
       "standard_name": "We;Na",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "女团 We;Na 官方英文名称",
       "first_seen": "2026-09-18 13:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 5,
+      "last_seen": "2026-09-24 12:06:47",
+      "occurrences": 6,
       "sample_titles": [
+        "We;Na (위나) 도아 'Pretty Girl' 직캠 @ 서울함 공원 | 260919 | 4K60p",
         "260919 위나 We;Na (일본인멤버) 아야 - 리센느 Pretty Girl 프리티걸 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
         "260919 위나 We;Na 도아 - Keep Going On 킵고잉온 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
         "260919 위나 We;Na (리더) 도아 - Baby Sep 베이비스텝 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
-        "260919 위나 We;Na (일본인멤버) 아야 - 케이팝데몬헌터스 Golden 골든 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
-        "We;Na (위나) 도아 'It′s Me + Magnetic' 직캠 | 260911 | 4K60p"
+        "260919 위나 We;Na (일본인멤버) 아야 - 케이팝데몬헌터스 Golden 골든 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=W5wQ3pAqF-A",
         "https://www.youtube.com/watch?v=DV9Mse0Pxdc",
         "https://www.youtube.com/watch?v=1URAePbmZs0",
         "https://www.youtube.com/watch?v=YC5tAtaxbvY",
-        "https://www.youtube.com/watch?v=PTSaSnGfRGA",
-        "https://www.youtube.com/watch?v=YbL9JwUc798"
+        "https://www.youtube.com/watch?v=PTSaSnGfRGA"
       ],
       "task_ids": [
+        "d24263bc-fec2-439a-9715-3cd8bfa5522f_edit",
         "18316c34-1f45-4ff9-9835-d77cd1612648",
         "b0a63e7b-84b9-4fa1-bbcd-d07c00e50064",
         "3e616037-eeb3-4fd7-85d2-40d37bf7b7b0",
-        "18f4d7d6-5ee1-473b-b209-d4d00fd9db2a",
-        "50804528-0ddb-4bda-abd2-18070967ce0f"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 We;Na 官方英文名称"
+        "18f4d7d6-5ee1-473b-b209-d4d00fd9db2a"
+      ]
     },
     "We;Na": {
       "standard_name": "We;Na",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "女团 We;Na 官方英文名称",
       "first_seen": "2026-09-18 13:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 5,
+      "last_seen": "2026-09-24 12:06:47",
+      "occurrences": 6,
       "sample_titles": [
+        "We;Na (위나) 도아 'Pretty Girl' 직캠 @ 서울함 공원 | 260919 | 4K60p",
         "260919 위나 We;Na (일본인멤버) 아야 - 리센느 Pretty Girl 프리티걸 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
         "260919 위나 We;Na 도아 - Keep Going On 킵고잉온 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
         "260919 위나 We;Na (리더) 도아 - Baby Sep 베이비스텝 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
-        "260919 위나 We;Na (일본인멤버) 아야 - 케이팝데몬헌터스 Golden 골든 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
-        "We;Na (위나) 도아 'It′s Me + Magnetic' 직캠 | 260911 | 4K60p"
+        "260919 위나 We;Na (일본인멤버) 아야 - 케이팝데몬헌터스 Golden 골든 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=W5wQ3pAqF-A",
         "https://www.youtube.com/watch?v=DV9Mse0Pxdc",
         "https://www.youtube.com/watch?v=1URAePbmZs0",
         "https://www.youtube.com/watch?v=YC5tAtaxbvY",
-        "https://www.youtube.com/watch?v=PTSaSnGfRGA",
-        "https://www.youtube.com/watch?v=YbL9JwUc798"
+        "https://www.youtube.com/watch?v=PTSaSnGfRGA"
       ],
       "task_ids": [
+        "d24263bc-fec2-439a-9715-3cd8bfa5522f_edit",
         "18316c34-1f45-4ff9-9835-d77cd1612648",
         "b0a63e7b-84b9-4fa1-bbcd-d07c00e50064",
         "3e616037-eeb3-4fd7-85d2-40d37bf7b7b0",
-        "18f4d7d6-5ee1-473b-b209-d4d00fd9db2a",
-        "50804528-0ddb-4bda-abd2-18070967ce0f"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 We;Na 官方英文名称"
+        "18f4d7d6-5ee1-473b-b209-d4d00fd9db2a"
+      ]
     },
     "원지민": {
       "standard_name": "元知敏",
@@ -1819,24 +1915,33 @@
     "이채영": {
       "standard_name": "李彩煐",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "fromis_9 成员 李彩煐（Lee Chae-young）官方汉字正名",
       "first_seen": "2026-09-19 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-23 21:19:46",
+      "occurrences": 5,
       "sample_titles": [
+        "[4K] fromis_9(프로미스나인) - LIKE YOU BETTER 이채영 fancam (260921 명지대학교 자연캠 축제)",
+        "[4K] fromis_9(프로미스나인) - Vitamin ME 이채영 fancam (260921 명지대학교 자연캠 축제)",
+        "260904-06 fromis_9(프로미스나인) -  Pocket Treat 이채영 직캠 (Tomorrow Glow in Seoul)",
         "260916 fromis_9(프로미스나인) - Supersonic 이채영 fancam (인하대 축제)",
         "260916 프로미스나인 이채영 fromis_9 CHAEYOUNG - Full Stage. 직캠｜가천대학교 축제"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=jo33kHMBVHE",
+        "https://www.youtube.com/watch?v=uUojdKsqrSU",
+        "https://www.youtube.com/watch?v=9-arjsTIzn8",
         "https://www.youtube.com/watch?v=SojO2Vc7k0k",
         "https://www.youtube.com/watch?v=EuT4Rei-x9M"
       ],
       "task_ids": [
+        "1af6add2-e47d-4382-a999-a08d0b3ae642_edit",
+        "50038921-ae22-4ef0-97cf-09499a10c995_edit",
+        "ca72e573-a66f-4e96-a0de-07d6167632b9_edit",
         "0fc0a51d-543b-48f1-ace7-ddac960c19bd",
         "b45d8695-1ff5-46ae-a848-dc6bd3d37907"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "fromis_9 成员 李彩煐（Lee Chae-young）官方汉字正名"
+      ]
     },
     "김유나": {
       "standard_name": "金宥娜",
@@ -1898,24 +2003,27 @@
     "송하영": {
       "standard_name": "宋河英",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "fromis_9 成员 宋河英（Song Ha-young）官方汉字正名",
       "first_seen": "2026-09-19 06:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-24 23:12:41",
+      "occurrences": 3,
       "sample_titles": [
+        "260916 프로미스나인(fromis_9) 송하영 8K 직캠 - LIKE YOU BETTER (가천대학교 축제)",
         "[4K 60P 직캠] 20260916 프로미스나인(fromis_9) 송하영 \"Supersonic+WE GO\" @ 가천대학교 축제",
         "260906 [TOMORROW GLOW.] 프로미스나인(fromis_9) - Vitamin ME 송하영 직캠"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=cQ4IDQ3TTAY",
         "https://www.youtube.com/watch?v=yiciPW4jsdQ",
         "https://www.youtube.com/watch?v=s9la7dEhK3A"
       ],
       "task_ids": [
+        "0a04b630-f746-4fca-851d-4d352da6fced_edit",
         "e9195d39-1c6e-4274-b189-27628c653ed6",
         "6053d566-689c-433a-92d8-a54847ed54ca"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "fromis_9 成员 宋河英（Song Ha-young）官方汉字正名"
+      ]
     },
     "소연": {
       "standard_name": "田小娟",
@@ -1996,24 +2104,27 @@
     "리센느": {
       "standard_name": "RESCENE",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "Muze Entertainment 女团 RESCENE 官方英文名称",
       "first_seen": "2026-09-19 07:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-24 12:06:47",
+      "occurrences": 3,
       "sample_titles": [
+        "We;Na (위나) 도아 'Pretty Girl' 직캠 @ 서울함 공원 | 260919 | 4K60p",
         "260919 위나 We;Na (일본인멤버) 아야 - 리센느 Pretty Girl 프리티걸 (서울헤리티지 & 웰니스 걷기 페스티벌) 직캠 fancam by zam",
         "260918 리센느 원이 - Deja Vu 4K 직캠 @인하대 (RESCENE WONI FANCAM)"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=W5wQ3pAqF-A",
         "https://www.youtube.com/watch?v=DV9Mse0Pxdc",
         "https://www.youtube.com/watch?v=V3UAERwn7aE"
       ],
       "task_ids": [
+        "d24263bc-fec2-439a-9715-3cd8bfa5522f_edit",
         "18316c34-1f45-4ff9-9835-d77cd1612648",
         "a759ed36-ccc9-4546-bce0-1155e1a783df"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "Muze Entertainment 女团 RESCENE 官方英文名称"
+      ]
     },
     "RESCENE": {
       "standard_name": "RESCENE",
@@ -2179,59 +2290,80 @@
     "리원": {
       "standard_name": "金利源",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "CLASS:y 成员 金利源（Kim Ri-won）官方汉字正名",
       "first_seen": "2026-09-19 16:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-22 13:54:59",
+      "occurrences": 4,
       "sample_titles": [
+        "260920 클라씨 CLASS:y - SHUT DOWN + Tear drop | 가로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - 셧다운 SHUT DOWN | 홍혜주 HONG HYEJU 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
         "260912 CLASSy(클라씨) '눈물이 난 채로 걷는 게 나다운 거라서' (리원 직캠) 파주 K-컬처 페스티벌"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=U38FNO7Gn7E",
+        "https://www.youtube.com/watch?v=3oaX17s4OQI",
+        "https://www.youtube.com/watch?v=NkvQZiiBveM",
         "https://www.youtube.com/watch?v=nuaQvdFCTvQ"
       ],
       "task_ids": [
+        "f27c9ea6-def6-4b4f-a397-a4f5f9b019a3_edit",
+        "c2731035-158f-4708-8fe3-20987c8945b8_edit",
+        "f1d85190-427c-4372-bfa7-ab5d0848b1cf_edit",
         "5edd98ed-a790-46dc-9c4e-f2ac2ad17037"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "CLASS:y 成员 金利源（Kim Ri-won）官方汉字正名"
+      ]
     },
     "CLASSy": {
       "standard_name": "CLASS:y",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "女团 CLASS:y 官方英文名称",
       "first_seen": "2026-09-19 16:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-25 19:04:22",
+      "occurrences": 4,
       "sample_titles": [
+        "260920 CLASSy(클라씨) '눈물이 난 채로 걷는 게 나다운 거라서' (선유 직캠) 안양춤축제 삼덕공원",
+        "260920 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - 셧다운 SHUT DOWN | 홍혜주 HONG HYEJU 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
         "260912 CLASSy(클라씨) '눈물이 난 채로 걷는 게 나다운 거라서' (리원 직캠) 파주 K-컬처 페스티벌"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=dxbDIKEOAXk",
+        "https://www.youtube.com/watch?v=3oaX17s4OQI",
+        "https://www.youtube.com/watch?v=NkvQZiiBveM",
         "https://www.youtube.com/watch?v=nuaQvdFCTvQ"
       ],
       "task_ids": [
+        "c33b561b-c28f-4c4c-b7c3-bbe233460f68_edit",
+        "c2731035-158f-4708-8fe3-20987c8945b8_edit",
+        "f1d85190-427c-4372-bfa7-ab5d0848b1cf_edit",
         "5edd98ed-a790-46dc-9c4e-f2ac2ad17037"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 CLASS:y 官方英文名称"
+      ]
     },
     "주현": {
       "standard_name": "李珠贤",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "LIGHTSUM 成员 李珠贤（Lee Juhyeon，李珠賢）官方汉字正名",
       "first_seen": "2026-09-20 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-20 21:05:48",
+      "occurrences": 2,
       "sample_titles": [
+        "라잇썸 (LIGHTSUM) 주현 (JUHYEON) ALIVE [4K60P] 260918 대구경북과학기술원 (DGIST) 달빛제 직캠 by ECU",
         "260918 라잇썸 LIGHTSUM - 포즈 POSE! | 주현 JUHYEON 세로 직캠 | DGIST 축제 [KPOP FanCam 4K]"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=q2dktto5nd8",
         "https://www.youtube.com/watch?v=H14A-AAjl_Y"
       ],
       "task_ids": [
+        "6d22495c-c243-4256-9296-31256acae6fd_edit",
         "a965564a-c89c-453b-963d-13b31e45966d"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "LIGHTSUM 成员 李珠贤（Lee Juhyeon，李珠賢）官方汉字正名"
+      ]
     },
     "라잇썸": {
       "standard_name": "LIGHTSUM",
@@ -2255,75 +2387,96 @@
     "LIGHTSUM": {
       "standard_name": "LIGHTSUM",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "女团 LIGHTSUM 官方英文名称",
       "first_seen": "2026-09-20 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 1,
+      "last_seen": "2026-09-23 00:08:16",
+      "occurrences": 4,
       "sample_titles": [
+        "라잇썸 (LIGHTSUM) 초원 (CHOWON) I (아이) [4K60P] 260918 대구경북과학기술원 (DGIST) 달빛제 직캠 by ECU",
+        "라잇썸 (LIGHTSUM) 주현 (JUHYEON) ALIVE [4K60P] 260918 대구경북과학기술원 (DGIST) 달빛제 직캠 by ECU",
+        "라잇썸 (LIGHTSUM) 나영 (NAYOUNG) 비바체 (VIVACE) [4K60P] 260918 대구경북과학기술원 (DGIST) 달빛제 직캠 by ECU",
         "260918 라잇썸 LIGHTSUM - 포즈 POSE! | 주현 JUHYEON 세로 직캠 | DGIST 축제 [KPOP FanCam 4K]"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=39jSiDmc9kA",
+        "https://www.youtube.com/watch?v=q2dktto5nd8",
+        "https://www.youtube.com/watch?v=u4CHrZC33Ao",
         "https://www.youtube.com/watch?v=H14A-AAjl_Y"
       ],
       "task_ids": [
+        "39eb10af-a7d7-40a2-b03c-a769e116bef2_edit",
+        "6d22495c-c243-4256-9296-31256acae6fd_edit",
+        "42ac2e00-a8bf-4f92-b420-b48648ca44da_edit",
         "a965564a-c89c-453b-963d-13b31e45966d"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "女团 LIGHTSUM 官方英文名称"
+      ]
     },
     "김채현": {
       "standard_name": "金采炫",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "Kep1er 成员 金采炫（Kim Chae-hyun）官方汉字正名",
       "first_seen": "2026-09-20 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-26 00:07:02",
+      "occurrences": 5,
       "sample_titles": [
+        "케플러 (Kep1er) 김채현 (Kim ChaeHyeon) Back to the City [4K60P] 260919 Color of Aisa 신한대학교 직캠 by ECU",
+        "케플러 (Kep1er) 김채현 (Kim ChaeHyeon) WA DA DA (와다다) [4K60P] 260919 Color of Aisa 신한대학교 직캠 by ECU",
+        "케플러 (Kep1er) 김채현 (Kim ChaeHyeon) BUBBLE GUM [4K60P] 260919 Color of Aisa 신한대학교 직캠 by ECU",
         "260919 케플러 김채현 - WA DA DA 4K 직캠 @신한대 축제",
         "260919 케플러 김채현 Full Ver. 4K 직캠 @신한대 축제"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=KuLM3LJrLhU",
+        "https://www.youtube.com/watch?v=qZcoV3IkJRs",
+        "https://www.youtube.com/watch?v=aTQ6UXhehGQ",
         "https://www.youtube.com/watch?v=spVf76oy40c",
         "https://www.youtube.com/watch?v=S95f3t2pZhA"
       ],
       "task_ids": [
+        "fe506e78-9e19-426d-aa40-f29bbd52e292_edit",
+        "d99f8e9d-15ae-4b2d-95a2-a6f19b666687_edit",
+        "edd09a9f-ab0c-4ef3-89eb-64513b29b20c_edit",
         "42164fda-ccc0-43d6-a652-08aa81cff1f5",
         "08cb6ffc-ce05-406c-8056-ad7e4d30283c"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "Kep1er 成员 金采炫（Kim Chae-hyun）官方汉字正名"
+      ]
     },
     "케플러": {
       "standard_name": "Kep1er",
       "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-20 14:02:48",
+      "audit_evidence": "WAKEONE 女团 Kep1er 官方英文名称",
       "first_seen": "2026-09-20 04:00:00",
-      "last_seen": "2026-09-20 14:02:48",
-      "occurrences": 2,
+      "last_seen": "2026-09-22 22:04:38",
+      "occurrences": 3,
       "sample_titles": [
+        "260919 케플러 ke1per 'KILLA (Face the other me)' 4K 60P 직캠 @컬러 오브 아시아 by DaftTaengk",
         "260919 케플러 김채현 - WA DA DA 4K 직캠 @신한대 축제",
         "260919 케플러 김채현 Full Ver. 4K 직캠 @신한대 축제"
       ],
       "sample_urls": [
+        "https://www.youtube.com/watch?v=lvOhvI42nXo",
         "https://www.youtube.com/watch?v=spVf76oy40c",
         "https://www.youtube.com/watch?v=S95f3t2pZhA"
       ],
       "task_ids": [
+        "213457b3-0479-4076-8b8b-6f2d7f56b033_edit",
         "42164fda-ccc0-43d6-a652-08aa81cff1f5",
         "08cb6ffc-ce05-406c-8056-ad7e4d30283c"
-      ],
-      "audit_status": "verified",
-      "audit_timestamp": "2026-09-20 14:02:48",
-      "audit_evidence": "WAKEONE 女团 Kep1er 官方英文名称"
+      ]
     },
     "엔믹스": {
       "standard_name": "NMIXX",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "JYP 旗下女子组合 NMIXX 官方英文名称",
       "first_seen": "2026-09-20 14:11:55",
-      "last_seen": "2026-09-20 14:11:55",
-      "occurrences": 1,
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
       "sample_titles": [
         "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
       ],
@@ -2335,14 +2488,14 @@
       ]
     },
     "릴리": {
-      "standard_name": "LILY",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "standard_name": "Lily",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "NMIXX 成员 Lily（릴리，Lily Jin Park Morrow / 朴珍）官方英文艺名",
       "first_seen": "2026-09-20 14:11:55",
-      "last_seen": "2026-09-20 14:11:55",
-      "occurrences": 1,
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
       "sample_titles": [
         "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
       ],
@@ -2354,14 +2507,14 @@
       ]
     },
     "해원": {
-      "standard_name": "HAEWON",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "standard_name": "吴海嫄",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "NMIXX 队长兼成员 吴海嫄（오해원，Haewon）官方汉字正名",
       "first_seen": "2026-09-20 14:11:55",
-      "last_seen": "2026-09-20 14:11:55",
-      "occurrences": 1,
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
       "sample_titles": [
         "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
       ],
@@ -2373,14 +2526,14 @@
       ]
     },
     "설윤": {
-      "standard_name": "SULLYOON",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "standard_name": "薛仑娥",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "NMIXX 成员 薛仑娥（설윤아，Sullyoon）官方汉字正名",
       "first_seen": "2026-09-20 14:11:55",
-      "last_seen": "2026-09-20 14:11:55",
-      "occurrences": 1,
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
       "sample_titles": [
         "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
       ],
@@ -2393,13 +2546,13 @@
     },
     "배이": {
       "standard_name": "BAE",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "NMIXX 成员 BAE（배이，本名裴真率 Bae Jin-sol）官方英文艺名",
       "first_seen": "2026-09-20 14:11:55",
-      "last_seen": "2026-09-20 14:11:55",
-      "occurrences": 1,
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
       "sample_titles": [
         "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
       ],
@@ -2411,14 +2564,14 @@
       ]
     },
     "지우": {
-      "standard_name": "JIWOO",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "standard_name": "金智佑",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "NMIXX 成员 金智佑（김지우，Jiwoo）官方汉字正名",
       "first_seen": "2026-09-20 14:11:55",
-      "last_seen": "2026-09-20 14:11:55",
-      "occurrences": 1,
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
       "sample_titles": [
         "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
       ],
@@ -2430,14 +2583,14 @@
       ]
     },
     "규진": {
-      "standard_name": "KYUJIN",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "standard_name": "张圭珍",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "NMIXX 成员 张圭珍（장규진，Kyujin）官方汉字正名",
       "first_seen": "2026-09-20 14:11:55",
-      "last_seen": "2026-09-20 14:11:55",
-      "occurrences": 1,
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
       "sample_titles": [
         "260919 더팩트 뮤직 어워즈 부산 Phoenix + Heavy Serenade 엔믹스 직캠 NMIXX FANCAM l 2026 THE FACT MUSIC AWARDS"
       ],
@@ -2450,13 +2603,13 @@
     },
     "JIHYUN": {
       "standard_name": "JIHYUN",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HEART OF WOMAN 队长兼成员 JIHYUN（지현，本名崔智现 Choi Ji-hyun）官方艺名",
       "first_seen": "2026-09-20 15:08:11",
-      "last_seen": "2026-09-20 15:08:11",
-      "occurrences": 1,
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
       "sample_titles": [
         "260911 | HEART OF WOMAN  하트오브우먼 | 지현 JIHYUN 세로 직캠 |  Told U So | 서울 세계청소년 5s 하키대회 | 4K60P"
       ],
@@ -2469,12 +2622,12 @@
     },
     "LIRI": {
       "standard_name": "LIRI",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HEART OF WOMAN 成员 LIRI（리리，本名李多京 Lee Da-gyeong）官方艺名",
       "first_seen": "2026-09-20 16:06:46",
-      "last_seen": "2026-09-20 16:06:46",
+      "last_seen": "2026-09-26 00:12:56",
       "occurrences": 1,
       "sample_titles": [
         "260911 | HEART OF WOMAN  하트오브우먼 | 리리 LIRI 세로 직캠 |  ALIVE | 서울 세계청소년 5s 하키대회 | 4K60P"
@@ -2488,12 +2641,62 @@
     },
     "HEART OF WOMAN": {
       "standard_name": "HEART OF WOMAN",
-      "manual_verified": false,
-      "audit_status": "pending",
-      "audit_timestamp": null,
-      "audit_evidence": "",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "韩国 Blue Brown 旗下女子组合 HEART OF WOMAN 官方英文名称",
       "first_seen": "2026-09-20 16:06:46",
-      "last_seen": "2026-09-20 16:06:46",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 8,
+      "sample_titles": [
+        "260911 | HEART OF WOMAN  하트오브우먼 | 아인 AYNE 세로 직캠 |  My Vision | 서울 세계청소년 5s 하키대회 | 4K60P",
+        "260911 | HEART OF WOMAN  하트오브우먼 | 채이 CHAEI | 세로 직캠 |  TEA | 서울 세계청소년 5s 하키대회 | 4K60P",
+        "260911 | HEART OF WOMAN  하트오브우먼 | 류인 LIUYIN| 세로 직캠 |  SHOW H.O.W | 서울 세계청소년 5s 하키대회 | 4K60P",
+        "260911 | HEART OF WOMAN  하트오브우먼 | 류인 LIUYIN 세로 직캠 |  나를 잃지 않는 방법 | 서울 세계청소년 5s 하키대회 | 4K60P",
+        "260911 | HEART OF WOMAN  하트오브우먼 | 지현 JIHYUN 세로 직캠 |  Told U So | 서울 세계청소년 5s 하키대회 | 4K60P"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=2V-i29KL8g4",
+        "https://www.youtube.com/watch?v=S6Y9GKhRCbg",
+        "https://www.youtube.com/watch?v=YroqP6h1tes",
+        "https://www.youtube.com/watch?v=8C66Tkx3_pA",
+        "https://www.youtube.com/watch?v=QgZeBgOTqp0"
+      ],
+      "task_ids": [
+        "aa50c791-e18e-48a8-be67-3c521a01cb90_edit",
+        "17a1812f-85db-445d-ae0f-8f613a4f087a_edit",
+        "402a5da1-4819-4421-9417-ad9754e5f632_edit",
+        "3ab05209-d619-47aa-86b4-0bd7ab4707e6_edit",
+        "87e2737e-8859-4bf1-82f2-95fa247d2433_edit"
+      ]
+    },
+    "곽연지": {
+      "standard_name": "郭姸知",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "tripleS S12 成员 郭姸知（Kwak YeonJi）官方汉字正名",
+      "first_seen": "2026-09-20 17:09:18",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260915 트리플에스 tripleS - 라이징 Rising | 곽연지 Kwak YeonJi 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=86KjAHHm12g"
+      ],
+      "task_ids": [
+        "f4167fa8-e711-4f85-ad71-75470f6f4ad9_edit"
+      ]
+    },
+    "리리 LIRI": {
+      "standard_name": "LIRI",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HEART OF WOMAN 成员 LIRI（리리，本名李多京 Lee Da-gyeong）官方艺名",
+      "first_seen": "2026-09-20 17:18:27",
+      "last_seen": "2026-09-26 00:12:56",
       "occurrences": 1,
       "sample_titles": [
         "260911 | HEART OF WOMAN  하트오브우먼 | 리리 LIRI 세로 직캠 |  ALIVE | 서울 세계청소년 5s 하키대회 | 4K60P"
@@ -2503,6 +2706,682 @@
       ],
       "task_ids": [
         "3e5eee57-f91d-4278-9966-7bfb7441228e_edit"
+      ]
+    },
+    "비비": {
+      "standard_name": "吕柯薇",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HITGS 中国籍成员 吕柯薇（비비/VV，Lǚ Kē Wēi）官方汉字正名与艺名",
+      "first_seen": "2026-09-20 18:06:40",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260916 힛지스 HITGS - 걸리버 Gulliver! | 가로 직캠 | HITGS 스페셜 팬 사인회 [KPOP FanCam 8K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=wzUJtudvBE8"
+      ],
+      "task_ids": [
+        "05b85a3a-3275-4331-9589-3481a231ee4b_edit"
+      ]
+    },
+    "서진": {
+      "standard_name": "杨书赈",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HITGS 队长 杨书赈（양서진，Yang Seo-jin，漢字：楊書賑）官方汉字正名",
+      "first_seen": "2026-09-20 18:06:40",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260916 힛지스 HITGS - 걸리버 Gulliver! | 가로 직캠 | HITGS 스페셜 팬 사인회 [KPOP FanCam 8K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=wzUJtudvBE8"
+      ],
+      "task_ids": [
+        "05b85a3a-3275-4331-9589-3481a231ee4b_edit"
+      ]
+    },
+    "서희": {
+      "standard_name": "崔栖喜",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HITGS 成员 崔栖喜（최서희，Choi Seo-hee，漢字：崔栖喜）官方汉字正名",
+      "first_seen": "2026-09-20 18:06:40",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
+      "sample_titles": [
+        "260916 힛지스 HITGS - 걸리버 Gulliver! | 서희 SEOHEE 세로 직캠 | HITGS 스페셜 팬 사인회 [KPOP FanCam 8K]",
+        "260916 힛지스 HITGS - 걸리버 Gulliver! | 가로 직캠 | HITGS 스페셜 팬 사인회 [KPOP FanCam 8K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=zpGM30CC1AY",
+        "https://www.youtube.com/watch?v=wzUJtudvBE8"
+      ],
+      "task_ids": [
+        "efcca722-2176-47b5-bc63-763322936d87_edit",
+        "05b85a3a-3275-4331-9589-3481a231ee4b_edit"
+      ]
+    },
+    "혜린": {
+      "standard_name": "赵暳潾",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HITGS 成员 赵暳潾（조혜린，Cho Hye-rin，漢字：趙暳潾）官方汉字正名",
+      "first_seen": "2026-09-20 18:06:40",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260916 힛지스 HITGS - 걸리버 Gulliver! | 가로 직캠 | HITGS 스페셜 팬 사인회 [KPOP FanCam 8K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=wzUJtudvBE8"
+      ],
+      "task_ids": [
+        "05b85a3a-3275-4331-9589-3481a231ee4b_edit"
+      ]
+    },
+    "이유": {
+      "standard_name": "李晏",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HITGS 成员 李晏（이안，Lee Ahn，艺名 이유/伊悠/Iyoo）官方汉字正名",
+      "first_seen": "2026-09-20 18:06:40",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260916 힛지스 HITGS - 걸리버 Gulliver! | 가로 직캠 | HITGS 스페셜 팬 사인회 [KPOP FanCam 8K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=wzUJtudvBE8"
+      ],
+      "task_ids": [
+        "05b85a3a-3275-4331-9589-3481a231ee4b_edit"
+      ]
+    },
+    "류인 LIUYIN": {
+      "standard_name": "LIUYIN",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HEART OF WOMAN 成员 LIUYIN（류인，本名潘柳尹 Pan Liuyin）官方艺名与中文本名",
+      "first_seen": "2026-09-20 19:12:35",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
+      "sample_titles": [
+        "260911 | HEART OF WOMAN  하트오브우먼 | 류인 LIUYIN| 세로 직캠 |  SHOW H.O.W | 서울 세계청소년 5s 하키대회 | 4K60P",
+        "260911 | HEART OF WOMAN  하트오브우먼 | 류인 LIUYIN 세로 직캠 |  나를 잃지 않는 방법 | 서울 세계청소년 5s 하키대회 | 4K60P"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=YroqP6h1tes",
+        "https://www.youtube.com/watch?v=8C66Tkx3_pA"
+      ],
+      "task_ids": [
+        "402a5da1-4819-4421-9417-ad9754e5f632_edit",
+        "3ab05209-d619-47aa-86b4-0bd7ab4707e6_edit"
+      ]
+    },
+    "볼빨간사춘기": {
+      "standard_name": "脸红的思春期",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "韩国独立音乐团体 BOL4（볼빨간사춘기，Bolbbalgan4）官方大中华区中文译名 脸红的思春期",
+      "first_seen": "2026-09-20 19:14:47",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "볼빨간사춘기 안지영 ( 황금기 ) 미발표 신곡 뷰바 플리마켓 게릴라 공연 직캠 Classy Fancam 260918"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=uYsJJ8-gol0"
+      ],
+      "task_ids": [
+        "d286ae77-3c9e-4a2d-ad4e-474bd06d1707_edit"
+      ]
+    },
+    "안지영": {
+      "standard_name": "安智煐",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "脸红的思春期 BOL4 主唱 安智煐（Ahn Ji-young，안지영）官方汉字正名",
+      "first_seen": "2026-09-20 19:14:47",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "볼빨간사춘기 안지영 ( 황금기 ) 미발표 신곡 뷰바 플리마켓 게릴라 공연 직캠 Classy Fancam 260918"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=uYsJJ8-gol0"
+      ],
+      "task_ids": [
+        "d286ae77-3c9e-4a2d-ad4e-474bd06d1707_edit"
+      ]
+    },
+    "NAYOUNG": {
+      "standard_name": "金娜英",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "LIGHTSUM 成员 金娜英（Kim Na-young，김나영）官方汉字正名",
+      "first_seen": "2026-09-20 20:08:19",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "라잇썸 (LIGHTSUM) 나영 (NAYOUNG) 비바체 (VIVACE) [4K60P] 260918 대구경북과학기술원 (DGIST) 달빛제 직캠 by ECU"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=u4CHrZC33Ao"
+      ],
+      "task_ids": [
+        "42ac2e00-a8bf-4f92-b420-b48648ca44da_edit"
+      ]
+    },
+    "JUHYEON": {
+      "standard_name": "李珠贤",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "LIGHTSUM 队长 李珠贤（Lee Juhyeon，李珠賢）官方汉字正名",
+      "first_seen": "2026-09-20 21:05:48",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "라잇썸 (LIGHTSUM) 주현 (JUHYEON) ALIVE [4K60P] 260918 대구경북과학기술원 (DGIST) 달빛제 직캠 by ECU"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=q2dktto5nd8"
+      ],
+      "task_ids": [
+        "6d22495c-c243-4256-9296-31256acae6fd_edit"
+      ]
+    },
+    "수인": {
+      "standard_name": "SOOIN",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "THEBLACKLABEL 女团 MEOVV 成员 SOOIN（수인，本名金粹仁 Kim Soo-in）官方艺名",
+      "first_seen": "2026-09-20 23:11:08",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260917 MEOVV 미야오 수인 - Hit 'Em 힛엠 (가천대 축제) 직캠 fancam by zam"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=JdJxYAKd_eE"
+      ],
+      "task_ids": [
+        "602fd311-0a58-42bd-a912-8a11678c64b7_edit"
+      ]
+    },
+    "CLASS": {
+      "standard_name": "CLASS:y",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "女团 CLASS:y 官方英文名称，修正正则解析错误",
+      "first_seen": "2026-09-21 12:08:29",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 3,
+      "sample_titles": [
+        "260920 클라씨 CLASS:y - SHUT DOWN + Tear drop | 가로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - Tear drop | 명형서 HYUNGSEO 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]",
+        "260920 클라씨 CLASS:y - 셧다운 SHUT DOWN | 홍혜주 HONG HYEJU 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=U38FNO7Gn7E",
+        "https://www.youtube.com/watch?v=3oaX17s4OQI",
+        "https://www.youtube.com/watch?v=NkvQZiiBveM"
+      ],
+      "task_ids": [
+        "f27c9ea6-def6-4b4f-a397-a4f5f9b019a3_edit",
+        "c2731035-158f-4708-8fe3-20987c8945b8_edit",
+        "f1d85190-427c-4372-bfa7-ab5d0848b1cf_edit"
+      ]
+    },
+    "홍혜주": {
+      "standard_name": "洪惠珠",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "CLASS:y 队长 洪惠珠（Hong Hye-ju，홍혜주）官方汉字正名",
+      "first_seen": "2026-09-21 12:08:29",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260920 클라씨 CLASS:y - 셧다운 SHUT DOWN | 홍혜주 HONG HYEJU 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=NkvQZiiBveM"
+      ],
+      "task_ids": [
+        "f1d85190-427c-4372-bfa7-ab5d0848b1cf_edit"
+      ]
+    },
+    "HONG HYEJU": {
+      "standard_name": "洪惠珠",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "CLASS:y 队长 洪惠珠（Hong Hye-ju）官方汉字正名",
+      "first_seen": "2026-09-21 12:08:29",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260920 클라씨 CLASS:y - 셧다운 SHUT DOWN | 홍혜주 HONG HYEJU 세로 직캠 | 안양춤축제 언제나청춘콘서트 [KPOP FanCam 4K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=NkvQZiiBveM"
+      ],
+      "task_ids": [
+        "f1d85190-427c-4372-bfa7-ab5d0848b1cf_edit"
+      ]
+    },
+    "이즈나": {
+      "standard_name": "izna",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "WAKEONE 旗下《I-LAND 2》出道女团 izna 官方英文名称",
+      "first_seen": "2026-09-21 18:37:13",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 8,
+      "sample_titles": [
+        "260919 이즈나 방지민 izna JEEMIN - Supercrush + Racecar + SIGN + METRONOME 직캠｜2026 izna Concert Tour",
+        "260920 이즈나 izna - ROCK, PAPER, SCISSORS + BEEP + DRIP 직캠｜2026 izna Concert Tour: WHO DAT GIRL?",
+        "260920 이즈나 izna - Kissing You + 도깨비불 (Illusion) 직캠｜2026 izna Concert Tour: WHO DAT GIRL?",
+        "260919 이즈나 방지민 izna JEEMIN - ROCK, PAPER, SCISSORS + BEEP + DRIP 직캠｜2026 izna Concert Tour",
+        "260921 이즈나 izna 'SIGN' 4K 60P 직캠 @가천대 메디컬캠 축제 by DaftTaengk"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=5nUpRuoo7bk",
+        "https://www.youtube.com/watch?v=UIpAF-aG5EM",
+        "https://www.youtube.com/watch?v=8Bj6Svmp_xc",
+        "https://www.youtube.com/watch?v=_t6rfjhmcxo",
+        "https://www.youtube.com/watch?v=nEFQ4TZmEdA"
+      ],
+      "task_ids": [
+        "0f29e4d9-a65a-4ba3-970f-eb349d60d447_edit",
+        "92d4281e-c80d-44d4-b797-34508a0c3b26_edit",
+        "a81dd3fb-908d-4da5-a2dd-68adcbea2c6e_edit",
+        "12ae685d-ef98-4097-850a-f9574c20941e_edit",
+        "6b1a8dc5-0370-47b2-b0e3-65f30eae3cc9_edit"
+      ]
+    },
+    "김채연": {
+      "standard_name": "金采嬿",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "tripleS S4 成员 金采嬿（Kim ChaeYeon）官方汉字正名",
+      "first_seen": "2026-09-21 19:01:53",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
+      "sample_titles": [
+        "260920 tripleS (트리플에스) - Baby Flower (김채연) 직캠 [안양춤축제 _ 평촌중앙공원]",
+        "260920 tripleS (트리플에스) - Girls Never Die (김채연) 직캠 [안양춤축제 _ 평촌중앙공원]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=M5U-wIg3OJs",
+        "https://www.youtube.com/watch?v=uIxdf6DXXqE"
+      ],
+      "task_ids": [
+        "37abd64f-02e5-4029-bfa7-d0bc86e6e08d_edit",
+        "ce2f4f5d-c8d3-46f9-86f6-5925dc052062_edit"
+      ]
+    },
+    "유사랑": {
+      "standard_name": "柳莎朗",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "izna 成员 柳莎朗（유사랑，Ryu Sarang）官方规范中文译名",
+      "first_seen": "2026-09-22 01:06:52",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260920 이즈나 유사랑 Racecar, SIGN, METRONOME 직캠 4K60p izna fancam"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=APNFoxHg4NM"
+      ],
+      "task_ids": [
+        "5499b844-4928-4306-9c62-93d3756194f5_edit"
+      ]
+    },
+    "CHAEI": {
+      "standard_name": "CHAEI",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HEART OF WOMAN 成员 CHAEI（채이，本名尹秀寅 Yoon Su-in）官方艺名",
+      "first_seen": "2026-09-22 21:18:54",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
+      "sample_titles": [
+        "260911 | HEART OF WOMAN  하트오브우먼 | 채이 CHAEI | 세로 직캠 |  TEA | 서울 세계청소년 5s 하키대회 | 4K60P"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=S6Y9GKhRCbg"
+      ],
+      "task_ids": [
+        "17a1812f-85db-445d-ae0f-8f613a4f087a_edit"
+      ]
+    },
+    "ke1per": {
+      "standard_name": "Kep1er",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "女团 Kep1er 官方英文名称，修正手误错误拼写",
+      "first_seen": "2026-09-22 22:04:38",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 케플러 ke1per 'KILLA (Face the other me)' 4K 60P 직캠 @컬러 오브 아시아 by DaftTaengk"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=lvOhvI42nXo"
+      ],
+      "task_ids": [
+        "213457b3-0479-4076-8b8b-6f2d7f56b033_edit"
+      ]
+    },
+    "초원 (CHOWON)": {
+      "standard_name": "韩霄瑗",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "LIGHTSUM 成员 韩霄瑗（Han Cho-won，韓霄瑗）官方汉字正名",
+      "first_seen": "2026-09-23 00:08:16",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "라잇썸 (LIGHTSUM) 초원 (CHOWON) I (아이) [4K60P] 260918 대구경북과학기술원 (DGIST) 달빛제 직캠 by ECU"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=39jSiDmc9kA"
+      ],
+      "task_ids": [
+        "39eb10af-a7d7-40a2-b03c-a769e116bef2_edit"
+      ]
+    },
+    "LEE NAGYUNG": {
+      "standard_name": "李娜炅",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "fromis_9 成员 李娜炅（Lee Na-gyung）官方汉字正名",
+      "first_seen": "2026-09-23 13:11:37",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 2,
+      "sample_titles": [
+        "[4K CAM] 260921 프로미스나인 이나경 fromis_9 LEE NAGYUNG 명지대 축제 'LIKE YOU BETTER' /'Vitamin ME' 직캠",
+        "[4K CAM] 260921 프로미스나인 이나경 fromis_9 LEE NAGYUNG 명지대 축제 'WE GO' 직캠"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=1jP3hm1x1wU",
+        "https://www.youtube.com/watch?v=MhRRxq_Pd_k"
+      ],
+      "task_ids": [
+        "71dd5b84-07f7-4330-98bf-b495bf97203d_edit",
+        "10646657-0010-4e3c-89a0-d799ce29f6b1_edit"
+      ]
+    },
+    "김유연": {
+      "standard_name": "金琉然",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "tripleS S5 成员 金琉然（Kim YooYeon）官方汉字正名",
+      "first_seen": "2026-09-23 18:01:20",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260915 트리플에스 tripleS - 베이비 플라워 Baby Flower | 김유연 Kim YooYeon 가로 직캠 | 강원대학교 춘천캠 축제 [KPOP FanCam 4K]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=coP5q3LNMDo"
+      ],
+      "task_ids": [
+        "83a6afc3-0860-4c41-adfd-a6b424914ffe_edit"
+      ]
+    },
+    "leenakyung": {
+      "standard_name": "李娜炅",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "fromis_9 成员 李娜炅（Lee Na-gyung）官方汉字正名",
+      "first_seen": "2026-09-23 19:10:24",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "[4K CAM] 260921 프로미스나인 이나경 fromis_9 LEE NAGYUNG 명지대 축제 'LIKE YOU BETTER' /'Vitamin ME' 직캠"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=1jP3hm1x1wU"
+      ],
+      "task_ids": [
+        "71dd5b84-07f7-4330-98bf-b495bf97203d_edit"
+      ]
+    },
+    "권은비 KWONEUNBI": {
+      "standard_name": "权恩妃",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "歌手 权恩妃（Kwon Eun-bi，권은비）官方汉字正名",
+      "first_seen": "2026-09-23 20:47:02",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260922 권은비 KWONEUNBI 'DEJAVU' 4K 60P 직캠 @인덕대 축제 by DaftTaengk"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=gMKlDN2c3S4"
+      ],
+      "task_ids": [
+        "518f17d5-7456-4f27-a097-88ec34653c37_edit"
+      ]
+    },
+    "시진": {
+      "standard_name": "诗真",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "CODA BRIDGE 成员 诗真（시진，Sijin，本名黄诗真 Hwang Sijin）官方中文艺名",
+      "first_seen": "2026-09-24 00:07:34",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "코다브릿지 (CODA BRIDGE) 시진 'Summer Music' 직캠 @ DDP 버스킹 | 260918 | 4K60p"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=eZzx6XMBBk4"
+      ],
+      "task_ids": [
+        "5de717ed-691f-4a00-99d6-58f13e1536b5_edit"
+      ]
+    },
+    "코다브릿지": {
+      "standard_name": "CODA BRIDGE",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "韩国女子组合 CODA BRIDGE 官方英文名称",
+      "first_seen": "2026-09-24 00:07:34",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "코다브릿지 (CODA BRIDGE) 시진 'Summer Music' 직캠 @ DDP 버스킹 | 260918 | 4K60p"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=eZzx6XMBBk4"
+      ],
+      "task_ids": [
+        "5de717ed-691f-4a00-99d6-58f13e1536b5_edit"
+      ]
+    },
+    "마이카": {
+      "standard_name": "MAIKA（杉村舞华）",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "ODD YOUTH 日本籍成员 杉村舞华（Sugimura Maika，스기무라 마이카）官方本名与艺名 MAIKA",
+      "first_seen": "2026-09-24 18:10:50",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 ODD YOUTH (오드유스) - THAT'S ME (마이카) 직캠 [인천 청소년문화대축제]"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=xtPoEYj8heY"
+      ],
+      "task_ids": [
+        "30f4b331-8065-4e87-801e-734b744d03ab_edit"
+      ]
+    },
+    "방지민 / JEEMIN": {
+      "standard_name": "方智玟",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "izna 成员 方智玟（방지민，Bang Jeemin）官方汉字正名，修正拼接错误",
+      "first_seen": "2026-09-24 19:14:16",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 이즈나 방지민 izna JEEMIN - ROCK, PAPER, SCISSORS + BEEP + DRIP 직캠｜2026 izna Concert Tour"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=_t6rfjhmcxo"
+      ],
+      "task_ids": [
+        "12ae685d-ef98-4097-850a-f9574c20941e_edit"
+      ]
+    },
+    "나린": {
+      "standard_name": "NARIN",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "THEBLACKLABEL 女团 MEOVV 成员 NARIN（나린，本名罗潾 Na Rin）官方艺名",
+      "first_seen": "2026-09-24 20:06:43",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260917 MEOVV 미야오 나린 - 띠로리 DDI RO RI (가천대 축제) 직캠 fancam by zam"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=ruZi18_wOVU"
+      ],
+      "task_ids": [
+        "de24d4d8-920c-4305-84cd-bd885572d690_edit"
+      ]
+    },
+    "방지민": {
+      "standard_name": "方智玟",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "izna 成员 方智玟（방지민，Bang Jeemin）官方汉字正名",
+      "first_seen": "2026-09-25 13:22:10",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 이즈나 방지민 izna JEEMIN - Supercrush + Racecar + SIGN + METRONOME 직캠｜2026 izna Concert Tour"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=5nUpRuoo7bk"
+      ],
+      "task_ids": [
+        "0f29e4d9-a65a-4ba3-970f-eb349d60d447_edit"
+      ]
+    },
+    "JEEMIN": {
+      "standard_name": "方智玟",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "izna 成员 方智玟（방지민，Bang Jeemin）官方艺名对应汉字正名",
+      "first_seen": "2026-09-25 13:22:10",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260919 이즈나 방지민 izna JEEMIN - Supercrush + Racecar + SIGN + METRONOME 직캠｜2026 izna Concert Tour"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=5nUpRuoo7bk"
+      ],
+      "task_ids": [
+        "0f29e4d9-a65a-4ba3-970f-eb349d60d447_edit"
+      ]
+    },
+    "선유": {
+      "standard_name": "金璇猷",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "CLASS:y 成员 金璇猷（Kim Seon-you，김선유）官方汉字正名",
+      "first_seen": "2026-09-25 19:04:22",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260920 CLASSy(클라씨) '눈물이 난 채로 걷는 게 나다운 거라서' (선유 직캠) 안양춤축제 삼덕공원"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=dxbDIKEOAXk"
+      ],
+      "task_ids": [
+        "c33b561b-c28f-4c4c-b7c3-bbe233460f68_edit"
+      ]
+    },
+    "아인 AYNE": {
+      "standard_name": "AYNE",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "HEART OF WOMAN 成员 AYNE（아인，本名韩静妍 Han Jung-yeon）官方艺名",
+      "first_seen": "2026-09-25 21:11:26",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "260911 | HEART OF WOMAN  하트오브우먼 | 아인 AYNE 세로 직캠 |  My Vision | 서울 세계청소년 5s 하키대회 | 4K60P"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=2V-i29KL8g4"
+      ],
+      "task_ids": [
+        "aa50c791-e18e-48a8-be67-3c521a01cb90_edit"
+      ]
+    },
+    "BAEK JIHEON": {
+      "standard_name": "白知宪",
+      "manual_verified": true,
+      "audit_status": "verified",
+      "audit_timestamp": "2026-09-26 00:12:56",
+      "audit_evidence": "fromis_9 成员 白知宪（Baek Ji-heon）官方汉字正名",
+      "first_seen": "2026-09-25 22:05:27",
+      "last_seen": "2026-09-26 00:12:56",
+      "occurrences": 1,
+      "sample_titles": [
+        "[4K CAM] 260916 프로미스나인 백지헌 fromis_9 BAEK JIHEON 가천대 축제 'Vitamin ME' 직캠"
+      ],
+      "sample_urls": [
+        "https://www.youtube.com/watch?v=t18PN6PDBwY"
+      ],
+      "task_ids": [
+        "d0626e6c-56ce-40e2-99c5-5a9de5d967b6_edit"
       ]
     }
   }
